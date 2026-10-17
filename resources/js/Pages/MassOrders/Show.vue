@@ -60,8 +60,17 @@ const props = defineProps({
     canViewCost: {
         type: Boolean,
         default: false,
-    }
+    },
+    // CPO Orders only: the vendor the store bought from and its invoice / receipt files.
+    cpo: {
+        type: Object,
+        default: null,
+    },
 });
+
+const cpoLines = computed(() => (Array.isArray(props.orderedItems) ? props.orderedItems : Object.values(props.orderedItems || {})));
+const cpoTotal = computed(() => cpoLines.value.reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0));
+const formatAmount = (value) => (Number(value) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 // Computed property to get committed users information
 const committedUsersInfo = computed(() => {
@@ -268,6 +277,68 @@ const formatQuantity = (value) => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </Card>
+
+            <!-- CPO purchase: vendor, invoice / receipt and the cost of each line -->
+            <Card v-if="cpo" class="overflow-hidden bg-white shadow-sm border border-gray-200 rounded-xl">
+                <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <span class="text-xs text-gray-400 block">Vendor Name</span>
+                            <span class="font-medium text-gray-900">{{ cpo.vendor_name || order.supplier?.name || 'N/A' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-400 block">TIN #</span>
+                            <span class="font-medium text-gray-900">{{ cpo.vendor_tin || 'None' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-400 block">Address</span>
+                            <span class="font-medium text-gray-900">{{ cpo.vendor_address || 'N/A' }}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-xs text-gray-400 block mb-1">Invoice / Receipt</span>
+                        <div v-if="cpo.attachments?.length" class="flex flex-wrap gap-2">
+                            <a
+                                v-for="file in cpo.attachments"
+                                :key="file.id"
+                                :href="file.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
+                            >
+                                {{ file.original_name }}
+                            </a>
+                        </div>
+                        <span v-else class="text-sm text-gray-500">No invoice or receipt attached.</span>
+                    </div>
+
+                    <Table>
+                        <TableHead>
+                            <TH>Item Code</TH>
+                            <TH>Name</TH>
+                            <TH>UOM</TH>
+                            <TH class="text-right">Qty</TH>
+                            <TH class="text-right">Cost</TH>
+                            <TH class="text-right">Total</TH>
+                        </TableHead>
+                        <TableBody>
+                            <tr v-for="item in cpoLines" :key="item.id">
+                                <TD class="font-mono text-xs">{{ item.item_code }}</TD>
+                                <TD>{{ item.supplier_item?.item_name ?? 'N/a' }}</TD>
+                                <TD>{{ item.uom }}</TD>
+                                <TD class="text-right font-mono">{{ formatQuantity(item.quantity_ordered) }}</TD>
+                                <TD class="text-right font-mono">{{ formatAmount(item.cost_per_quantity) }}</TD>
+                                <TD class="text-right font-mono">{{ formatAmount(item.total_cost) }}</TD>
+                            </tr>
+                            <tr>
+                                <TD colspan="5" class="text-right font-semibold">Total</TD>
+                                <TD class="text-right font-mono font-semibold">{{ formatAmount(cpoTotal) }}</TD>
+                            </tr>
+                        </TableBody>
+                    </Table>
                 </div>
             </Card>
 

@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\DB;
 
 class MassOrdersController extends Controller
 {
-    /** @see SupplierItems::CPO_CONSOLIDATED_SUPPLIER_CODES — the catalogue rule lives on the model. */
-    private const CPO_CONSOLIDATED_SUPPLIER_CODES = SupplierItems::CPO_CONSOLIDATED_SUPPLIER_CODES;
+    /** CPO is ordered through CPO Orders, which also takes the vendor and its invoice. */
+    private const CPO_ELSEWHERE = 'CPO is ordered through CPO Orders now.';
 
     protected $massOrderService;
     protected $storeOrderService;
@@ -53,6 +53,8 @@ class MassOrdersController extends Controller
 
         $query = \App\Models\StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
             ->where('variant', 'mass regular')
+            // CPO orders are listed in CPO Orders.
+            ->whereDoesntHave('supplier', fn ($q) => $q->where('supplier_code', Supplier::CPO))
             // Number of lines receiving has started on. Editing those is refused server-side
             // (StoreOrderService::guardAgainstReceivedItemChanges); untouched worksheet
             // placeholders do not count. Used to swap the edit button for a hint.
@@ -110,6 +112,7 @@ class MassOrdersController extends Controller
 
         $suppliers = $user->suppliers()
             ->where('is_active', true)
+            ->where('suppliers.supplier_code', '!=', Supplier::CPO)
             ->get()
             ->map(function ($supplier) {
                 return [
@@ -148,6 +151,14 @@ class MassOrdersController extends Controller
 
         try {
             $supplierCodeFromDropdown = $request->input('supplier_code');
+
+            if ($supplierCodeFromDropdown === Supplier::CPO) {
+                return redirect()->back()->with([
+                    'success' => false,
+                    'message' => self::CPO_ELSEWHERE,
+                    'created_count' => 0,
+                ]);
+            }
 
             if (! $this->hasSupplierAccess($supplierCodeFromDropdown)) {
                 return redirect()->back()->with([
@@ -190,14 +201,10 @@ class MassOrdersController extends Controller
             $user->load('store_branches');
 
             $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCodeFromDropdown, $dayName) {
-                $query = $branch->delivery_schedules()
-                    ->wherePivot('variant', $supplierCodeFromDropdown);
-                
-                if ($supplierCodeFromDropdown !== 'CPO') {
-                    $query->where('delivery_schedules.day', $dayName);
-                }
-
-                return $query->exists();
+                return $branch->delivery_schedules()
+                    ->wherePivot('variant', $supplierCodeFromDropdown)
+                    ->where('delivery_schedules.day', $dayName)
+                    ->exists();
             });
             $validStoresForThisOrder = $finalBranches->where('is_active', true)->pluck('brand_code')->all();
 
@@ -356,6 +363,8 @@ class MassOrdersController extends Controller
 
         $supplierCode = $request->input('supplier_code');
 
+        abort_if($supplierCode === Supplier::CPO, 422, self::CPO_ELSEWHERE);
+
         if (! $this->hasSupplierAccess($supplierCode)) {
             abort(403, 'You do not have access to use the selected ordering template.');
         }
@@ -367,14 +376,10 @@ class MassOrdersController extends Controller
         $user->load('store_branches');
 
         $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
-            $query = $branch->delivery_schedules()
-                ->wherePivot('variant', $supplierCode);
-            
-            if ($supplierCode !== 'CPO') {
-                $query->where('delivery_schedules.day', $dayName);
-            }
-
-            return $query->exists();
+            return $branch->delivery_schedules()
+                ->wherePivot('variant', $supplierCode)
+                ->where('delivery_schedules.day', $dayName)
+                ->exists();
         });
 
         $dynamicHeaders = $this->openOn($finalBranches->where('is_active', true), $orderDate)->pluck('brand_code')->unique()->sort()->values()->all();
@@ -413,6 +418,8 @@ class MassOrdersController extends Controller
 
     public function getAvailableDates($supplier_code)
     {
+        abort_if($supplier_code === Supplier::CPO, 422, self::CPO_ELSEWHERE);
+
         if (! $this->hasSupplierAccess($supplier_code)) {
             abort(403, 'You do not have access to use the selected ordering template.');
         }
@@ -493,11 +500,6 @@ class MassOrdersController extends Controller
         return $branches->reject(fn ($branch) => $date->toDateString() <= ($closedThrough[$branch->id] ?? ''));
     }
 
-    private function isCpoSupplierCode(?string $supplierCode): bool
-    {
-        return strtoupper(trim((string) $supplierCode)) === 'CPO';
-    }
-
     private function getMassOrderSupplierItems(string $supplierCode)
     {
         // Shared with receiving, so an item that can be ordered can also be received unlisted.
@@ -506,128 +508,9 @@ class MassOrdersController extends Controller
 
     public function show($id)
     {
-        // Increase execution time and memory limits for large datasets
-        set_time_limit(120); // 2 minutes
-        ini_set('memory_limit', '512M');
-        
-        // Set database timeout for SQL Server
-        try {
-            DB::statement('SET LOCK_TIMEOUT 120000'); // 2 minutes in milliseconds
-        } catch (\Exception $e) {
-            // Ignore if command fails
-        }
-        
-        // Single optimized query with all necessary relationships
-        $order = \App\Models\StoreOrder::select([
-            'id', 'order_number', 'order_date', 'order_status', 'variant',
-            'supplier_id', 'store_branch_id', 'encoder_id', 'approver_id', 'approval_action_date'
-        ])->with([
-            'supplier:id,name,supplier_code',
-            'store_branch:id,name,brand_code', 
-            'encoder:id,first_name,last_name',
-            'approver:id,first_name,last_name',
-            'delivery_receipts:id,store_order_id,delivery_receipt_number,remarks,created_at',
-            'image_attachments:id,store_order_id,file_path',
-            'store_order_items' => function($query) {
-                $query->select([
-                    'id', 'store_order_id', 'item_code', 'quantity_ordered', 
-                    'quantity_approved', 'quantity_commited', 'quantity_received',
-                    'uom', 'committed_by'
-                ])->with([
-                    'supplierItem:ItemCode,item_name,category',
-                    'supplierItem.sapMasterfiles:id,ItemCode,AltUOM,BaseUOM,BaseQty',
-                    'committedBy:id,first_name,last_name'
-                ]);
-            }
-        ])->where('order_number', $id)->firstOrFail();
+        $details = $this->massOrderService->orderDetails($id);
 
-        // Statuses in which an order is past commitment and awaiting delivery. Shared with
-        // the receiving module so both pages agree on what "committed" means.
-        $receivableStatuses = "'".implode("','", \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES)."'";
-
-        // Optimized receiving history query mimicking the provided SQL logic
-        $receiveDatesHistory = DB::table('store_order_items as soi')
-            ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
-            ->leftJoin('suppliers as s', 's.id', '=', 'so.supplier_id')
-            // Both catalogs are joined through a one-row-per-key subquery. Joining
-            // them directly duplicates the line: neither (ItemCode, AltUOM) nor
-            // (ItemCode, SupplierCode, uom) is unique, so an item carrying more
-            // than one catalog row was listed once per row — the same ordered
-            // quantity appearing as two identical lines.
-            ->leftJoinSub(\App\Models\SAPMasterfile::singleRowPerJoinKey(), 'sm', function($join) {
-                $join->on('sm.ItemCode', '=', 'soi.item_code')
-                     ->on('sm.AltUOM', '=', 'soi.uom');
-            })
-            ->leftJoinSub(\App\Models\SupplierItems::singleRowPerJoinKey(), 'si', function($join) {
-                $join->on('si.ItemCode', '=', 'sm.ItemCode')
-                     ->on('si.uom', '=', 'sm.AltUOM')
-                     ->on('si.SupplierCode', '=', 's.supplier_code');
-            })
-            ->leftJoin('ordered_item_receive_dates as receive', 'receive.store_order_item_id', '=', 'soi.id')
-            ->leftJoin('users as u', 'u.id', '=', 'receive.received_by_user_id')
-            ->where('so.id', $order->id)
-            ->orderByRaw("CASE WHEN ISNULL([si].[sort_order], 0) = 0 THEN 1 ELSE 0 END, [si].[sort_order]")
-            ->select([
-                'receive.id as id',
-                'soi.id as store_order_item_id',
-                'si.category',
-                'soi.item_code',
-                'sm.ItemDescription as item_name',
-                'sm.BaseUOM',
-                'soi.uom',
-                'soi.quantity_ordered',
-                'soi.quantity_approved',
-                'soi.quantity_commited', // Retain original for variance calculation
-                'receive.quantity_received', // Retain original for variance calculation
-                'receive.received_date',
-                'receive.remarks',
-                'receive.expiry_date',
-                'u.first_name as received_by_first_name',
-                'u.last_name as received_by_last_name',
-                // Mirrors the receiving page: a row counts as received once it is 'received'
-                // (saved by the receiver) or 'approved' (posted to stock by Final Receive All).
-                // Commitment is read from the order status, not from committed_by — orders are
-                // auto-committed from approval onwards, and a line committed that way carries
-                // no committer.
-                DB::raw("CASE
-                    WHEN [receive].[status] IN ('approved', 'received') THEN 'RECEIVED'
-                    WHEN [so].[order_status] IN ({$receivableStatuses}) THEN 'TO RECEIVE'
-                    ELSE 'TO COMMIT'
-                END as display_status"),
-                DB::raw("[soi].[quantity_commited] as committed_display"),
-                DB::raw("CASE
-                    WHEN [receive].[status] IN ('approved', 'received') THEN [receive].[quantity_received]
-                    ELSE 0
-                END as received_display"),
-            ])
-            ->get();
-
-        // Post-processing to ensure unique IDs for null records and calculate variances
-        $receiveDatesHistory->transform(function($item) {
-             if (is_null($item->id)) {
-                 $item->id = 'pending_' . $item->store_order_item_id;
-                 $item->received_date = null;
-                 $item->remarks = null;
-                 $item->expiry_date = null;
-                 $item->received_by_first_name = null;
-                 $item->received_by_last_name = null;
-             }
-             
-             // Variances calculation based on SQL logic, using the original quantities
-             $item->variance_ordered_committed = $item->committed_display - $item->quantity_ordered;
-             
-             // Variance (Committed vs Received): isnull(receive.quantity_received - soi.quantity_commited, 0)
-             // Using the displayed quantities for variance calculation in the frontend, for consistency.
-             $item->variance_committed_received = $item->received_display - $item->committed_display;
-
-             return $item;
-        });
-        
-        return \Inertia\Inertia::render('MassOrders/Show', [
-            'order' => $order,
-            'orderedItems' => $order->store_order_items,
-            'receiveDatesHistory' => $receiveDatesHistory,
-            'images' => $order->image_attachments,
+        return \Inertia\Inertia::render('MassOrders/Show', $details + [
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }
@@ -635,9 +518,14 @@ class MassOrdersController extends Controller
     public function edit($id)
     {
         $order = $this->storeOrderService->getOrder($id);
+
+        if ($order->supplier?->supplier_code === Supplier::CPO) {
+            return redirect()->route('mass-orders.index')->withErrors(['error' => self::CPO_ELSEWHERE.' A CPO order is not edited here.']);
+        }
+
         $orderedItems = $this->storeOrderService->getOrderItems($order);
         $orderedItems->load('supplierItem.sapMasterfiles');
-        $suppliers = \App\Models\Supplier::options();
+        $suppliers = \App\Models\Supplier::options()->except(Supplier::CPO);
 
         // --- START: Get initial available branches ---
         $initialSupplierCode = $order->supplier->supplier_code;
@@ -689,6 +577,10 @@ class MassOrdersController extends Controller
         // cutoff can be lifted once by an approved business-rule exception.
         $supplierCode = (string) $order->supplier?->supplier_code;
         $now = $this->cutoffs->now();
+
+        if ($supplierCode === Supplier::CPO || (string) $validatedData['supplier_id'] === Supplier::CPO) {
+            return back()->withErrors(['error' => self::CPO_ELSEWHERE.' An order cannot be moved to or from the CPO template here.']);
+        }
 
         if (! in_array($order->order_status, $this->cutoffs->massOrderEditableStatuses($supplierCode), true)) {
             return back()->withErrors(['error' => "This order is already {$order->order_status} and can no longer be edited."]);
@@ -771,14 +663,10 @@ class MassOrdersController extends Controller
         $user->load('store_branches');
 
         $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
-            $query = $branch->delivery_schedules()
-                ->wherePivot('variant', $supplierCode);
-            
-            if ($supplierCode !== 'CPO') {
-                $query->where('delivery_schedules.day', $dayName);
-            }
-
-            return $query->exists();
+            return $branch->delivery_schedules()
+                ->wherePivot('variant', $supplierCode)
+                ->where('delivery_schedules.day', $dayName)
+                ->exists();
         });
 
         $activeBranches = $this->openOn($finalBranches->where('is_active', true), $orderDate);

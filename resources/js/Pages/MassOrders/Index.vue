@@ -306,10 +306,10 @@ const getCalendarDays = () => {
         const date = new Date(year, month, i);
         const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         
-        // CPO has no restrictions. Others must be in enabledDates. No template may order
-        // inside a period the stores closed with a final approved month end count.
+        // Only the template's enabled dates can be picked. No template may order inside a
+        // period the stores closed with a final approved month end count.
         const isClosed = !!props.closedForAllStores && dateString <= props.closedForAllStores;
-        const isDisabled = isClosed || (form.supplier_code !== 'CPO' && !enabledDatesSet.has(dateString));
+        const isDisabled = isClosed || !enabledDatesSet.has(dateString);
         const isSuggested = !isClosed && enabledDatesSet.has(dateString);
         
         days.push({ day: i, date, isDisabled, isSuggested });
@@ -333,21 +333,15 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
     form.order_date = null;
     enabledDates.value = [];
     if (newSupplierCode) {
-        if (newSupplierCode === 'CPO') {
-            isDatepickerDisabled.value = false;
-        } else {
-            isDatepickerDisabled.value = true;
-        }
-        
+        isDatepickerDisabled.value = true;
+
         try {
             const response = await axios.get(route('mass-orders.available-dates', { supplier_code: newSupplierCode }));
             enabledDates.value = response.data;
-            isDatepickerDisabled.value = false; // Enable once we have the dates (or immediately for CPO)
+            isDatepickerDisabled.value = false; // Enable once we have the dates
         } catch (error) {
             console.error('Error fetching available dates:', error);
-            if (newSupplierCode !== 'CPO') {
-                isDatepickerDisabled.value = true;
-            }
+            isDatepickerDisabled.value = true;
         }
     } else {
         isDatepickerDisabled.value = true;
@@ -440,7 +434,6 @@ const editOrderDetails = (id) => router.get(route('mass-orders.edit', id));
 const getSupplierDisplayName = (supplier, variant) => {
     if (!supplier?.name) return 'N/A';
     if (supplier.name === 'DROPSHIPPING' && variant === 'mass regular') return 'FRUITS AND VEGETABLES';
-    if (supplier.supplier_code === 'CPO' && variant === 'mass regular') return 'CPO';
     return supplier.name;
 };
 
@@ -463,8 +456,7 @@ const downloadFileName = computed(() => {
     const date = new Date(form.order_date + 'T00:00:00');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const supplierName = form.supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : 
-                         (form.supplier_code === 'CPO' ? 'CPO' : form.supplier_code);
+    const supplierName = form.supplier_code === 'DROPS' ? 'FRUITS AND VEGETABLES' : form.supplier_code;
     return `${supplierName}_${month}-${day}`;
 });
 

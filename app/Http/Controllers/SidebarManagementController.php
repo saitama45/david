@@ -23,6 +23,7 @@ class SidebarManagementController extends Controller
         ['menu_key' => 'ordering.regular-dts.dts-orders',  'parent_key' => 'ordering.regular-dts','default_label' => 'DTS Orders',             'level' => 2],
         ['menu_key' => 'ordering.mass',                    'parent_key' => 'ordering',           'default_label' => 'Regular Mass Orders',      'level' => 1],
         ['menu_key' => 'ordering.mass.mass-orders',         'parent_key' => 'ordering.mass',     'default_label' => 'Mass Orders',             'level' => 2],
+        ['menu_key' => 'ordering.mass.cpo-orders',          'parent_key' => 'ordering.mass',     'default_label' => 'CPO Orders',              'level' => 2],
         ['menu_key' => 'ordering.mass.mass-orders-approval','parent_key' => 'ordering.mass',     'default_label' => 'Mass Orders Approval',    'level' => 2],
         ['menu_key' => 'ordering.mass.cs-mass-commits',     'parent_key' => 'ordering.mass',     'default_label' => 'CS Mass Commits',         'level' => 2],
         ['menu_key' => 'ordering.dts-mass',                 'parent_key' => 'ordering',          'default_label' => 'DTS Mass Orders',          'level' => 1],

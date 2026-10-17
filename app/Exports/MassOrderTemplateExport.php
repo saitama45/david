@@ -41,6 +41,11 @@ class MassOrderTemplateExport implements FromCollection, WithHeadings, ShouldAut
             $row['Packaging Config'] = $item->packaging_config;
             $row['Unit'] = $item->uom;
 
+            // CPO Orders: the store types in the price on its invoice or receipt.
+            if (in_array('Cost', $this->staticHeaders, true)) {
+                $row['Cost'] = '';
+            }
+
             foreach ($this->dynamicHeaders as $header) {
                 $row[$header] = '';
             }

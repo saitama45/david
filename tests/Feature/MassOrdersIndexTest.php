@@ -39,16 +39,17 @@ function createMassOrdersIndexUser(array $extraPermissions = []): User
     return $user;
 }
 
-it('shows the CPO ordering template when assigned to the user', function () {
+it('never offers the CPO ordering template, which moved to CPO Orders', function () {
     $user = createMassOrdersIndexUser();
-    // createMassOrdersIndexUser already attaches CPO
+    // createMassOrdersIndexUser attaches CPO
 
     $response = $this->actingAs($user)->get(route('mass-orders.index'));
 
     $response->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('MassOrders/Index')
-            ->where('suppliers', fn ($suppliers) => collect($suppliers)->pluck('value')->contains('CPO'))
+            ->where('suppliers', fn ($suppliers) => ! collect($suppliers)->pluck('value')->contains('CPO')
+                && collect($suppliers)->pluck('value')->contains('REG'))
             ->etc()
         );
 });

@@ -29,6 +29,23 @@ class Supplier extends Model implements Auditable
         'is_active' => 'boolean',
     ];
 
+    /** The ordering template of CPO Orders: purchases from outside vendors, always approved. */
+    public const CPO = 'CPO';
+
+    /**
+     * Templates whose mass orders wait in Mass Orders Approval: those switched on in
+     * Ordering Template Approval, and CPO always (CPO Orders approval also commits it).
+     */
+    public function scopeForMassOrderApproval(Builder $query): Builder
+    {
+        return $query->where(fn ($q) => $q->where('is_forapproval_massorders', true)->orWhere('supplier_code', self::CPO));
+    }
+
+    public function needsMassOrderApproval(): bool
+    {
+        return $this->is_forapproval_massorders || $this->supplier_code === self::CPO;
+    }
+
     public function store_orders()
     {
         return $this->hasMany(StoreOrder::class);

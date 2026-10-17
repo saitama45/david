@@ -44,7 +44,7 @@ const updateSupplierApproval = (supplier) => {
       toast.add({ // Add error toast
         severity: 'error',
         summary: 'Error',
-        detail: 'Failed to save supplier update.',
+        detail: errors.error ?? 'Failed to save supplier update.',
         life: 3000,
       });
     }

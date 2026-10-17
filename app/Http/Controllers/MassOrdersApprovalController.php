@@ -20,7 +20,7 @@ class MassOrdersApprovalController extends Controller
         $user->load('store_branches');
         $branchIds = $user->store_branches->pluck('id');
 
-        $suppliersForApproval = Supplier::where('is_forapproval_massorders', true)->pluck('id');
+        $suppliersForApproval = Supplier::forMassOrderApproval()->pluck('id');
 
         $query = StoreOrder::with(['supplier', 'store_branch'])
             ->where('variant', 'mass regular')
@@ -50,7 +50,8 @@ class MassOrdersApprovalController extends Controller
 
     public function show($id)
     {
-        $order = StoreOrder::with('storeOrderItems.supplierItem', 'supplier', 'store_branch')->findOrFail($id);
+        // A CPO order also carries its vendor and the invoice / receipt to check against.
+        $order = StoreOrder::with('storeOrderItems.supplierItem', 'supplier', 'store_branch', 'cpoAttachments')->findOrFail($id);
 
         return Inertia::render('MassOrdersApproval/Show', [
             'order' => $order,

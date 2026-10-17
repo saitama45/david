@@ -173,4 +173,139 @@ class MassOrderService
             throw $e;
         }
     }
+
+    /**
+     * Everything the order details page (MassOrders/Show) shows: the order, its lines, the
+     * receiving history and the receiving images. Shared by Mass Orders and CPO Orders.
+     *
+     * @return array{order: StoreOrder, orderedItems: \Illuminate\Support\Collection, receiveDatesHistory: \Illuminate\Support\Collection, images: \Illuminate\Support\Collection}
+     */
+    public function orderDetails(string $orderNumber): array
+    {
+        // Increase execution time and memory limits for large datasets
+        set_time_limit(120); // 2 minutes
+        ini_set('memory_limit', '512M');
+        
+        // Set database timeout for SQL Server
+        try {
+            DB::statement('SET LOCK_TIMEOUT 120000'); // 2 minutes in milliseconds
+        } catch (\Exception $e) {
+            // Ignore if command fails
+        }
+        
+        // Single optimized query with all necessary relationships
+        $order = \App\Models\StoreOrder::select([
+            'id', 'order_number', 'order_date', 'order_status', 'variant',
+            'supplier_id', 'store_branch_id', 'encoder_id', 'approver_id', 'approval_action_date',
+            'cpo_vendor_id', 'cpo_vendor_name', 'cpo_vendor_tin', 'cpo_vendor_address',
+        ])->with([
+            'supplier:id,name,supplier_code',
+            'store_branch:id,name,brand_code', 
+            'encoder:id,first_name,last_name',
+            'approver:id,first_name,last_name',
+            'delivery_receipts:id,store_order_id,delivery_receipt_number,remarks,created_at',
+            'image_attachments:id,store_order_id,file_path',
+            'store_order_items' => function($query) {
+                $query->select([
+                    'id', 'store_order_id', 'item_code', 'quantity_ordered', 
+                    'quantity_approved', 'quantity_commited', 'quantity_received',
+                    'uom', 'committed_by', 'cost_per_quantity', 'total_cost'
+                ])->with([
+                    'supplierItem:ItemCode,item_name,category',
+                    'supplierItem.sapMasterfiles:id,ItemCode,AltUOM,BaseUOM,BaseQty',
+                    'committedBy:id,first_name,last_name'
+                ]);
+            }
+        ])->where('order_number', $orderNumber)->firstOrFail();
+
+        // Statuses in which an order is past commitment and awaiting delivery. Shared with
+        // the receiving module so both pages agree on what "committed" means.
+        $receivableStatuses = "'".implode("','", \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES)."'";
+
+        // Optimized receiving history query mimicking the provided SQL logic
+        $receiveDatesHistory = DB::table('store_order_items as soi')
+            ->join('store_orders as so', 'so.id', '=', 'soi.store_order_id')
+            ->leftJoin('suppliers as s', 's.id', '=', 'so.supplier_id')
+            // Both catalogs are joined through a one-row-per-key subquery. Joining
+            // them directly duplicates the line: neither (ItemCode, AltUOM) nor
+            // (ItemCode, SupplierCode, uom) is unique, so an item carrying more
+            // than one catalog row was listed once per row — the same ordered
+            // quantity appearing as two identical lines.
+            ->leftJoinSub(\App\Models\SAPMasterfile::singleRowPerJoinKey(), 'sm', function($join) {
+                $join->on('sm.ItemCode', '=', 'soi.item_code')
+                     ->on('sm.AltUOM', '=', 'soi.uom');
+            })
+            ->leftJoinSub(\App\Models\SupplierItems::singleRowPerJoinKey(), 'si', function($join) {
+                $join->on('si.ItemCode', '=', 'sm.ItemCode')
+                     ->on('si.uom', '=', 'sm.AltUOM')
+                     ->on('si.SupplierCode', '=', 's.supplier_code');
+            })
+            ->leftJoin('ordered_item_receive_dates as receive', 'receive.store_order_item_id', '=', 'soi.id')
+            ->leftJoin('users as u', 'u.id', '=', 'receive.received_by_user_id')
+            ->where('so.id', $order->id)
+            ->orderByRaw("CASE WHEN ISNULL([si].[sort_order], 0) = 0 THEN 1 ELSE 0 END, [si].[sort_order]")
+            ->select([
+                'receive.id as id',
+                'soi.id as store_order_item_id',
+                'si.category',
+                'soi.item_code',
+                'sm.ItemDescription as item_name',
+                'sm.BaseUOM',
+                'soi.uom',
+                'soi.quantity_ordered',
+                'soi.quantity_approved',
+                'soi.quantity_commited', // Retain original for variance calculation
+                'receive.quantity_received', // Retain original for variance calculation
+                'receive.received_date',
+                'receive.remarks',
+                'receive.expiry_date',
+                'u.first_name as received_by_first_name',
+                'u.last_name as received_by_last_name',
+                // Mirrors the receiving page: a row counts as received once it is 'received'
+                // (saved by the receiver) or 'approved' (posted to stock by Final Receive All).
+                // Commitment is read from the order status, not from committed_by — orders are
+                // auto-committed from approval onwards, and a line committed that way carries
+                // no committer.
+                DB::raw("CASE
+                    WHEN [receive].[status] IN ('approved', 'received') THEN 'RECEIVED'
+                    WHEN [so].[order_status] IN ({$receivableStatuses}) THEN 'TO RECEIVE'
+                    ELSE 'TO COMMIT'
+                END as display_status"),
+                DB::raw("[soi].[quantity_commited] as committed_display"),
+                DB::raw("CASE
+                    WHEN [receive].[status] IN ('approved', 'received') THEN [receive].[quantity_received]
+                    ELSE 0
+                END as received_display"),
+            ])
+            ->get();
+
+        // Post-processing to ensure unique IDs for null records and calculate variances
+        $receiveDatesHistory->transform(function($item) {
+             if (is_null($item->id)) {
+                 $item->id = 'pending_' . $item->store_order_item_id;
+                 $item->received_date = null;
+                 $item->remarks = null;
+                 $item->expiry_date = null;
+                 $item->received_by_first_name = null;
+                 $item->received_by_last_name = null;
+             }
+             
+             // Variances calculation based on SQL logic, using the original quantities
+             $item->variance_ordered_committed = $item->committed_display - $item->quantity_ordered;
+             
+             // Variance (Committed vs Received): isnull(receive.quantity_received - soi.quantity_commited, 0)
+             // Using the displayed quantities for variance calculation in the frontend, for consistency.
+             $item->variance_committed_received = $item->received_display - $item->committed_display;
+
+             return $item;
+        });
+        
+
+        return [
+            'order' => $order,
+            'orderedItems' => $order->store_order_items,
+            'receiveDatesHistory' => $receiveDatesHistory,
+            'images' => $order->image_attachments,
+        ];
+    }
 }

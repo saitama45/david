@@ -44,6 +44,11 @@ class StoreOrder extends Model implements Auditable
         'interco_reason',
         'interco_status',
         'transfer_date',
+        // CPO Orders: the vendor the store bought from, as it was when the order was placed
+        'cpo_vendor_id',
+        'cpo_vendor_name',
+        'cpo_vendor_tin',
+        'cpo_vendor_address',
     ];
 
     protected $casts = [
@@ -131,6 +136,17 @@ class StoreOrder extends Model implements Auditable
     public function image_attachments()
     {
         return $this->hasMany(ImageAttachment::class);
+    }
+
+    public function cpoVendor()
+    {
+        return $this->belongsTo(CpoVendor::class);
+    }
+
+    /** The invoice / receipt files of a CPO order. */
+    public function cpoAttachments()
+    {
+        return $this->hasMany(CpoOrderAttachment::class);
     }
 
     // Interco-specific methods

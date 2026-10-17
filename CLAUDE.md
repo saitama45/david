@@ -93,7 +93,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 ## Key components
 
 **Services** ([app/Http/Services/](app/Http/Services/)): `RuleExceptionService`, `OrderingCutoffService`,
-`OrderApprovalService`, `MassOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
+`OrderApprovalService`, `MassOrderService`, `CpoOrderService`, `StoreOrderService`, `DTSStoreOrderService`,
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `IntercoReceivingService`, `WastageService`,
 `MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `MonthEndCountRejectionService`,
 `MonthEndCountIncidentReportService`, `MonthEndClosedPeriodService`,
@@ -205,6 +205,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `pending`, or `approved` with nothing committed or received (`MassOrdersApprovalController::decisionProblem()`,
   also sent to the page to hide both buttons). Never approve by id without it: approving a received
   order reset its status and, on CPO, added receiving rows a finalized delivery can never receive.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **CPO is ordered in CPO Orders, never in Mass Orders** (since 2026-10-17). `CpoOrdersController` takes the
+  vendor (`cpo_vendors`, copied onto the order), a typed Cost per line and a required invoice / receipt
+  (private disk); every CPO order is `pending` and `Supplier::forMassOrderApproval()` always includes CPO.
+  `MassOrdersController` refuses CPO everywhere, including moving an order to or from it in edit.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **Ordering cutoffs are enforced on the server** through `OrderingCutoffService` (mass orders, DTS).
   Never re-derive cutoff maths in a controller or Vue page. A blocked action may only pass with an

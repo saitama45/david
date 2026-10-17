@@ -12,6 +12,7 @@ use App\Http\Controllers\CashPullOutApproval;
 use App\Http\Controllers\CashPullOutApprovalController;
 use App\Http\Controllers\CSMassCommitsController;
 use App\Http\Controllers\CSDTSMassCommitController;
+use App\Http\Controllers\CpoOrdersController;
 use App\Http\Controllers\DTSMassOrdersController;
 use App\Http\Controllers\CashPullOutController;
 use App\Http\Controllers\CategoryController;
@@ -569,6 +570,23 @@ Route::middleware('auth')
                 Route::get('/edit/{id}', 'edit')->name('edit');
                 Route::put('/update/{id}', 'update')->name('update');
             });
+        });
+
+        // CPO Orders: purchases from outside vendors, approved in Mass Orders Approval
+        Route::controller(CpoOrdersController::class)->name('cpo-orders.')->prefix('cpo-orders')->group(function () {
+            Route::middleware('permission:view cpo orders')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/show/{orderNumber}', 'show')->name('show');
+            });
+            Route::middleware('permission:create cpo orders')->group(function () {
+                Route::get('/download-template', 'downloadTemplate')->name('download-template');
+                Route::post('/upload', 'upload')->name('upload');
+                Route::get('/vendors', 'vendors')->name('vendors.search');
+                Route::post('/vendors', 'storeVendor')->name('vendors.store');
+                Route::put('/vendors/{vendor}', 'updateVendor')->name('vendors.update');
+            });
+            Route::middleware('permission:view cpo orders|view mass order approval')
+                ->get('/attachments/{attachment}', 'attachment')->name('attachments.show');
         });
 
         Route::controller(MassOrdersApprovalController::class)->name('mass-orders-approval.')->prefix('mass-orders-approval')->group(function () {

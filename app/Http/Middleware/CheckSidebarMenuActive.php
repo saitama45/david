@@ -26,6 +26,7 @@ class CheckSidebarMenuActive
 
         // Ordering > Mass
         'mass-orders.index'                  => 'ordering.mass.mass-orders',
+        'cpo-orders.index'                   => 'ordering.mass.cpo-orders',
         'mass-orders-approval.index'         => 'ordering.mass.mass-orders-approval',
         'cs-mass-commits.index'              => 'ordering.mass.cs-mass-commits',
 

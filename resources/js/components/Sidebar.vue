@@ -172,6 +172,7 @@ const canViewOrderingGroup = computed(() =>
     hasAccess("view additional order approval") ||
     hasAccess("view emergency order approval") ||
     hasAccess("view mass orders") ||
+    hasAccess("view cpo orders") ||
     hasAccess("view cs mass commits") ||
     hasAccess("view dts mass orders") ||
     hasAccess("view cs dts mass commit") ||
@@ -191,6 +192,7 @@ const canViewRegularDTSSubcategory = computed(() =>
 
 const canViewRegularMassSubcategory = computed(() =>
     hasAccess("view mass orders") ||
+    hasAccess("view cpo orders") ||
     hasAccess("view mass order approval") ||
     hasAccess("view cs mass commits")
 );
@@ -320,7 +322,7 @@ watchEffect(() => {
         { ref: masterfileOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers"] },
         { ref: templatesOpen, paths: ["/templates", "/ordering-template-approval", "/month-end-count-templates"] },
         { ref: schedulesOpen, paths: ["/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff"] },
-        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits", "/ordering-calendar", "/ordering-tools/order-calculator"] },
+        { ref: orderingOpen, paths: ["/store-orders", "/emergency-orders", "/additional-orders", "/dts-orders", "/orders-approval", "/cs-approvals", "/additional-orders-approval", "/emergency-orders-approval", "/mass-orders", "/cpo-orders", "/mass-orders-approval", "/cs-mass-commits", "/dts-mass-orders", "/cs-dts-mass-commits", "/interco", "/interco-approval", "/store-commits", "/ordering-calendar", "/ordering-tools/order-calculator"] },
         { ref: receivingOpen, paths: ["/direct-receiving", "/orders-receiving", "/approved-orders", "/receiving-approvals", "/interco-receiving"] },
         { ref: salesOpen, paths: ["/sales-orders", "/store-transactions", "/store-transactions-approval", "/sales-budget-uploader"] },
         { ref: inventoryOpen, paths: ["/stock-management", "/soh-adjustment", "/wastage", "/wastage-approval-level1", "/wastage-approval-level2", "/month-end-count", "/month-end-count-approvals", "/month-end-count-approvals-level2", "/low-on-stocks"] },
@@ -332,7 +334,7 @@ watchEffect(() => {
         // Nested ordering sections
         { ref: regularOpen, paths: ["/store-orders", "/orders-approval", "/cs-approvals"] },
         { ref: regularDTSOpen, paths: ["/dts-orders"] },
-        { ref: regularMassOpen, paths: ["/mass-orders", "/mass-orders-approval", "/cs-mass-commits"] },
+        { ref: regularMassOpen, paths: ["/mass-orders", "/cpo-orders", "/mass-orders-approval", "/cs-mass-commits"] },
         { ref: stockTransferOpen, paths: ["/interco", "/interco-approval", "/store-commits"] },
         { ref: monitoringOpen, paths: ["/ordering-calendar", "/ordering-tools/order-calculator"] },
         { ref: othersOpen, paths: ["/emergency-orders", "/emergency-orders-approval", "/additional-orders", "/additional-orders-approval"] },
@@ -491,6 +493,16 @@ watchEffect(() => {
                             :is-active="isPathActive('/mass-orders')"
                         >
                             {{ menuLabel('ordering.mass.mass-orders', 'Mass Orders') }}
+                        </NavLink>
+                        </div>
+                        <div :style="{ order: getMenuOrder('ordering.mass.cpo-orders') }" class="w-full">
+                        <NavLink
+                            v-if="hasAccess('view cpo orders') && isMenuActive('ordering.mass.cpo-orders')"
+                            href="/cpo-orders"
+                            :icon="SquareChartGantt"
+                            :is-active="isPathActive('/cpo-orders')"
+                        >
+                            {{ menuLabel('ordering.mass.cpo-orders', 'CPO Orders') }}
                         </NavLink>
                         </div>
                         <div :style="{ order: getMenuOrder('ordering.mass.mass-orders-approval') }" class="w-full">

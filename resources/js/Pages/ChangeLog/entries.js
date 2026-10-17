@@ -15,6 +15,70 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 17, 2026
+    {
+        date: '2026-10-17',
+        module: 'CPO Orders',
+        type: 'new',
+        title: 'New page "CPO Orders" under Regular Mass Orders, for purchases from outside vendors with the invoice or receipt attached',
+        summary:
+            'A CPO purchase used to be placed in Mass Orders by picking CPO as the Ordering Template, with no vendor, no price and no proof of purchase. It now has its own page, CPO Orders, right below Mass Orders. The steps are the same as Mass Orders, but the page also asks which vendor the store bought from, the Cost of each item as shown on the receipt, and a photo or PDF of the invoice or receipt. Every CPO order then waits in Mass Orders Approval.',
+        steps: [
+            'Open CPO Orders and click "Create New CPO Order". The Ordering Template is already CPO.',
+            'Pick the Delivery Date.',
+            'In Vendor Name, type at least 3 letters of the vendor and pick it from the list. TIN # and Address are filled in from the vendor.',
+            'If the vendor is not on the list yet, click "Add New" and enter its Vendor Name, TIN # and Address. To correct a vendor, pick it and click "Edit".',
+            'Click "Download Order Template". Enter the quantity bought under each store, and the Cost of one unit as written on the invoice or receipt.',
+            'Choose the filled Excel file, attach the invoice or receipt, and click "Upload and Process". One order is created for each store with a quantity.',
+            'The approver opens the order in Mass Orders Approval, checks it against the attached invoice or receipt, and approves or rejects it. Once approved, the order is committed and the store receives it in Inbound Orders as before.',
+        ],
+        rules: [
+            'Vendor Name and Address are required. TIN # is optional.',
+            'Vendors can be added and edited from the order form, but not deleted. A vendor with the same name cannot be added twice.',
+            'Editing a vendor changes the orders placed from then on. Orders already placed keep the vendor details they were placed with.',
+            'Every line with a quantity needs its Item Code, Unit and Cost. The Cost must be more than 0, and the Unit must be a unit of that item.',
+            'If any line has a problem, nothing is saved, and the page lists each row to correct, for example "Row 2 (254D9A): the Cost is required."',
+            'At least one invoice or receipt is required: JPG, PNG or PDF, up to 5 files of 5 MB each. Phone photos are made smaller automatically before they are sent.',
+            'When one file has quantities for several stores, the same invoice or receipt is attached to each store\'s order.',
+            'A store can have one CPO order per vendor and Delivery Date. A second one is skipped with the reason. After an order is rejected, it can be placed again.',
+            'Only stores assigned to you and set up for CPO in their delivery schedule are in the template. A date closed by a final approved Month End Count is refused for that store.',
+            'Every CPO order goes to Mass Orders Approval. The CPO switch in Ordering Template Approval stays on and cannot be turned off.',
+            'A CPO order cannot be edited. To correct one, the approver rejects it and the store places it again.',
+            'Two new permissions control the page: "view cpo orders" to open it and see the orders, and "create cpo orders" to place orders and add or edit vendors. The Admin role has both. Other roles are given them in Roles, under Regular Mass Orders.',
+        ],
+        affects: 'Store and office users who buy items from outside vendors, approvers in Mass Orders Approval, and admins who set role permissions.',
+    },
+    {
+        date: '2026-10-17',
+        module: 'Mass Orders Approval',
+        type: 'improved',
+        title: 'Mass Orders Approval shows the vendor and the invoice or receipt of a CPO order',
+        summary:
+            'A CPO order in Mass Orders Approval used to show only its items and quantities. It now also shows the vendor the store bought from, the Cost of each item, and links to the invoice or receipt, so the approver can check the purchase before approving it.',
+        steps: [
+            'Open Mass Orders Approval. A CPO order shows "Vendor:" and the vendor\'s name under CPO in the Supplier column.',
+            'Click the eye icon. The "Vendor and Invoice / Receipt" box shows the Vendor Name, TIN # and Address, with a link to each attached file.',
+            'Compare the UOM, Cost and quantity of each item with the invoice or receipt, then approve or reject.',
+        ],
+        rules: [
+            'The invoice or receipt opens only for admins and for users assigned to the order\'s store.',
+        ],
+        affects: 'Approvers who use Mass Orders Approval.',
+    },
+    {
+        date: '2026-10-17',
+        module: 'Mass Orders',
+        type: 'removed',
+        title: 'CPO is no longer an Ordering Template in Mass Orders',
+        summary:
+            'CPO used to be one of the choices in Ordering Template when creating a mass order. It was taken out of Mass Orders and moved to its own page, CPO Orders, which also takes the vendor, the Cost and the invoice or receipt.',
+        rules: [
+            'CPO orders, including the ones placed before this change, are listed in CPO Orders and no longer in Mass Orders.',
+            'An order placed before this change has no vendor, TIN, address or invoice recorded, so its Vendor shows CPO, as it did in Mass Orders.',
+            'A CPO order cannot be edited in Mass Orders, and a mass order cannot be moved to the CPO template.',
+        ],
+        affects: 'Users who placed CPO orders in Mass Orders.',
+    },
     // ---------------------------------------------------------------- October 16, 2026
     {
         date: '2026-10-16',

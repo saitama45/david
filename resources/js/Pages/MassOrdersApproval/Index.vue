@@ -144,7 +144,10 @@ const showOrderDetails = (id) => {
                 <TableBody>
                     <tr v-for="order in orders.data" :key="order.id">
                         <TD>{{ order.id }}</TD>
-                        <TD>{{ order.supplier?.name ?? "N/A" }}</TD>
+                        <TD>
+                            {{ order.supplier?.name ?? "N/A" }}
+                            <span v-if="order.cpo_vendor_name" class="block text-xs text-gray-500">Vendor: {{ order.cpo_vendor_name }}</span>
+                        </TD>
                         <TD>{{ order.store_branch?.name ?? "N/A" }}</TD>
                         <TD>{{ order.order_number }}</TD>
                         <TD>{{ formatDisplayDate(order.order_date) }}</TD>

@@ -87,6 +87,33 @@ date-less row per item that a delivery locked by Final Receive All could never r
 orders carried a wrong status from this; `database/queries/repair_mass_orders_reapproved_after_receiving.sql`
 puts them back. A CPO order is committed by its approval, so it cannot be approved a second time.
 
+**CPO Orders** (`/cpo-orders`, 2026-10-17). CPO left Mass Orders: `MassOrdersController` drops it from
+the template list and the listing, and refuses it in upload / template / available dates / edit /
+update (no order moves to or from CPO there). `CpoOrdersController` + `CpoOrderService` run the same
+template flow with CPO fixed and three additions:
+
+- **Vendor.** `cpo_vendors` (entity-scoped, audited, never deleted; name unique per entity, address
+  required, TIN optional) is picked with `CpoVendorPicker` (server search, 3 characters, exact name
+  below that) and added / edited inline over JSON (`cpo-orders.vendors.*`). The order keeps a copy in
+  `store_orders.cpo_vendor_id / _name / _tin / _address`, so a vendor edit never rewrites a placed order.
+  CPO orders placed in Mass Orders before 2026-10-17 have no vendor; the pages show the template's
+  `suppliers.name` (CPO) instead, as Mass Orders did. No data was backfilled.
+- **Cost from the receipt.** The template adds a `Cost` column (`MassOrderTemplateExport` writes it when
+  `Cost` is among the static headers). Every row with a store quantity needs Item Code (in
+  `SupplierItems::forSupplierCode('CPO')`), a Unit that is a catalogue or SAP unit of it, and Cost > 0;
+  any problem refuses the file, one `rows.N` error per row (Inertia keeps only the first message of a key).
+- **Invoice / receipt.** 1-5 JPG / PNG / PDF of 5 MB, stored once on the private `local` disk
+  (`cpo-invoices/`) and linked to every order of the upload (`cpo_order_attachments`). They open only
+  through `cpo-orders.attachments.show` (`view cpo orders` or `view mass order approval`, plus admin or
+  store assignment).
+
+Every CPO order is created `pending`. `Supplier::forMassOrderApproval()` / `needsMassOrderApproval()`
+always include CPO (approval list, counts, notification, My Actions), and Ordering Template Approval
+refuses to switch CPO off. Approval itself is unchanged: CPO approval commits and opens the receiving
+rows. Duplicate guard: one non-rejected order per store, date and vendor. There is no CPO edit page;
+a wrong order is rejected and placed again. The order page reuses `MassOrders/Show` through
+`MassOrderService::orderDetails()` with a `cpo` prop.
+
 **Receiving: delivery evidence and Zero All.** Recording a quantity on `/orders-receiving/show`
 (receive, edit, Add Unlisted Item) needs a delivery receipt and an image
 (`OrderReceivingService::deliveryEvidenceProblem()`). Zero All (`PUT /orders-receiving/zero-all/{id}`,

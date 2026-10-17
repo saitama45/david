@@ -161,7 +161,7 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 if ($user->can('view mass order approval')) {
-                    $suppliersForApproval = \App\Models\Supplier::where('is_forapproval_massorders', true)->pluck('id');
+                    $suppliersForApproval = \App\Models\Supplier::forMassOrderApproval()->pluck('id');
                     $data['massOrdersApprovalCount'] = \App\Models\StoreOrder::where('variant', 'mass regular')
                         ->whereIn('supplier_id', $suppliersForApproval)
                         ->where('order_status', 'pending')

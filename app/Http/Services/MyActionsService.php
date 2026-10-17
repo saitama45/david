@@ -58,7 +58,7 @@ class MyActionsService
                             ),
                             default => [],
                         } : match ($status) {
-                            'pending' => $order->variant === 'mass regular' && $order->supplier?->is_forapproval_massorders ? ['order_approval'] : [],
+                            'pending' => $order->variant === 'mass regular' && $order->supplier?->needsMassOrderApproval() ? ['order_approval'] : [],
                             'approved', 'partial_committed' => $order->variant === 'mass dts' ? ['dts_commit'] : ($order->variant === 'mass regular' ? ($pendingCommits[$order->id] ?? []) : []),
                             'committed', 'incomplete' => $order->pending_receipt ? ['receipt_approval'] : ['receive'], default => [],
                         };

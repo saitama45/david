@@ -28,6 +28,8 @@ const isCpoOrder = computed(() => {
     return String(props.order.supplier?.supplier_code || '').trim().toUpperCase() === 'CPO';
 });
 
+const formatAmount = (value) => (Number(value) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
 const approveOrder = () => {
     confirm.require({
         message: "Are you sure you want to approve this mass order?",
@@ -113,6 +115,36 @@ const rejectOrder = () => {
                 </CardContent>
             </Card>
 
+            <!-- A CPO order: check the purchase against the vendor's invoice / receipt. -->
+            <Card v-if="isCpoOrder">
+                <CardHeader>
+                    <CardTitle>Vendor and Invoice / Receipt</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <p><strong>Vendor Name:</strong> {{ order.cpo_vendor_name || order.supplier?.name || 'N/A' }}</p>
+                        <p><strong>TIN #:</strong> {{ order.cpo_vendor_tin || 'None' }}</p>
+                        <p><strong>Address:</strong> {{ order.cpo_vendor_address || 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold mb-1">Invoice / Receipt</p>
+                        <div v-if="order.cpo_attachments?.length" class="flex flex-wrap gap-2">
+                            <a
+                                v-for="file in order.cpo_attachments"
+                                :key="file.id"
+                                :href="file.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
+                            >
+                                {{ file.original_name }}
+                            </a>
+                        </div>
+                        <p v-else class="text-sm text-gray-500">No invoice or receipt attached.</p>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader>
                     <CardTitle>Items</CardTitle>
@@ -121,12 +153,16 @@ const rejectOrder = () => {
                     <Table>
                         <TableHead>
                             <TH>Item</TH>
+                            <TH v-if="isCpoOrder">UOM</TH>
+                            <TH v-if="isCpoOrder">Cost</TH>
                             <TH>Ordered</TH>
                             <TH>Approved</TH>
                         </TableHead>
                         <TableBody>
                             <tr v-for="(item, index) in order.store_order_items" :key="item.id">
                                 <TD>{{ item.supplier_item?.item_name ?? item.item_description }}</TD>
+                                <TD v-if="isCpoOrder">{{ item.uom }}</TD>
+                                <TD v-if="isCpoOrder">{{ formatAmount(item.cost_per_quantity) }}</TD>
                                 <TD>{{ item.quantity_ordered }}</TD>
                                 <TD>
                                     <Input

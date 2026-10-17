@@ -22,6 +22,10 @@ class OrderingTemplateApprovalController extends Controller
             'is_forapproval_massorders' => 'required|boolean'
         ]);
 
+        if ($supplier->supplier_code === Supplier::CPO && ! $request->boolean('is_forapproval_massorders')) {
+            return redirect()->back()->withErrors(['error' => 'CPO orders always go to Mass Orders Approval, so this switch stays on.']);
+        }
+
         $supplier->update([
             'is_forapproval_massorders' => $request->is_forapproval_massorders
         ]);
