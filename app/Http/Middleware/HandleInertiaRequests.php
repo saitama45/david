@@ -344,6 +344,8 @@ class HandleInertiaRequests extends Middleware
                 'activeEntity' => app(\App\Support\EntityContext::class)->id(),
             ],
             'workflowGuidance' => function () use ($request, $user) {
+                // Hidden on every page while Sidebar Management's switch is off.
+                if ($user && ! app(\App\Http\Services\WorkflowGuidanceService::class)->panelVisible()) return null;
                 if (!$user || !$request->routeIs('mass-orders.*', 'dts-mass-orders.*', 'mass-orders-approval.*', 'cs-mass-commits.*', 'cs-dts-mass-commits.*', 'orders-receiving.*', 'receiving-approvals.*', 'store-transactions.*', 'wastage.*', 'wastage-approval-lvl1.*', 'wastage-approval-lvl2.*', 'month-end-count.*', 'month-end-count-approvals.*', 'month-end-count-approvals-level2.*', 'interco.*', 'interco-approval.*', 'interco-receiving.*', 'store-commits.*')) return null;
                 return [
                     'catalog' => app(\App\Http\Services\WorkflowGuidanceService::class)->catalog($user),

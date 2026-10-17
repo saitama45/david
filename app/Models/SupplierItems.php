@@ -51,10 +51,19 @@ class SupplierItems extends Model implements Auditable
     protected $appends = ['sap_master_file'];
 
     /**
-     * Supplier codes consolidated under the CPO ordering template. CPO carries no items of
-     * its own; it offers the union of these templates' catalogues.
+     * The commissary catalogues an unrestricted template (Supplier::UNRESTRICTED_TEMPLATES: CPO,
+     * AO, EO, ALOC) offers. Those templates carry no items of their own, or only a few; they
+     * offer the union of these catalogues and their own.
      */
-    public const CPO_CONSOLIDATED_SUPPLIER_CODES = ['GSI-B', 'GSI-P', 'PUL-O', 'DROPS', 'CPO'];
+    public const COMMISSARY_CATALOGUE_CODES = ['GSI-B', 'GSI-P', 'PUL-O', 'DROPS'];
+
+    /** The Supplier Items codes whose items a template offers. */
+    public static function catalogueCodesFor(string $supplierCode): array
+    {
+        return Supplier::isUnrestrictedTemplate($supplierCode)
+            ? [...self::COMMISSARY_CATALOGUE_CODES, $supplierCode]
+            : [$supplierCode];
+    }
 
     /**
      * The catalogue that may be ordered — or received — against a supplier code.
@@ -67,8 +76,8 @@ class SupplierItems extends Model implements Auditable
      */
     public static function forSupplierCode(string $supplierCode)
     {
-        if ($supplierCode === 'CPO') {
-            return static::whereIn('SupplierCode', self::CPO_CONSOLIDATED_SUPPLIER_CODES)
+        if (Supplier::isUnrestrictedTemplate($supplierCode)) {
+            return static::whereIn('SupplierCode', self::catalogueCodesFor($supplierCode))
                 ->where('is_active', true)
                 ->get()
                 ->unique('ItemCode')

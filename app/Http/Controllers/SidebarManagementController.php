@@ -141,6 +141,7 @@ class SidebarManagementController extends Controller
 
         return \Inertia\Inertia::render('SidebarManagement/Index', [
             'menuItems' => $menuItems,
+            'workflowGuidanceVisible' => app(\App\Http\Services\WorkflowGuidanceService::class)->panelVisible(),
         ]);
     }
 
@@ -168,5 +169,17 @@ class SidebarManagementController extends Controller
         }
 
         return back()->with('success', 'Sidebar settings saved successfully.');
+    }
+
+    /** Shows or hides the "Business rules and next actions" panel on every page. */
+    public function updateWorkflowGuidance(Request $request)
+    {
+        $request->validate(['visible' => 'required|boolean']);
+
+        app(\App\Http\Services\WorkflowGuidanceService::class)->setPanelVisible($request->boolean('visible'));
+
+        return back()->with('success', $request->boolean('visible')
+            ? 'The Business rules and next actions panel is shown on every page.'
+            : 'The Business rules and next actions panel is hidden on every page.');
     }
 }

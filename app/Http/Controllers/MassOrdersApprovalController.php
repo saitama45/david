@@ -58,6 +58,8 @@ class MassOrdersApprovalController extends Controller
             // Why Approve and Reject are not offered on this order, or null while they are.
             // The page hides both on the same rule approve() and reject() enforce.
             'decisionProblem' => $this->decisionProblem($order),
+            // CPO, AO, EO, ALOC: approving also commits the order and opens its receiving.
+            'commitsOnApproval' => Supplier::isUnrestrictedTemplate($order->supplier?->supplier_code),
         ]);
     }
 
@@ -113,16 +115,17 @@ class MassOrdersApprovalController extends Controller
             // cannot slip in between this check and the approval.
             $this->assertCanDecide($order);
 
-            $isCpoOrder = strtoupper(trim((string) $order->supplier?->supplier_code)) === 'CPO';
+            // CPO, AO, EO and ALOC have no CS commit: approving commits them and opens receiving.
+            $commitsOnApproval = Supplier::isUnrestrictedTemplate($order->supplier?->supplier_code);
             $now = Carbon::now();
 
-            $order->order_status = $isCpoOrder
+            $order->order_status = $commitsOnApproval
                 ? OrderStatus::COMMITTED->value
                 : OrderStatus::APPROVED->value;
             $order->approver_id = Auth::id();
             $order->approval_action_date = $now;
 
-            if ($isCpoOrder) {
+            if ($commitsOnApproval) {
                 $order->commiter_id = Auth::id();
                 $order->commited_action_date = $now;
             }
@@ -139,7 +142,7 @@ class MassOrdersApprovalController extends Controller
                 $approvedQuantity = $item['quantity_approved'];
                 $orderItem->quantity_approved = $approvedQuantity;
 
-                if ($isCpoOrder) {
+                if ($commitsOnApproval) {
                     $orderItem->quantity_commited = $approvedQuantity;
                     $orderItem->committed_by = Auth::id();
                     $orderItem->committed_date = $now;
@@ -147,7 +150,7 @@ class MassOrdersApprovalController extends Controller
 
                 $orderItem->save();
 
-                if ($isCpoOrder) {
+                if ($commitsOnApproval) {
                     $orderItem->ordered_item_receive_dates()->updateOrCreate(
                         ['status' => 'pending'],
                         [
@@ -160,7 +163,7 @@ class MassOrdersApprovalController extends Controller
                 }
             }
 
-            return $isCpoOrder
+            return $commitsOnApproval
                 ? 'Order approved and committed successfully.'
                 : 'Order approved successfully.';
         });

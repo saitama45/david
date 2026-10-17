@@ -48,9 +48,10 @@ test('mass order dates switch at the exact cutoff minute and GSI is shifted a we
         ->toBe(['2026-09-14', '2026-09-15', '2026-09-16']);
 });
 
-test('CPO has no delivery date restriction', function () {
-    expect((new OrderingCutoffService)->massOrderDateBlock('CPO', '2020-01-01'))->toBeNull();
-});
+test('CPO, AO, EO and ALOC have no delivery date restriction', function (string $template) {
+    expect((new OrderingCutoffService)->massOrderDateBlock($template, '2020-01-01'))->toBeNull()
+        ->and((new OrderingCutoffService)->massOrderDateBlock($template, '2030-12-31'))->toBeNull();
+})->with(['CPO', 'AO', 'EO', 'ALOC']);
 
 test('a mass order template with no cutoff row is open from 60 days back to 60 days ahead', function () {
     $service = new class extends OrderingCutoffService

@@ -18,6 +18,49 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 17, 2026
     {
         date: '2026-10-17',
+        module: 'Sidebar Management',
+        type: 'new',
+        title: 'New switch in Sidebar Management to show or hide the "Business rules and next actions" panel on every page',
+        summary:
+            'Ordering, receiving, wastage, month end count and interco pages show a blue panel at the top, titled "Business rules and next actions" or "What happens next?". It could not be turned off. Sidebar Management now has a switch that shows or hides it on every page at once.',
+        steps: [
+            'Open Sidebar Management.',
+            'At the top, under "Business rules and next actions panel", click the button. It reads Shown or Hidden, and the change is saved at once.',
+        ],
+        rules: [
+            'The switch applies to every page and every user, in every entity.',
+            'It is on (Shown) until someone turns it off.',
+            'Only users with the permission "manage sidebar" can open Sidebar Management and change it.',
+            'Hiding the panel does not change any process or business rule. My Actions still lists the work waiting.',
+        ],
+        affects: 'Every user of ordering, receiving, wastage, month end count and interco pages, and administrators who use Sidebar Management.',
+    },
+    {
+        date: '2026-10-17',
+        module: 'Mass Orders',
+        type: 'improved',
+        title: 'Additional Order (AO), Emergency Order (EO) and Allocation (ALOC) in Mass Orders take any Delivery Date, list the commissary items and are committed by their approval, as CPO was',
+        summary:
+            'The new Ordering Templates Additional Order (AO), Emergency Order (EO) and Allocation (ALOC) followed the rules of a regular template: only the dates of its ordering cutoff, and only stores delivered on that weekday. They now work the way CPO did in Mass Orders. Any Delivery Date can be picked unless a final approved Month End Count has closed it, the template lists the items of the commissary templates, and every order waits in Mass Orders Approval, where approving it also commits it so the store can receive it.',
+        steps: [
+            'Open Mass Orders, click "Create New Mass Order" and pick Additional Order (AO), Emergency Order (EO) or Allocation (ALOC) as the Ordering Template.',
+            'Pick any Delivery Date that is not crossed out.',
+            'Click "Download Order Template", enter the quantities under each store and upload the file as usual. The orders are PENDING.',
+            'The approver opens the order in Mass Orders Approval and approves it. It becomes COMMITTED right away, with no step in CS Mass Commits, and the store receives it in Inbound Orders.',
+        ],
+        rules: [
+            'There is no ordering cutoff for these templates. Only dates closed by a final approved Month End Count are refused, store by store.',
+            'A store is in the template when it is assigned to you, active, and has the template in its delivery schedule on any day of the week. Add the stores to each template in Delivery Schedules first, or the template has no store columns.',
+            'The template lists every active item of GSI OT-BAKERY (GSI-B), GSI OT-PR (GSI-P), PUL OT-DG (PUL-O) and Fruits and Vegetables, plus any item filed under the template itself, once per Item Code.',
+            'The cost of each line is the commissary item\'s cost in Supplier Items, for the same unit when there is one.',
+            'Every order of these templates waits in Mass Orders Approval. Their switch in Ordering Template Approval is on and cannot be turned off.',
+            'Approving an order commits it at the approved quantities and makes it ready to receive. The approver can lower a quantity before approving. A rejected order goes no further.',
+            'In the Adoption Rate report, these orders are not scored on commit timeliness, because nobody commits them in CS Mass Commits.',
+        ],
+        affects: 'Users who place Additional Order, Emergency Order or Allocation mass orders, approvers in Mass Orders Approval, and CS users, who no longer commit these orders.',
+    },
+    {
+        date: '2026-10-17',
         module: 'CPO Orders',
         type: 'new',
         title: 'New page "CPO Orders" under Regular Mass Orders, for purchases from outside vendors with the invoice or receipt attached',

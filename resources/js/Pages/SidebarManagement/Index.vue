@@ -10,6 +10,11 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    // Whether pages show the "Business rules and next actions" panel.
+    workflowGuidanceVisible: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const toast = useToast();
@@ -128,6 +133,37 @@ const save = () => {
     });
 };
 
+// ─── Business rules panel: one switch for every page, saved at once ─────────
+const guidanceVisible = ref(props.workflowGuidanceVisible);
+const savingGuidance = ref(false);
+
+const toggleGuidance = () => {
+    const visible = !guidanceVisible.value;
+    savingGuidance.value = true;
+
+    router.post(route('sidebar-management.workflow-guidance'), { visible }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            guidanceVisible.value = visible;
+            toast.add({
+                severity: 'success',
+                summary: 'Saved',
+                detail: visible
+                    ? 'The Business rules and next actions panel is shown on every page.'
+                    : 'The Business rules and next actions panel is hidden on every page.',
+                life: 3000,
+            });
+        },
+        onError: () => {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'The setting could not be saved. Please try again.', life: 4000 });
+        },
+        onFinish: () => {
+            savingGuidance.value = false;
+        },
+    });
+};
+
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const levelBg = ['bg-muted/40 border border-border rounded-md', 'bg-muted/20 border border-border/50 rounded', 'bg-background border border-border/30 rounded'];
 </script>
@@ -135,6 +171,30 @@ const levelBg = ['bg-muted/40 border border-border rounded-md', 'bg-muted/20 bor
 <template>
     <Layout heading="Sidebar Management">
         <div class="max-w-4xl mx-auto space-y-4">
+            <!-- Page display: the business rules panel, shown or hidden on every page -->
+            <div class="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm font-medium">Business rules and next actions panel</p>
+                    <p class="text-xs text-muted-foreground">
+                        The blue box at the top of ordering, receiving, wastage, month end count and interco pages. Applies to every page and every user, and is saved as soon as it is switched.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    role="switch"
+                    :aria-checked="guidanceVisible"
+                    aria-label="Show the Business rules and next actions panel"
+                    :disabled="savingGuidance"
+                    @click="toggleGuidance"
+                    class="inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50"
+                    :class="guidanceVisible ? 'border-green-200 bg-green-50 text-green-800' : 'border-border bg-background text-muted-foreground'"
+                >
+                    <Eye v-if="guidanceVisible" class="size-4" />
+                    <EyeOff v-else class="size-4" />
+                    {{ guidanceVisible ? 'Shown' : 'Hidden' }}
+                </button>
+            </div>
+
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <p class="text-sm text-muted-foreground">

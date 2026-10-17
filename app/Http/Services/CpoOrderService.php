@@ -319,7 +319,7 @@ class CpoOrderService
         $units = [];
 
         foreach ($itemCodes->chunk(500) as $chunk) {
-            SupplierItems::whereIn('SupplierCode', SupplierItems::CPO_CONSOLIDATED_SUPPLIER_CODES)
+            SupplierItems::whereIn('SupplierCode', SupplierItems::catalogueCodesFor(Supplier::CPO))
                 ->where('is_active', true)
                 ->whereIn('ItemCode', $chunk->all())
                 ->get(['ItemCode', 'uom'])

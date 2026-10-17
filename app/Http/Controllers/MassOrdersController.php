@@ -137,6 +137,8 @@ class MassOrdersController extends Controller
             'editGrants' => $editGrants,
             'exceptionStoreOptions' => $exceptionStoreOptions,
             'closedForAllStores' => $this->closedForUserStores(),
+            // Templates with no delivery-date restriction but the month end count.
+            'unrestrictedTemplates' => Supplier::UNRESTRICTED_TEMPLATES,
         ]);
     }
 
@@ -170,7 +172,8 @@ class MassOrdersController extends Controller
 
             // Fetch the supplier to check the approval flag
             $supplier = Supplier::where('supplier_code', $supplierCodeFromDropdown)->firstOrFail();
-            $determinedOrderStatus = $supplier->is_forapproval_massorders ? 'pending' : 'approved';
+            // AO, EO and ALOC always wait for approval, which commits them.
+            $determinedOrderStatus = $supplier->needsMassOrderApproval() ? 'pending' : 'approved';
 
             $import = new MassOrderImport();
             $rows = Excel::toCollection($import, $request->file('mass_order_file'))->first();
@@ -200,12 +203,7 @@ class MassOrdersController extends Controller
             $user = Auth::user();
             $user->load('store_branches');
 
-            $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCodeFromDropdown, $dayName) {
-                return $branch->delivery_schedules()
-                    ->wherePivot('variant', $supplierCodeFromDropdown)
-                    ->where('delivery_schedules.day', $dayName)
-                    ->exists();
-            });
+            $finalBranches = $user->store_branches->filter(fn ($branch) => $this->deliversOn($branch, $supplierCodeFromDropdown, $dayName));
             $validStoresForThisOrder = $finalBranches->where('is_active', true)->pluck('brand_code')->all();
 
             // 2. Get headers from uploaded file.
@@ -375,12 +373,7 @@ class MassOrdersController extends Controller
         $user = Auth::user();
         $user->load('store_branches');
 
-        $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
-            return $branch->delivery_schedules()
-                ->wherePivot('variant', $supplierCode)
-                ->where('delivery_schedules.day', $dayName)
-                ->exists();
-        });
+        $finalBranches = $user->store_branches->filter(fn ($branch) => $this->deliversOn($branch, $supplierCode, $dayName));
 
         $dynamicHeaders = $this->openOn($finalBranches->where('is_active', true), $orderDate)->pluck('brand_code')->unique()->sort()->values()->all();
 
@@ -476,6 +469,21 @@ class MassOrdersController extends Controller
         ]);
     }
 
+    /**
+     * Whether the store takes this template's deliveries on the weekday. An unrestricted
+     * template (AO, EO, ALOC) needs only to be on the store's delivery schedule, any day.
+     */
+    private function deliversOn($branch, string $supplierCode, string $dayName): bool
+    {
+        $query = $branch->delivery_schedules()->wherePivot('variant', $supplierCode);
+
+        if (! Supplier::isUnrestrictedTemplate($supplierCode)) {
+            $query->where('delivery_schedules.day', $dayName);
+        }
+
+        return $query->exists();
+    }
+
     private function hasSupplierAccess(string $supplierCode): bool
     {
         return Auth::user()->suppliers()->where('suppliers.supplier_code', $supplierCode)->exists();
@@ -535,12 +543,7 @@ class MassOrdersController extends Controller
         $user = Auth::user();
         $user->load('store_branches');
 
-        $initialFinalBranches = $user->store_branches->filter(function ($branch) use ($initialSupplierCode, $initialDayName) {
-            return $branch->delivery_schedules()
-                ->where('delivery_schedules.day', $initialDayName)
-                ->wherePivot('variant', $initialSupplierCode)
-                ->exists();
-        });
+        $initialFinalBranches = $user->store_branches->filter(fn ($branch) => $this->deliversOn($branch, $initialSupplierCode, $initialDayName));
 
         $initialActiveBranches = $initialFinalBranches->where('is_active', true);
         $branches = $initialActiveBranches->mapWithKeys(function ($branch) {
@@ -563,6 +566,7 @@ class MassOrdersController extends Controller
             // Last closed date per store (final approved month end count); cast so none is {}.
             'closedThrough' => (object) $this->closedPeriods->closedThrough($user->store_branches->pluck('id')->push($order->store_branch_id)),
             'closedForAllStores' => $this->closedForUserStores(),
+            'unrestrictedTemplates' => Supplier::UNRESTRICTED_TEMPLATES,
             'canViewCost' => Auth::user()->hasPermissionTo('view cost mass orders'),
         ]);
     }
@@ -662,12 +666,7 @@ class MassOrdersController extends Controller
         $user = Auth::user();
         $user->load('store_branches');
 
-        $finalBranches = $user->store_branches->filter(function ($branch) use ($supplierCode, $dayName) {
-            return $branch->delivery_schedules()
-                ->wherePivot('variant', $supplierCode)
-                ->where('delivery_schedules.day', $dayName)
-                ->exists();
-        });
+        $finalBranches = $user->store_branches->filter(fn ($branch) => $this->deliversOn($branch, $supplierCode, $dayName));
 
         $activeBranches = $this->openOn($finalBranches->where('is_active', true), $orderDate);
 

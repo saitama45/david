@@ -33,17 +33,31 @@ class Supplier extends Model implements Auditable
     public const CPO = 'CPO';
 
     /**
+     * Templates ordered the way CPO was in Mass Orders: any delivery date the store's month end
+     * count has not closed (no cutoff, no weekday), every store that has the template on any day
+     * of its delivery schedule, and the commissary catalogue (SupplierItems::catalogueCodesFor()).
+     * Their orders always wait in Mass Orders Approval, and approving one commits it and opens
+     * its receiving (no CS commit).
+     */
+    public const UNRESTRICTED_TEMPLATES = [self::CPO, 'AO', 'EO', 'ALOC'];
+
+    public static function isUnrestrictedTemplate(?string $supplierCode): bool
+    {
+        return in_array(strtoupper(trim((string) $supplierCode)), self::UNRESTRICTED_TEMPLATES, true);
+    }
+
+    /**
      * Templates whose mass orders wait in Mass Orders Approval: those switched on in
-     * Ordering Template Approval, and CPO always (CPO Orders approval also commits it).
+     * Ordering Template Approval, and the unrestricted ones always (their approval commits them).
      */
     public function scopeForMassOrderApproval(Builder $query): Builder
     {
-        return $query->where(fn ($q) => $q->where('is_forapproval_massorders', true)->orWhere('supplier_code', self::CPO));
+        return $query->where(fn ($q) => $q->where('is_forapproval_massorders', true)->orWhereIn('supplier_code', self::UNRESTRICTED_TEMPLATES));
     }
 
     public function needsMassOrderApproval(): bool
     {
-        return $this->is_forapproval_massorders || $this->supplier_code === self::CPO;
+        return $this->is_forapproval_massorders || self::isUnrestrictedTemplate($this->supplier_code);
     }
 
     public function store_orders()

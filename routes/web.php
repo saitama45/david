@@ -1344,6 +1344,7 @@ Route::controller(SidebarManagementController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/bulk-update', 'bulkUpdate')->name('bulk-update');
+        Route::post('/workflow-guidance', 'updateWorkflowGuidance')->name('workflow-guidance');
     });
 
 Route::controller(WastageSettingsController::class)

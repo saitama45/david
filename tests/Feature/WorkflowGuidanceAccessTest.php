@@ -100,6 +100,19 @@ class WorkflowGuidanceAccessTest extends TestCase
         $this->assertTrue($definition['can_act']);
     }
 
+    public function test_the_panel_is_shown_until_switched_off_in_sidebar_management(): void
+    {
+        $service = new WorkflowGuidanceService;
+        $this->assertTrue($service->panelVisible());
+
+        $service->setPanelVisible(false);
+        $this->assertFalse((new WorkflowGuidanceService)->panelVisible());
+
+        $service->setPanelVisible(true);
+        $this->assertTrue((new WorkflowGuidanceService)->panelVisible());
+        $this->assertSame(1, DB::table('settings')->where('key', WorkflowGuidanceService::PANEL_VISIBLE_KEY)->count());
+    }
+
     public function test_guidance_follows_the_saved_wastage_approval_setup(): void
     {
         $settings = app(\App\Http\Services\WastageApprovalSettingsService::class);

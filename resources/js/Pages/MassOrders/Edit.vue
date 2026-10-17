@@ -335,6 +335,11 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    // Templates (AO, EO, ALOC) with no delivery-date restriction but the month end count.
+    unrestrictedTemplates: {
+        type: Array,
+        default: () => [],
+    },
     canViewCost: {
         type: Boolean,
         default: false,
@@ -599,7 +604,8 @@ const getCalendarDays = () => {
     for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(year, month, i);
         const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const isDisabled = !enabledDatesSet.has(dateString) || dateString <= closed;
+        const isDisabled = (!props.unrestrictedTemplates.includes(orderForm.supplier_id) && !enabledDatesSet.has(dateString))
+            || dateString <= closed;
         days.push({ day: i, date, isDisabled });
     }
     return days;

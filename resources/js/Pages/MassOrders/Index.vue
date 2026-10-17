@@ -57,6 +57,11 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    // Templates (AO, EO, ALOC) with no delivery-date restriction but the month end count.
+    unrestrictedTemplates: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const { hasAccess } = useAuth();
@@ -265,6 +270,7 @@ const selectedDayInfo = computed(() => {
 
 const isDatepickerDisabled = ref(true);
 const enabledDates = ref([]);
+const isUnrestrictedTemplate = computed(() => props.unrestrictedTemplates.includes(form.supplier_code));
 
 const showCalendar = ref(false);
 const currentCalendarDate = ref(new Date(props.currentDate + 'T00:00:00'));
@@ -306,10 +312,11 @@ const getCalendarDays = () => {
         const date = new Date(year, month, i);
         const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         
-        // Only the template's enabled dates can be picked. No template may order inside a
-        // period the stores closed with a final approved month end count.
+        // An unrestricted template (AO, EO, ALOC) takes any date; the others only their enabled
+        // dates. No template may order inside a period the stores closed with a final approved
+        // month end count.
         const isClosed = !!props.closedForAllStores && dateString <= props.closedForAllStores;
-        const isDisabled = isClosed || !enabledDatesSet.has(dateString);
+        const isDisabled = isClosed || (!isUnrestrictedTemplate.value && !enabledDatesSet.has(dateString));
         const isSuggested = !isClosed && enabledDatesSet.has(dateString);
         
         days.push({ day: i, date, isDisabled, isSuggested });
@@ -333,7 +340,8 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
     form.order_date = null;
     enabledDates.value = [];
     if (newSupplierCode) {
-        isDatepickerDisabled.value = true;
+        // An unrestricted template needs no date list to be picked from.
+        isDatepickerDisabled.value = !isUnrestrictedTemplate.value;
 
         try {
             const response = await axios.get(route('mass-orders.available-dates', { supplier_code: newSupplierCode }));
@@ -341,7 +349,7 @@ watch(() => form.supplier_code, async (newSupplierCode) => {
             isDatepickerDisabled.value = false; // Enable once we have the dates
         } catch (error) {
             console.error('Error fetching available dates:', error);
-            isDatepickerDisabled.value = true;
+            isDatepickerDisabled.value = !isUnrestrictedTemplate.value;
         }
     } else {
         isDatepickerDisabled.value = true;

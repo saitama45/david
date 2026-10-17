@@ -15,6 +15,11 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    // CPO, AO, EO, ALOC: approving also commits the order and opens its receiving.
+    commitsOnApproval: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const form = useForm({
@@ -50,7 +55,7 @@ const approveOrder = () => {
                     toast.add({
                         severity: 'success',
                         summary: 'Success',
-                        detail: isCpoOrder.value ? 'Order approved and committed successfully.' : 'Order approved successfully.',
+                        detail: props.commitsOnApproval ? 'Order approved and committed successfully.' : 'Order approved successfully.',
                         life: 3000
                     });
                 },

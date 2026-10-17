@@ -148,6 +148,10 @@ class AdoptionRateTrackingServiceTest extends TestCase
     public function test_commit_exclusion_includes_cpo_and_every_drops_supplier_variant(): void
     {
         $this->assertTrue($this->isAutomatedCommitOrder('GSI-B', 'CPO'));
+        // AO, EO and ALOC are committed by their approval, as CPO is.
+        $this->assertTrue($this->isAutomatedCommitOrder('AO', 'AO'));
+        $this->assertTrue($this->isAutomatedCommitOrder('EO', 'EO'));
+        $this->assertTrue($this->isAutomatedCommitOrder('ALOC', 'ALOC'));
         $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'FRUITS AND VEGETABLES'));
         $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'ICE CREAM'));
         $this->assertTrue($this->isAutomatedCommitOrder('DROPS', 'SALMON'));

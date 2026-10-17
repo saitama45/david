@@ -61,9 +61,13 @@ class MassOrderService
             foreach ($brandCodeHeaderMap as $headerKey => $realBrandCode) {
                 $quantity = (float) $row[$headerKey];
                 if ($quantity > 0) {
-                    // Get cost from database since cost column is removed from template
+                    // Get cost from database since cost column is removed from template. An
+                    // unrestricted template (AO, EO, ALOC) prices from the commissary catalogue
+                    // it offers, the line's unit first.
+                    $catalogueCodes = SupplierItems::catalogueCodesFor($supplierCode);
                     $supplierItem = SupplierItems::where('ItemCode', $row['item_code'])
-                        ->where('SupplierCode', $supplierCode)
+                        ->whereIn('SupplierCode', $catalogueCodes)
+                        ->when(count($catalogueCodes) > 1, fn ($q) => $q->orderByRaw('CASE WHEN [uom] = ? THEN 0 ELSE 1 END', [$row['unit']]))
                         ->first();
 
                     $ordersToCreate[$realBrandCode][] = [

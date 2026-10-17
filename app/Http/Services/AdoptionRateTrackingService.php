@@ -1733,8 +1733,10 @@ class AdoptionRateTrackingService
         $supplierCode = strtoupper(trim((string) $order->supplier?->supplier_code));
         $normalizedTemplate = strtoupper(trim($template));
 
+        // CPO, AO, EO and ALOC are committed by their approval, not by a CS commit.
         return $supplierCode === self::AUTOMATED_COMMIT_SUPPLIER
-            || $normalizedTemplate === self::CPO_ORDER_TEMPLATE;
+            || Supplier::isUnrestrictedTemplate($normalizedTemplate)
+            || Supplier::isUnrestrictedTemplate($supplierCode);
     }
 
     private function paginateRows(Collection $rows, int $perPage): LengthAwarePaginator

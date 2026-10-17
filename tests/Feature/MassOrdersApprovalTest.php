@@ -64,8 +64,8 @@ function approveMassOrderThroughController(StoreOrder $order, StoreOrderItem $it
     return app(MassOrdersApprovalController::class)->approve($request, $order->id);
 }
 
-it('commits CPO mass orders when approved', function () {
-    [$user, $order, $item] = createMassOrderApprovalOrder('CPO');
+it('commits CPO, AO, EO and ALOC mass orders when approved', function (string $template) {
+    [$user, $order, $item] = createMassOrderApprovalOrder($template);
 
     $this->actingAs($user);
 
@@ -93,7 +93,7 @@ it('commits CPO mass orders when approved', function () {
         ->and((int) $receiveRow->received_by_user_id)->toBe($user->id)
         ->and($receiveRow->received_date)->toBeNull()
         ->and($receiveRow->remarks)->toBeNull();
-});
+})->with(['CPO', 'AO', 'EO', 'ALOC']);
 
 it('keeps non-CPO mass orders approved without creating receiving rows', function () {
     [$user, $order, $item] = createMassOrderApprovalOrder('GSI-B', committedQuantity: 4);

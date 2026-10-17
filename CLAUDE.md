@@ -196,6 +196,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `RoleService::getPermissionsGroup()`'s `$permissionStructure`.** Unlisted permissions are silently
   dropped, not grouped under "Others". Admin still gets them (the seeder syncs all permissions to it),
   so the gap only shows when another role needs access.
+- **The "Business rules and next actions" panel (`WorkflowGuidance.vue`) can be switched off globally** in
+  Sidebar Management (`settings` key `workflow_guidance.panel_visible`, default on). Off, the shared
+  `workflowGuidance` prop is null on every page, so a missing panel is that setting, not a bug.
 - **Bump the notification cache key** (`user_notifications_v7_<id>`, 1-min TTL in
   `HandleInertiaRequests`) when changing that payload's shape, and every `Cache::forget` of it.
 - **There is no live approval matrix.** `WorkflowService`, `ApprovalMatrixService` and their
@@ -211,6 +214,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (private disk); every CPO order is `pending` and `Supplier::forMassOrderApproval()` always includes CPO.
   `MassOrdersController` refuses CPO everywhere, including moving an order to or from it in edit.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **AO, EO and ALOC order the way CPO did in Mass Orders** (`Supplier::UNRESTRICTED_TEMPLATES`): any date
+  but a closed one (`massOrderDateBlock()` null), stores with the template on **any** schedule day
+  (`MassOrdersController::deliversOn()`), the commissary catalogue (`SupplierItems::catalogueCodesFor()`),
+  priced from it, always `pending` (`Supplier::forMassOrderApproval()`), and committed with its receiving
+  rows by Mass Orders Approval (no CS commit). Add a template there, never another `=== 'CPO'` check.
 - **Ordering cutoffs are enforced on the server** through `OrderingCutoffService` (mass orders, DTS).
   Never re-derive cutoff maths in a controller or Vue page. A blocked action may only pass with an
   approved one-time grant from `RuleExceptionService`, consumed **inside** the action's transaction.

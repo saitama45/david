@@ -3,13 +3,28 @@
 namespace App\Http\Services;
 
 use App\Models\Entity;
+use App\Models\Setting;
 use App\Models\User;
 use App\Support\EntityContext;
 use Illuminate\Support\Collection;
 
 class WorkflowGuidanceService
 {
+    /** Sidebar Management switch: whether pages show the "Business rules and next actions" panel. */
+    public const PANEL_VISIBLE_KEY = 'workflow_guidance.panel_visible';
+
     private array $catalogs = [];
+
+    /** On unless turned off in Sidebar Management; one switch for every page. */
+    public function panelVisible(): bool
+    {
+        return (bool) Setting::get(self::PANEL_VISIBLE_KEY, true);
+    }
+
+    public function setPanelVisible(bool $visible): void
+    {
+        Setting::set(self::PANEL_VISIBLE_KEY, $visible ? 'true' : 'false', 'boolean');
+    }
 
     public function catalog(User $viewer): array
     {

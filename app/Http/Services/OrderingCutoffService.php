@@ -3,6 +3,7 @@
 namespace App\Http\Services;
 
 use App\Models\OrdersCutoff;
+use App\Models\Supplier;
 use Carbon\Carbon;
 
 /**
@@ -23,9 +24,6 @@ use Carbon\Carbon;
 class OrderingCutoffService
 {
     public const TIMEZONE = 'Asia/Manila';
-
-    /** Mass order template with no delivery-date restriction at all. */
-    public const UNRESTRICTED_MASS_TEMPLATE = 'CPO';
 
     /**
      * Temporary: mass order templates with no cutoff also accept today and this many
@@ -106,7 +104,9 @@ class OrderingCutoffService
      */
     public function massOrderDateBlock(string $supplierCode, string $orderDate, ?Carbon $now = null): ?string
     {
-        if ($supplierCode === self::UNRESTRICTED_MASS_TEMPLATE) {
+        // CPO, AO, EO, ALOC: any date. Only a final approved month end count closes one, and
+        // that is checked per store (MonthEndClosedPeriodService).
+        if (Supplier::isUnrestrictedTemplate($supplierCode)) {
             return null;
         }
 
