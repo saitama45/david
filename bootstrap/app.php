@@ -23,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
         $middleware->web(append: [
+            // First: an inactive user is signed out before anything else runs.
+            \App\Http\Middleware\EnsureUserIsActive::class,
             \App\Http\Middleware\SetActiveEntity::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,

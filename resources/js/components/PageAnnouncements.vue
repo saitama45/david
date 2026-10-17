@@ -3,9 +3,14 @@ import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { Megaphone } from 'lucide-vue-next';
 
-// Banners written in Sidebar Management > Announcements for the module of this page.
+// Banners written in Sidebar Management > Announcements for the module of this page, or the
+// `items` given (the preview after saving one).
+const props = defineProps({
+    items: { type: Array, default: null },
+});
+
 const page = usePage();
-const announcements = computed(() => page.props.announcements || []);
+const announcements = computed(() => props.items ?? page.props.pageAnnouncements ?? []);
 
 const toneClass = {
     info: 'border-sky-200 bg-sky-50 text-sky-950',

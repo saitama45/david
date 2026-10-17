@@ -196,6 +196,12 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `RoleService::getPermissionsGroup()`'s `$permissionStructure`.** Unlisted permissions are silently
   dropped, not grouped under "Others". Admin still gets them (the seeder syncs all permissions to it),
   so the gap only shows when another role needs access.
+- **An inactive user (`users.is_active` false, Users > Edit > Status) cannot log in** (`LoginRequest`) and is
+  signed out on the next request (`EnsureUserIsActive`, first in the web stack). Use `User::isInactive()`:
+  only a stored false counts, since an in-memory user built without the column (tests) has `is_active` null.
+  Nobody can make their own account inactive.
+- **The shared banner prop is `pageAnnouncements`, not `announcements`.** A page prop of the same name
+  replaces a shared one, so Sidebar Management's list once showed every banner on its own page.
 - **Announcements are banners per module** (Sidebar Management > Announcements, table `announcements`, keyed
   by sidebar `menu_key`, entity null = all). `CheckSidebarMenuActive::menuKeyFor()` maps a route to its module,
   falling back to its `.index` page, so `orders-receiving.show` shows Inbound Orders' banner; a page missing

@@ -50,6 +50,15 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // An inactive account (Users > Edit > Status) cannot log in.
+        if (Auth::user()->isInactive()) {
+            Auth::guard('web')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => \App\Http\Middleware\EnsureUserIsActive::MESSAGE,
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

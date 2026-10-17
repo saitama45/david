@@ -18,6 +18,39 @@ export const changeLog = [
     // ---------------------------------------------------------------- October 17, 2026
     {
         date: '2026-10-17',
+        module: 'Users',
+        type: 'new',
+        title: 'New "Status" field in Users > Edit to make a user Active or Inactive, and an inactive user can no longer log in',
+        summary:
+            'Users showed whether a user was active, but there was no way to change it, and an inactive user could still log in and work. The Edit page now has a Status field with Active and Inactive, and an inactive user is kept out of the system.',
+        steps: [
+            'Open Users, click the edit icon of the user and choose Inactive in Status.',
+            'Click "Update" and confirm.',
+            'To let the user back in, choose Active in Status and update again.',
+        ],
+        rules: [
+            'An inactive user cannot log in. The login page shows "This account is inactive. Ask your administrator to make it active again."',
+            'A user made inactive while logged in is signed out on the next click, with the same message.',
+            'You cannot make your own account inactive. Inactive cannot be picked on your own account, and the system refuses it too.',
+            'The user\'s roles, stores, suppliers and records are kept. Only signing in is stopped.',
+            'Users and the user\'s View page show Active as Yes or No.',
+        ],
+        affects: 'Administrators who manage Users, and users whose account is made inactive.',
+    },
+    {
+        date: '2026-10-17',
+        module: 'Sidebar Management',
+        type: 'improved',
+        title: 'The Announcements tab previews a saved announcement for 30 seconds, and no longer shows every announcement at the top of Sidebar Management',
+        summary:
+            'Sidebar Management showed every announcement as a banner at the top of the page, as if they were written for it. Now only the pages an announcement is written for show it. After an announcement is saved, the Announcements tab shows a preview of it, as users will see it, for 30 seconds.',
+        rules: [
+            'The preview appears after "Save Announcement", names the module the announcement is for, and closes by itself after 30 seconds.',
+        ],
+        affects: 'Administrators who use Sidebar Management.',
+    },
+    {
+        date: '2026-10-17',
         module: 'Sidebar Management',
         type: 'new',
         title: 'New "Announcements" tab in Sidebar Management to show a banner on the pages of a module',

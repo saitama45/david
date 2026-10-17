@@ -1,5 +1,5 @@
 <script setup>
-import { useForm, router } from "@inertiajs/vue3";
+import { useForm, router, usePage } from "@inertiajs/vue3";
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
@@ -53,7 +53,12 @@ const form = useForm({
     // Use Number() to ensure consistent integer IDs matching the options format
     assignedBranches: props.user.store_branches.map((item) => Number(item.id)),
     assignedSuppliers: userCurrentAssignedSuppliers,
+    // Inactive: cannot log in, and is signed out on the next click.
+    is_active: Number(props.user.is_active ?? 1) === 1,
 });
+
+// Your own account cannot be made inactive (the server refuses it too).
+const isOwnAccount = computed(() => Number(usePage().props.auth?.user?.id) === Number(props.user.id));
 
 console.log('form.assignedSuppliers (after form init):', form.assignedSuppliers);
 
@@ -288,6 +293,22 @@ const handleCancel = () => {
                         <Label>Remarks</Label>
                         <Textarea v-model="form.remarks" />
                         <FormError>{{ form.errors.remarks }}</FormError>
+                    </InputContainer>
+                    <InputContainer>
+                        <Label for="user_status">Status</Label>
+                        <select
+                            id="user_status"
+                            v-model="form.is_active"
+                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                            <option :value="true">Active</option>
+                            <option :value="false" :disabled="isOwnAccount && form.is_active">Inactive</option>
+                        </select>
+                        <p v-if="!form.is_active" class="text-xs text-amber-700">
+                            An inactive user cannot log in, and is signed out on their next click. Their records and assignments are kept.
+                        </p>
+                        <p v-else-if="isOwnAccount" class="text-xs text-muted-foreground">You cannot make your own account inactive.</p>
+                        <FormError>{{ form.errors.is_active }}</FormError>
                     </InputContainer>
 
                     <InputContainer class="sm:col-span-2">

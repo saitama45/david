@@ -32,6 +32,12 @@ class UpdateUserRequest extends FormRequest
             'email' => ['required', 'unique:users,email,' . $this->user->id],
             'roles' => ['required', 'array'],
             'remarks' => ['nullable'],
+            // Inactive: cannot log in, and is signed out on the next click. Never your own account.
+            'is_active' => ['sometimes', 'boolean', function ($attribute, $value, $fail) {
+                if (! filter_var($value, FILTER_VALIDATE_BOOLEAN) && (int) $this->user->id === (int) Auth::id()) {
+                    $fail('You cannot make your own account inactive.');
+                }
+            }],
             'assignedBranches' => ['required', 'array'],
             'assignedSuppliers' => ['nullable', 'array'],
             'assignedSuppliers.*' => ['exists:suppliers,supplier_code'], // Validate each supplier_code exists in the suppliers table

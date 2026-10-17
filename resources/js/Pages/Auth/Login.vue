@@ -56,6 +56,11 @@ const submit = () => {
                 Sign in to your account
             </h1>
 
+            <!-- For example why the user was signed out (an inactive account). -->
+            <p v-if="status" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {{ status }}
+            </p>
+
             <form class="space-y-5" @submit.prevent="submit">
                 <div>
                     <InputLabel for="entity_id" value="Entity" />

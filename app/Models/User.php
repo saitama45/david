@@ -57,6 +57,18 @@ class User extends Authenticatable implements Auditable
         ];
     }
 
+    /**
+     * Made inactive in Users > Edit > Status: cannot log in, and is signed out on the next request.
+     * Only a stored false counts; a user object built without the column (the database default
+     * is active) is not inactive.
+     */
+    public function isInactive(): bool
+    {
+        $active = $this->getAttribute('is_active');
+
+        return $active !== null && ! filter_var($active, FILTER_VALIDATE_BOOLEAN);
+    }
+
 
     public function templates()
     {

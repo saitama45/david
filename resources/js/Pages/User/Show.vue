@@ -59,7 +59,7 @@ const isAllSuppliersAssigned = computed(() => {
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Is Active</LabelXS>
-                    <SpanBold>{{ user.is_active ? "Yes" : "No" }}</SpanBold>
+                    <SpanBold>{{ Number(user.is_active) === 1 || user.is_active === true ? "Yes" : "No" }}</SpanBold>
                 </InputContainer>
                 <InputContainer>
                     <LabelXS>Remarks</LabelXS>

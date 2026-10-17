@@ -344,7 +344,8 @@ class HandleInertiaRequests extends Middleware
                 'activeEntity' => app(\App\Support\EntityContext::class)->id(),
             ],
             // Banners written in Sidebar Management > Announcements for the module of this page.
-            'announcements' => function () use ($request, $user) {
+            // Not "announcements": a page prop of that name (Sidebar Management's list) would replace it.
+            'pageAnnouncements' => function () use ($request, $user) {
                 $menuKey = $user ? \App\Http\Middleware\CheckSidebarMenuActive::menuKeyFor($request->route()?->getName()) : null;
 
                 return $menuKey

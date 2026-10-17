@@ -1,11 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Dialog from 'primevue/dialog';
 import AutoComplete from 'primevue/autocomplete';
 import { useToast } from 'primevue/usetoast';
 import { Megaphone, Pencil, Plus } from 'lucide-vue-next';
 import { MIN_SEARCH_CHARS } from '@/lib/searchRules';
+import PageAnnouncements from '@/components/PageAnnouncements.vue';
 
 // Sidebar Management > Announcements: a banner per module (sidebar page). No delete: an
 // announcement is switched off (Active) or given an end date.
@@ -93,11 +94,25 @@ const openDialog = (announcement = null) => {
     dialog.value = { open: true, editing: announcement };
 };
 
+// After saving, the banner is previewed here as users will see it, for 30 seconds.
+const PREVIEW_SECONDS = 30;
+const preview = ref(null);
+let previewTimer = null;
+const showPreview = (saved) => {
+    clearTimeout(previewTimer);
+    preview.value = { id: 'preview', title: saved.title, message: saved.message, tone: saved.tone, module: moduleLabel(saved.menu_key) };
+    previewTimer = setTimeout(() => { preview.value = null; }, PREVIEW_SECONDS * 1000);
+};
+onBeforeUnmount(() => clearTimeout(previewTimer));
+
 const save = () => {
+    const saved = form.data();
     const options = {
         preserveScroll: true,
+        preserveState: true,
         onSuccess: () => {
             dialog.value.open = false;
+            showPreview(saved);
             toast.add({ severity: 'success', summary: 'Saved', detail: 'Announcement saved.', life: 3000 });
         },
     };
@@ -140,6 +155,13 @@ const formatDate = (value) => (value ? new Date(`${value}T00:00:00`).toLocaleDat
             >
                 <Plus class="size-4" /> New Announcement
             </button>
+        </div>
+
+        <div v-if="preview" class="space-y-2 rounded-md border border-dashed border-primary/40 p-3">
+            <p class="text-xs font-medium text-muted-foreground">
+                Preview on {{ preview.module }}, as users see it. It closes by itself after {{ PREVIEW_SECONDS }} seconds.
+            </p>
+            <PageAnnouncements :items="[preview]" />
         </div>
 
         <div v-if="!announcements.length" class="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
