@@ -1,6 +1,7 @@
 <script setup>
 import SalesImportNotifications from "@/components/SalesImportNotifications.vue";
 import WorkflowGuidance from "@/components/WorkflowGuidance.vue";
+import PageAnnouncements from "@/components/PageAnnouncements.vue";
 import Logo from "../../images/temporaryLoginImage.png";
 import {
     DropdownMenu,
@@ -559,6 +560,7 @@ watch(() => groupedMissingSales.value, (newVal) => {
                     </DivFlexCenter>
                 </div>
                 <div class="space-y-5">
+                    <PageAnnouncements />
                     <WorkflowGuidance />
                     <!-- MainView -->
                     <slot />

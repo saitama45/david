@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\CheckSidebarMenuActive;
+use App\Models\Announcement;
+use App\Models\Entity;
 use App\Models\SidebarMenuSetting;
+use App\Support\EntityContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class SidebarManagementController extends Controller
@@ -126,7 +132,7 @@ class SidebarManagementController extends Controller
         ['menu_key' => 'administration.sidebar-management',       'parent_key' => 'administration',   'default_label' => 'Sidebar Management',           'level' => 1],
     ];
 
-    public function index()
+    public function index(Request $request)
     {
         $settings = SidebarMenuSetting::all()->keyBy('menu_key');
 
@@ -142,7 +148,72 @@ class SidebarManagementController extends Controller
         return \Inertia\Inertia::render('SidebarManagement/Index', [
             'menuItems' => $menuItems,
             'workflowGuidanceVisible' => app(\App\Http\Services\WorkflowGuidanceService::class)->panelVisible(),
+            'tab' => $request->query('tab') === 'announcements' ? 'announcements' : 'menu',
+            'announcements' => Announcement::with(['entity:id,name', 'updatedBy:id,first_name,last_name'])
+                ->orderByDesc('updated_at')
+                ->get(),
+            'announcementModules' => $this->announcementModules($settings),
+            'currentEntity' => Entity::select('id', 'name')->find(app(EntityContext::class)->id()),
+            'today' => now('Asia/Manila')->toDateString(),
         ]);
+    }
+
+    public function storeAnnouncement(Request $request)
+    {
+        Announcement::create($this->validateAnnouncement($request) + [
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('sidebar-management.index', ['tab' => 'announcements'])
+            ->with('success', 'Announcement saved.');
+    }
+
+    public function updateAnnouncement(Request $request, Announcement $announcement)
+    {
+        $announcement->update($this->validateAnnouncement($request) + ['updated_by' => Auth::id()]);
+
+        return redirect()->route('sidebar-management.index', ['tab' => 'announcements'])
+            ->with('success', 'Announcement saved.');
+    }
+
+    /** Module, title and message are required; the dates are optional and in order. */
+    private function validateAnnouncement(Request $request): array
+    {
+        return $request->validate([
+            'menu_key' => ['required', 'string', Rule::in(CheckSidebarMenuActive::pageMenuKeys())],
+            'entity_id' => ['nullable', 'integer', Rule::exists('entities', 'id')],
+            'title' => ['required', 'string', 'max:150'],
+            'message' => ['required', 'string', 'max:2000'],
+            'tone' => ['required', Rule::in(Announcement::TONES)],
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', ...($request->filled('starts_on') ? ['after_or_equal:starts_on'] : [])],
+            'is_active' => ['required', 'boolean'],
+        ], [
+            'menu_key.required' => 'Pick the module the announcement shows on.',
+            'menu_key.in' => 'Pick a module from the list.',
+            'ends_on.after_or_equal' => 'The end date cannot be before the start date.',
+        ]);
+    }
+
+    /**
+     * The pages an announcement can be shown on: every sidebar page, labelled as the sidebar
+     * shows it (a renamed menu keeps its new name), with the section it sits under.
+     */
+    private function announcementModules($settings): array
+    {
+        $structure = collect(self::DEFAULT_STRUCTURE)->keyBy('menu_key');
+        $label = fn (?string $key) => $key ? ($settings->get($key)?->custom_label ?: ($structure[$key]['default_label'] ?? $key)) : null;
+
+        return collect(CheckSidebarMenuActive::pageMenuKeys())
+            ->map(fn ($key) => [
+                'value' => $key,
+                'label' => $label($key),
+                'section' => $label($structure[$key]['parent_key'] ?? null),
+            ])
+            ->sortBy('label')
+            ->values()
+            ->all();
     }
 
     public function bulkUpdate(Request $request)

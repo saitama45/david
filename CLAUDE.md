@@ -196,6 +196,12 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `RoleService::getPermissionsGroup()`'s `$permissionStructure`.** Unlisted permissions are silently
   dropped, not grouped under "Others". Admin still gets them (the seeder syncs all permissions to it),
   so the gap only shows when another role needs access.
+- **Announcements are banners per module** (Sidebar Management > Announcements, table `announcements`, keyed
+  by sidebar `menu_key`, entity null = all). `CheckSidebarMenuActive::menuKeyFor()` maps a route to its module,
+  falling back to its `.index` page, so `orders-receiving.show` shows Inbound Orders' banner; a page missing
+  from that `ROUTE_MAP` gets none. No delete: switched off or `ends_on`.
+- **Placing a CPO order needs the CPO template assigned to the user** (`user_suppliers`), on top of
+  `create cpo orders`, as Mass Orders did; the role grant was data-migrated from CPO users' roles.
 - **The "Business rules and next actions" panel (`WorkflowGuidance.vue`) can be switched off globally** in
   Sidebar Management (`settings` key `workflow_guidance.panel_visible`, default on). Off, the shared
   `workflowGuidance` prop is null on every page, so a missing panel is that setting, not a bug.

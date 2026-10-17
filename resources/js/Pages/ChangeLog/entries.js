@@ -20,6 +20,44 @@ export const changeLog = [
         date: '2026-10-17',
         module: 'Sidebar Management',
         type: 'new',
+        title: 'New "Announcements" tab in Sidebar Management to show a banner on the pages of a module',
+        summary:
+            'There was no way to tell users about a change on the page where it happens. Sidebar Management now has an Announcements tab. An announcement is a banner with a title and a message, shown at the top of every page of the module it is written for, to every user who opens it.',
+        steps: [
+            'Open Sidebar Management and click the "Announcements" tab.',
+            'Click "New Announcement". In Module, type at least 3 letters of a sidebar page, for example Mass Orders, and pick it.',
+            'Enter the Title and the Message, choose where it is shown (all entities or only the current one) and its color, and set the dates if it should only show for a while.',
+            'Click "Save Announcement". The banner shows on that page right away.',
+            'To take it down, click "Switch Off", or edit it and set "Show until".',
+        ],
+        rules: [
+            'Module, Title and Message are required. The Message keeps its line breaks, up to 2,000 characters.',
+            'The banner also shows on the module\'s other pages, for example an order\'s receiving page under Inbound Orders.',
+            'An announcement shows only while Active, from its "Show from" date, and until its "Show until" date when one is set.',
+            'Announcements are not deleted. They are switched off, or end on their date.',
+            'Only users with the permission "manage sidebar" can open Sidebar Management and write announcements.',
+            'Three announcements are already written: on Mass Orders, that CPO moved to CPO Orders and that Additional Order, Emergency Order and Allocation were added, and on Inbound Orders, how Zero All and Final Receive All work.',
+        ],
+        affects: 'Administrators who use Sidebar Management, and every user of a page with an announcement.',
+    },
+    {
+        date: '2026-10-17',
+        module: 'CPO Orders',
+        type: 'improved',
+        title: 'CPO Orders is given to the roles of users who ordered CPO, and placing a CPO order needs the CPO template assigned to the user',
+        summary:
+            'The new CPO Orders permissions were only given to the Admin role, so users who ordered CPO in Mass Orders could not open CPO Orders. They are now ticked in Roles for every role whose users were assigned the CPO template, following what that role could do in Mass Orders.',
+        rules: [
+            'A role with a user assigned the CPO template gets "view cpo orders" when it has "view mass orders", and "create cpo orders" when it has "create mass orders".',
+            'As in Mass Orders, placing a CPO order and adding or editing a vendor also need the CPO template assigned to the user in Users. Other members of the same role can open CPO Orders and see the orders of their stores, with a note that the template is not assigned to them.',
+            'A user assigned the CPO template later needs a role with these permissions, set in Roles as usual.',
+        ],
+        affects: 'Users who ordered CPO in Mass Orders, other members of their roles, and administrators who manage Roles and Users.',
+    },
+    {
+        date: '2026-10-17',
+        module: 'Sidebar Management',
+        type: 'new',
         title: 'New switch in Sidebar Management to show or hide the "Business rules and next actions" panel on every page',
         summary:
             'Ordering, receiving, wastage, month end count and interco pages show a blue panel at the top, titled "Business rules and next actions" or "What happens next?". It could not be turned off. Sidebar Management now has a switch that shows or hides it on every page at once.',

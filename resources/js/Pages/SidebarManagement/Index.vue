@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import draggable from 'vuedraggable';
 import { useToast } from 'primevue/usetoast';
 import { GripVertical, RotateCcw, Eye, EyeOff, ChevronRight, ChevronDown } from 'lucide-vue-next';
+import AnnouncementsTab from './Partials/AnnouncementsTab.vue';
 
 const props = defineProps({
     menuItems: {
@@ -15,7 +16,25 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    // 'menu' | 'announcements'
+    tab: { type: String, default: 'menu' },
+    announcements: { type: Array, default: () => [] },
+    announcementModules: { type: Array, default: () => [] },
+    currentEntity: { type: Object, default: null },
+    today: { type: String, default: '' },
 });
+
+const activeTab = ref(props.tab);
+const switchTab = (tab) => {
+    activeTab.value = tab;
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        window.history.replaceState(window.history.state, '', url);
+    } catch (e) {
+        // Only keeps the tab on reload; nothing depends on it.
+    }
+};
 
 const toast = useToast();
 
@@ -171,6 +190,22 @@ const levelBg = ['bg-muted/40 border border-border rounded-md', 'bg-muted/20 bor
 <template>
     <Layout heading="Sidebar Management">
         <div class="max-w-4xl mx-auto space-y-4">
+            <div role="tablist" class="flex gap-1 border-b border-border">
+                <button
+                    v-for="tabItem in [{ key: 'menu', label: 'Menu' }, { key: 'announcements', label: 'Announcements' }]"
+                    :key="tabItem.key"
+                    type="button"
+                    role="tab"
+                    :aria-selected="activeTab === tabItem.key"
+                    class="-mb-px border-b-2 px-4 py-2 text-sm font-medium"
+                    :class="activeTab === tabItem.key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                    @click="switchTab(tabItem.key)"
+                >
+                    {{ tabItem.label }}
+                </button>
+            </div>
+
+            <template v-if="activeTab === 'menu'">
             <!-- Page display: the business rules panel, shown or hidden on every page -->
             <div class="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -386,6 +421,15 @@ const levelBg = ['bg-muted/40 border border-border rounded-md', 'bg-muted/20 bor
                     {{ saving ? 'Saving...' : 'Save Changes' }}
                 </button>
             </div>
+            </template>
+
+            <AnnouncementsTab
+                v-else
+                :announcements="announcements"
+                :modules="announcementModules"
+                :current-entity="currentEntity"
+                :today="today"
+            />
         </div>
     </Layout>
 </template>

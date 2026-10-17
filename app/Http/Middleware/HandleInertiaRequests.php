@@ -343,6 +343,15 @@ class HandleInertiaRequests extends Middleware
                     : [],
                 'activeEntity' => app(\App\Support\EntityContext::class)->id(),
             ],
+            // Banners written in Sidebar Management > Announcements for the module of this page.
+            'announcements' => function () use ($request, $user) {
+                $menuKey = $user ? \App\Http\Middleware\CheckSidebarMenuActive::menuKeyFor($request->route()?->getName()) : null;
+
+                return $menuKey
+                    ? \App\Models\Announcement::showingOn($menuKey, app(\App\Support\EntityContext::class)->id(), now('Asia/Manila')->toDateString())
+                        ->get(['id', 'title', 'message', 'tone'])
+                    : [];
+            },
             'workflowGuidance' => function () use ($request, $user) {
                 // Hidden on every page while Sidebar Management's switch is off.
                 if ($user && ! app(\App\Http\Services\WorkflowGuidanceService::class)->panelVisible()) return null;

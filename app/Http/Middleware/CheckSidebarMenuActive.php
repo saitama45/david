@@ -127,6 +127,41 @@ class CheckSidebarMenuActive
         'wastage-settings.index'             => 'administration.wastage-settings',
     ];
 
+    /** Every menu_key that is a page, for pickers such as Announcements. */
+    public static function pageMenuKeys(): array
+    {
+        return array_values(array_unique(self::ROUTE_MAP));
+    }
+
+    /**
+     * The module (menu_key) a route belongs to: its own entry, else the module of its index page,
+     * so mass-orders.show and orders-receiving.show belong to Mass Orders and Inbound Orders.
+     */
+    public static function menuKeyFor(?string $routeName): ?string
+    {
+        if (! $routeName) {
+            return null;
+        }
+
+        if (isset(self::ROUTE_MAP[$routeName])) {
+            return self::ROUTE_MAP[$routeName];
+        }
+
+        $segments = explode('.', $routeName);
+        while (count($segments) > 1) {
+            array_pop($segments);
+            $prefix = implode('.', $segments);
+            if (isset(self::ROUTE_MAP["{$prefix}.index"])) {
+                return self::ROUTE_MAP["{$prefix}.index"];
+            }
+            if (isset(self::ROUTE_MAP[$prefix])) {
+                return self::ROUTE_MAP[$prefix];
+            }
+        }
+
+        return null;
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         // Admins bypass the check

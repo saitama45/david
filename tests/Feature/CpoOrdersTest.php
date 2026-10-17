@@ -48,6 +48,7 @@ function cpoFixture(): array
     });
 
     $vendor = CpoVendor::create(['name' => 'Corner Market', 'tin' => '123-456', 'address' => 'Quezon City']);
+    $user->suppliers()->attach('CPO'); // placing a CPO order needs the template assigned
 
     return [$user, $stores[0], $stores[1], $vendor, $cpo];
 }
@@ -216,7 +217,6 @@ it('searches vendors from three characters, and finds a shorter name only when t
 
 it('no longer takes CPO through Mass Orders', function () {
     [$user, , , , $cpo] = cpoFixture();
-    $user->suppliers()->attach('CPO');
     $this->actingAs($user);
 
     $request = Request::create('/mass-orders/upload', 'POST', ['supplier_code' => 'CPO', 'order_date' => '2026-10-19'], [], [
@@ -244,4 +244,23 @@ it('lists CPO orders in Mass Orders Approval even when the CPO approval switch i
 
     expect(collect($props['orders']['data'])->pluck('id')->map(fn ($id) => (int) $id)->all())->toBe([$order->id])
         ->and($props['counts']['pending'])->toBe(1);
+});
+
+it('lets a user without the CPO template assigned see CPO Orders but not place an order or add a vendor', function () {
+    [$user, , , $vendor] = cpoFixture();
+    $user->suppliers()->detach('CPO');
+    $this->actingAs($user);
+    $controller = app(CpoOrdersController::class);
+
+    $props = $controller->index(Request::create('/cpo-orders'))->toResponse(Request::create('/'))->getOriginalContent()->getData()['page']['props'];
+    expect($props['cpoAssigned'])->toBeFalse();
+
+    expect(fn () => uploadCpoOrder(['order_date' => '2026-10-19', 'cpo_vendor_id' => $vendor->id], [
+        'mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']]),
+        'attachments' => [UploadedFile::fake()->create('invoice.pdf', 10, 'application/pdf')],
+    ]))->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class)
+        ->and(fn () => $controller->storeVendor(Request::create('/cpo-orders/vendors', 'POST', ['name' => 'X', 'address' => 'Y'])))
+        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+    expect(StoreOrder::count())->toBe(0);
 });

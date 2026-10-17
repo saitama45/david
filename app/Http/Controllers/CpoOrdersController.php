@@ -34,6 +34,8 @@ class CpoOrdersController extends Controller
 
     public const MAX_ATTACHMENT_KB = 5120;
 
+    private const NOT_ASSIGNED = 'The CPO ordering template is not assigned to you. Ask your administrator to assign it in Users.';
+
     public function __construct(
         private CpoOrderService $cpoOrders,
         private MassOrderService $massOrders,
@@ -81,6 +83,8 @@ class CpoOrdersController extends Controller
             // Last date closed for every CPO store of the user (final approved month end counts).
             'closedForAllStores' => $this->closedPeriods->closedForAll($cpoStores->pluck('id')),
             'hasCpoStores' => $cpoStores->isNotEmpty(),
+            // Placing an order also needs the CPO template assigned to the user, as in Mass Orders.
+            'cpoAssigned' => $this->assignedCpo(),
             'maxAttachments' => self::MAX_ATTACHMENTS,
             'maxAttachmentMb' => self::MAX_ATTACHMENT_KB / 1024,
         ]);
@@ -103,6 +107,7 @@ class CpoOrdersController extends Controller
 
     public function downloadTemplate(Request $request)
     {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
         $request->validate(['order_date' => 'required|date']);
 
         $orderDate = Carbon::parse($request->input('order_date'))->toDateString();
@@ -117,6 +122,8 @@ class CpoOrdersController extends Controller
 
     public function upload(Request $request)
     {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
+
         $request->validate([
             'order_date' => 'required|date',
             'cpo_vendor_id' => ['required', 'integer', Rule::exists('cpo_vendors', 'id')],
@@ -159,6 +166,7 @@ class CpoOrdersController extends Controller
     /** Vendors for the picker: nothing below MIN_SEARCH_CHARS but an exact name. */
     public function vendors(Request $request)
     {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
         $term = trim((string) $request->input('q', ''));
 
         if ($term === '') {
@@ -172,6 +180,7 @@ class CpoOrdersController extends Controller
 
     public function storeVendor(Request $request)
     {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
         $vendor = CpoVendor::create($this->validateVendor($request) + [
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),
@@ -182,6 +191,7 @@ class CpoOrdersController extends Controller
 
     public function updateVendor(Request $request, CpoVendor $vendor)
     {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
         $vendor->update($this->validateVendor($request, $vendor) + ['updated_by' => Auth::id()]);
 
         return response()->json($vendor->toOption());
@@ -199,6 +209,12 @@ class CpoOrdersController extends Controller
         return Storage::disk(CpoOrderAttachment::DISK)->response($attachment->file_path, $attachment->original_name, [
             'Content-Disposition' => 'inline; filename="'.addcslashes($attachment->original_name, '"\\').'"',
         ]);
+    }
+
+    /** Whether the CPO ordering template is assigned to the user (Users > suppliers). */
+    private function assignedCpo(): bool
+    {
+        return Auth::user()->suppliers()->where('suppliers.supplier_code', Supplier::CPO)->exists();
     }
 
     private function findCpoOrder(string $orderNumber): StoreOrder

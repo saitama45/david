@@ -21,6 +21,8 @@ const props = defineProps({
     // Last date closed for every CPO store of the user (final approved month end counts).
     closedForAllStores: { type: String, default: null },
     hasCpoStores: { type: Boolean, default: false },
+    // The CPO ordering template is assigned to the user; placing an order needs it.
+    cpoAssigned: { type: Boolean, default: false },
     maxAttachments: { type: Number, default: 5 },
     maxAttachmentMb: { type: Number, default: 5 },
 });
@@ -243,10 +245,14 @@ const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "
 
     <Layout
         heading="CPO Orders"
-        :hasButton="hasAccess('create cpo orders')"
+        :hasButton="hasAccess('create cpo orders') && cpoAssigned"
         buttonName="Create New CPO Order"
         :handleClick="() => (isModalVisible = true)"
     >
+        <p v-if="hasAccess('create cpo orders') && !cpoAssigned" class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            The CPO ordering template is not assigned to you, so you can see CPO orders but not place one. Ask your administrator to assign it in Users.
+        </p>
+
         <div v-if="flash.message && flashMessageVisible" class="mb-4 p-4 rounded-md" :class="{
             'bg-green-100 text-green-800': notificationType === 'success',
             'bg-yellow-100 text-yellow-800': notificationType === 'warning',
