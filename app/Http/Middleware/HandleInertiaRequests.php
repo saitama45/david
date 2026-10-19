@@ -174,8 +174,11 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 if ($user->can('edit finished good commits') || $user->can('edit other commits') || $user->can('edit control commits')) {
+                    // AO, EO and ALOC have no CS commit, even when placed approved with their
+                    // approval switched off.
                     $csMassCommitsQuery = \App\Models\StoreOrder::where('variant', 'mass regular')
                         ->where('order_status', 'approved')
+                        ->whereNotIn('supplier_id', \App\Models\Supplier::whereIn('supplier_code', \App\Models\Supplier::UNRESTRICTED_TEMPLATES)->select('id'))
                         ->whereBetween('order_date', [$monthStart, $monthEnd])
                         ->whereHas('storeOrderItems', function ($q) {
                             $q->where('quantity_commited', '>', 0);

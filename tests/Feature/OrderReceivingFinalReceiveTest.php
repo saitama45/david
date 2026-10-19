@@ -425,3 +425,43 @@ it('refuses Zero All once the delivery is finalized', function () {
         ->and((float) OrderedItemReceiveDate::find($stray->id)->quantity_received)->toBe(3.0)
         ->and(OrderedItemReceiveDate::find($stray->id)->status)->toBe('pending');
 });
+
+it('receives an approved order nobody committed, from the Inbound Orders list to stock on hand', function () {
+    [$user, $order, $branch, , , $supplierOnly] = receivingFixture();
+    $this->actingAs($user);
+
+    // As Mass Orders Approval leaves an order of a template with a CS commit: approved, its
+    // committed quantity still the ordered one from placing it, no committer, and no
+    // receiving row, because rows used to be made only by a commit.
+    StoreOrder::whereKey($order->id)->update(['order_status' => OrderStatus::APPROVED->value]);
+    $line = StoreOrderItem::create([
+        'store_order_id' => $order->id, 'item_code' => 'UNL-SUP', 'sap_masterfile_id' => $supplierOnly->id,
+        'quantity_ordered' => 5, 'quantity_approved' => 5, 'quantity_commited' => 5,
+        'cost_per_quantity' => 25, 'total_cost' => 125, 'uom' => 'Pack',
+    ]);
+    $service = app(OrderReceivingService::class);
+
+    // Listed in Inbound Orders, under ALL and the Committed tab alike.
+    expect($service->applyStatusFilter(StoreOrder::query(), 'all')->pluck('id')->map(fn ($id) => (int) $id)->all())->toContain($order->id)
+        ->and($service->applyStatusFilter(StoreOrder::query(), 'commited')->pluck('id')->map(fn ($id) => (int) $id)->all())->toContain($order->id);
+
+    // Opening the order gives the uncommitted line its receiving row, at its quantity.
+    $service->ensureReceivingPlaceholders($order->fresh());
+    $row = OrderedItemReceiveDate::where('store_order_item_id', $line->id)->sole();
+
+    expect($line->fresh()->committed_by)->toBeNull()
+        ->and($row->status)->toBe('pending')
+        ->and((float) $row->quantity_received)->toBe(5.0);
+
+    $controller = app(OrderReceivingController::class);
+    $controller->confirmReceive($order->id);
+
+    expect(OrderedItemReceiveDate::find($row->id)->status)->toBe('received')
+        ->and($order->fresh()->order_status)->toBe(OrderStatus::RECEIVED->value);
+
+    $controller->finalReceive($order->id);
+
+    expect((float) ProductInventoryStock::where('product_inventory_id', $supplierOnly->id)->where('store_branch_id', $branch->id)->value('quantity'))->toBe(5.0)
+        ->and(OrderedItemReceiveDate::find($row->id)->status)->toBe('approved')
+        ->and($order->fresh()->receiving_finalized_at)->not->toBeNull();
+});

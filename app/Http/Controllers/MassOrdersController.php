@@ -172,7 +172,7 @@ class MassOrdersController extends Controller
 
             // Fetch the supplier to check the approval flag
             $supplier = Supplier::where('supplier_code', $supplierCodeFromDropdown)->firstOrFail();
-            // AO, EO and ALOC always wait for approval, which commits them.
+            // AO, EO and ALOC wait for approval (which commits them) only while their switch is on.
             $determinedOrderStatus = $supplier->needsMassOrderApproval() ? 'pending' : 'approved';
 
             $import = new MassOrderImport();

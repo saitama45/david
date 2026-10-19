@@ -61,7 +61,8 @@ function levelsOrder(string $supplierCode, int $levels, ?Supplier $supplier = nu
         'item_code' => "{$supplierCode}-ITEM",
         'quantity_ordered' => 10,
         'quantity_approved' => 10,
-        'quantity_commited' => 0,
+        // As Mass Orders places it: the ordered quantity, nobody committing.
+        'quantity_commited' => 10,
         'cost_per_quantity' => 5,
         'total_cost' => 50,
         'uom' => 'PCS',
@@ -137,7 +138,8 @@ it('commits a two-level AO order only at its last level', function () {
     approveAsLevel(levelApprover(['approve mass order']), $order, $item, 7);
 
     expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::PENDING->value)
-        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_commited)->toBe(0.0)
+        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_commited)->toBe(10.0)
+        ->and(StoreOrderItem::findOrFail($item->id)->committed_by)->toBeNull()
         ->and(OrderedItemReceiveDate::where('store_order_item_id', $item->id)->exists())->toBeFalse();
 
     approveAsLevel(levelApprover(['approve mass order level 2']), $order, $item, 7);
@@ -222,4 +224,55 @@ it('saves a template\'s approval levels and refuses more than three', function (
         ->toThrow(ValidationException::class);
 
     expect(Supplier::findOrFail($supplier->id)->mass_order_approval_levels)->toBe(3);
+});
+
+it('receives at the last level\'s approved quantity, not the ordered one nor an earlier level\'s', function () {
+    [, $order, $item] = levelsOrder('GSI-B', 2);
+
+    approveAsLevel(levelApprover(['approve mass order']), $order, $item, 6);
+
+    // Not approved yet: the committed quantity is still the ordered one.
+    expect((float) StoreOrderItem::findOrFail($item->id)->quantity_commited)->toBe(10.0);
+
+    approveAsLevel(levelApprover(['approve mass order level 2']), $order, $item, 5);
+
+    // Inbound Orders opens the order without any CS commit and receives what was approved.
+    app(App\Http\Services\OrderReceivingService::class)->ensureReceivingPlaceholders(StoreOrder::findOrFail($order->id));
+
+    expect((float) StoreOrderItem::findOrFail($item->id)->quantity_commited)->toBe(5.0)
+        ->and(StoreOrderItem::findOrFail($item->id)->committed_by)->toBeNull()
+        ->and((float) OrderedItemReceiveDate::where('store_order_item_id', $item->id)->sole()->quantity_received)->toBe(5.0);
+});
+
+it('lets the AO, EO and ALOC approval switch be turned off, but never CPO\'s', function () {
+    Auth::setUser(levelApprover(['edit ordering template approval']));
+    $controller = app(OrderingTemplateApprovalController::class);
+    $switchOff = fn (Supplier $supplier) => $controller->update(Request::create('/', 'POST', ['is_forapproval_massorders' => false]), $supplier);
+
+    foreach (['AO', 'EO', 'ALOC'] as $code) {
+        [$supplier] = levelsOrder($code, 1);
+        StoreOrder::where('supplier_id', $supplier->id)->update(['order_status' => OrderStatus::APPROVED->value]);
+
+        $switchOff($supplier);
+
+        expect(Supplier::findOrFail($supplier->id)->is_forapproval_massorders)->toBeFalse()
+            ->and(Supplier::findOrFail($supplier->id)->needsMassOrderApproval())->toBeFalse();
+    }
+
+    [$cpo] = levelsOrder('CPO', 1);
+    StoreOrder::where('supplier_id', $cpo->id)->update(['order_status' => OrderStatus::APPROVED->value]);
+    $switchOff($cpo);
+
+    expect(session('errors')->first('error'))->toContain('CPO orders always go to Mass Orders Approval')
+        ->and(Supplier::findOrFail($cpo->id)->is_forapproval_massorders)->toBeTrue();
+});
+
+it('refuses to switch approval off while the template still has orders waiting for it', function () {
+    [$supplier] = levelsOrder('AO', 1);
+    Auth::setUser(levelApprover(['edit ordering template approval']));
+
+    app(OrderingTemplateApprovalController::class)->update(Request::create('/', 'POST', ['is_forapproval_massorders' => false]), $supplier);
+
+    expect(session('errors')->first('error'))->toContain('AO has 1 mass order(s) waiting in Mass Orders Approval')
+        ->and(Supplier::findOrFail($supplier->id)->is_forapproval_massorders)->toBeTrue();
 });

@@ -100,7 +100,7 @@ it('commits CPO, AO, EO and ALOC mass orders when approved', function (string $t
         ->and($receiveRow->remarks)->toBeNull();
 })->with(['CPO', 'AO', 'EO', 'ALOC']);
 
-it('keeps non-CPO mass orders approved without creating receiving rows', function () {
+it('keeps non-CPO mass orders approved, at the approved quantity, without creating receiving rows', function () {
     [$user, $order, $item] = createMassOrderApprovalOrder('GSI-B', committedQuantity: 4);
 
     $this->actingAs($user);
@@ -113,9 +113,12 @@ it('keeps non-CPO mass orders approved without creating receiving rows', functio
     $order = StoreOrder::findOrFail($order->id);
     $item = StoreOrderItem::findOrFail($item->id);
 
+    // Inbound Orders receives at the committed quantity and needs no CS commit, so the
+    // approval carries the approver's quantity into it; nobody counts as the committer.
     expect($order->order_status)->toBe(OrderStatus::APPROVED->value)
         ->and((float) $item->quantity_approved)->toBe(6.0)
-        ->and((float) $item->quantity_commited)->toBe(4.0)
+        ->and((float) $item->quantity_commited)->toBe(6.0)
+        ->and($item->committed_by)->toBeNull()
         ->and(OrderedItemReceiveDate::where('store_order_item_id', $item->id)->exists())->toBeFalse();
 });
 
@@ -213,15 +216,18 @@ it('still lets an approved order with nothing received be approved again or reje
     approveMassOrderThroughController($order, $item, 6);
 
     // A worksheet row nobody has filled in yet is not a receipt.
-    OrderedItemReceiveDate::create([
+    $worksheet = OrderedItemReceiveDate::create([
         'store_order_item_id' => $item->id, 'received_by_user_id' => null, 'quantity_received' => 6,
         'received_date' => null, 'status' => 'pending',
     ]);
 
     approveMassOrderThroughController($order, $item, 8);
 
+    // The worksheet row follows the new approved quantity.
     expect(StoreOrder::findOrFail($order->id)->order_status)->toBe(OrderStatus::APPROVED->value)
-        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_approved)->toBe(8.0);
+        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_approved)->toBe(8.0)
+        ->and((float) StoreOrderItem::findOrFail($item->id)->quantity_commited)->toBe(8.0)
+        ->and((float) OrderedItemReceiveDate::findOrFail($worksheet->id)->quantity_received)->toBe(8.0);
 
     app(MassOrdersApprovalController::class)->reject(Request::create("/mass-orders-approval/reject/{$order->id}", 'POST'), $order->id);
 

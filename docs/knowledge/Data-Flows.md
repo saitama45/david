@@ -114,6 +114,21 @@ puts them back. A CPO order is committed by its approval, so it cannot be approv
   in use has none besides admin.
 - **A store edit does not reset the progress.** Editing a pending order (Mass Orders edit) keeps
   `approved_level`, as editing an approved order never sent it back to pending either.
+- **The last level sets what the store receives.** Inbound Orders needs no commit: it lists `approved`
+  orders and receives at `quantity_commited`, which placing the order sets to the ordered quantity.
+  So the last level copies each line's approved quantity into `quantity_commited` (without
+  `committed_by`: it is not a CS commit, the "TO COMMIT" badge stays, by the user's choice) and into
+  the line's unfilled `pending` receiving rows (opened by Inbound Orders before a re-approval). No CS
+  figure can be overwritten: a CS commit moves the order to `partial_committed` / `committed`, which
+  `decisionProblem()` refuses. Earlier levels leave the committed quantity alone.
+
+**Which templates wait for approval** (2026-10-19). `is_forapproval_massorders` decides it for every
+template except `Supplier::ALWAYS_FOR_APPROVAL` (CPO), locked on. AO / EO / ALOC were locked on too
+until 2026-10-19; switched off now, their orders are placed `approved` and go straight to Inbound
+Orders at the ordered quantity (they still have no CS commit: `pendingCommitKeys()` and the bell's
+`csMassCommitsCount` skip `UNRESTRICTED_TEMPLATES`). Switching any template off is refused while it
+has `pending` mass orders, because `forMassOrderApproval()` would drop them from the approval list and
+nothing else would ever decide them.
 
 **CPO Orders** (`/cpo-orders`, 2026-10-17). CPO left Mass Orders: `MassOrdersController` drops it from
 the template list and the listing, and refuses it in upload / template / available dates / edit /

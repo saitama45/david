@@ -236,8 +236,15 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
 - **AO, EO and ALOC order the way CPO did in Mass Orders** (`Supplier::UNRESTRICTED_TEMPLATES`): any date
   but a closed one (`massOrderDateBlock()` null), stores with the template on **any** schedule day
   (`MassOrdersController::deliversOn()`), the commissary catalogue (`SupplierItems::catalogueCodesFor()`),
-  priced from it, always `pending` (`Supplier::forMassOrderApproval()`), and committed with its receiving
-  rows by Mass Orders Approval (no CS commit). Add a template there, never another `=== 'CPO'` check.
+  priced from it, and no CS commit. While its Ordering Template Approval switch is on (since 2026-10-19 it
+  can be turned off; only `Supplier::ALWAYS_FOR_APPROVAL` = CPO is locked on) the order waits `pending` and
+  Mass Orders Approval's last level commits it with its receiving rows; off, it is placed `approved` and goes
+  straight to Inbound Orders at its ordered quantity. Add a template there, never another `=== 'CPO'` check.
+- **Receiving never needs a commit, so the last approval sets the committed quantity.** Inbound Orders lists
+  `approved` orders and receives at `quantity_commited` (placed = ordered quantity). Mass Orders Approval's
+  last level copies each line's approved quantity into it (and into unfilled `pending` receiving rows); a CS
+  commit can only come after, since it moves the order past `approved`. Switching a template's approval off
+  is refused while it has `pending` mass orders, which would otherwise vanish from the approval list.
 - **Ordering cutoffs are enforced on the server** through `OrderingCutoffService` (mass orders, DTS).
   Never re-derive cutoff maths in a controller or Vue page. A blocked action may only pass with an
   approved one-time grant from `RuleExceptionService`, consumed **inside** the action's transaction.

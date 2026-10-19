@@ -227,13 +227,26 @@ class MassOrdersApprovalController extends Controller
                 $approvedQuantity = $item['quantity_approved'];
                 $orderItem->quantity_approved = $approvedQuantity;
 
-                if ($commitsOnApproval) {
+                // The last level's quantity is what the store receives: Inbound Orders reads the
+                // committed quantity and needs no CS commit. No CS commit can have happened yet
+                // (it moves the order past approved, which decisionProblem() refuses), so this
+                // only replaces the ordered quantity copied when the order was placed.
+                if ($isFinal) {
                     $orderItem->quantity_commited = $approvedQuantity;
+                }
+
+                if ($commitsOnApproval) {
                     $orderItem->committed_by = Auth::id();
                     $orderItem->committed_date = $now;
                 }
 
                 $orderItem->save();
+
+                if ($isFinal && ! $commitsOnApproval) {
+                    // A receiving row Inbound Orders opened before a re-approval, nobody filled in.
+                    $orderItem->ordered_item_receive_dates()->where('status', 'pending')
+                        ->update(['quantity_received' => $approvedQuantity]);
+                }
 
                 if ($commitsOnApproval) {
                     $orderItem->ordered_item_receive_dates()->updateOrCreate(

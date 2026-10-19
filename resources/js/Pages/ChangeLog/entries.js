@@ -19,6 +19,41 @@ export const changeLog = [
     {
         date: '2026-10-19',
         module: 'Ordering Template Approval',
+        type: 'improved',
+        title: 'The "Is For Approval (Mass Orders)" switch of AO, EO and ALOC can now be turned off',
+        summary:
+            'Additional Order (AO), Emergency Order (EO) and Allocation (ALOC) were locked into Mass Orders Approval. Their switch can now be turned on or off like any other template. With it off, their orders skip approval and go straight to Inbound Orders.',
+        steps: [
+            'Open Ordering Template Approval and turn off "Is For Approval (Mass Orders)" for AO, EO or ALOC.',
+            'Mass orders placed for that template from then on are Approved right away and appear in Inbound Orders, where they can be received from their Delivery Date.',
+            'The store receives them there with Confirm Receive All and Final Receive All, at the ordered quantity. No commit is needed.',
+        ],
+        rules: [
+            'While the switch is on, these orders still wait in Mass Orders Approval, and approving one commits it and opens its receiving, as before.',
+            'The switch cannot be turned off while the template still has orders waiting in Mass Orders Approval. The page says how many, for example "AO has 1 mass order(s) waiting in Mass Orders Approval. Approve or reject them first, then switch its approval off."',
+            'CPO keeps its switch on, with the note "Always on: CPO orders are checked and committed in Mass Orders Approval." Its costs and invoice are checked there.',
+            'Orders already placed keep their status. Turning the switch on again only affects orders placed afterwards.',
+        ],
+        affects: 'Administrators who manage Ordering Template Approval, and stores ordering AO, EO or ALOC.',
+    },
+    {
+        date: '2026-10-19',
+        module: 'Mass Orders Approval',
+        type: 'improved',
+        title: 'Inbound Orders now receives a mass order at the quantity approved in Mass Orders Approval',
+        summary:
+            'When an approver changed a quantity in Mass Orders Approval, Inbound Orders still expected the ordered quantity unless someone committed the order in CS Mass Commits, so Confirm Receive All received the old figure. The last approval now becomes the quantity the store is expected to receive.',
+        rules: [
+            'The Approved quantities of the last approval level become the Committed quantities shown in Inbound Orders. For example, 10 ordered and 6 approved is received as 6 unless the store records a different quantity.',
+            'An earlier level\'s quantities do not count until the last level approves.',
+            'A commit in CS Mass Commits is not needed to receive. It can still change the quantities after approval.',
+            'An item not filled in yet in Inbound Orders follows a new approval of the order too.',
+        ],
+        affects: 'Stores receiving mass orders in Inbound Orders, and Mass Orders Approval approvers.',
+    },
+    {
+        date: '2026-10-19',
+        module: 'Ordering Template Approval',
         type: 'new',
         title: 'New "Approval Levels" column in Ordering Template Approval: choose how many levels approve each template\'s mass orders',
         summary:
@@ -34,7 +69,7 @@ export const changeLog = [
             'Level 1 uses the permissions approvers already have: "approve mass order" and "reject mass order". Level 2 uses "approve mass order level 2" and "reject mass order level 2", and Level 3 uses "approve mass order level 3" and "reject mass order level 3".',
             'A template that waits at a level no role can approve shows "No role can approve Level 2 yet." under its Approval Levels, and the panel shows "No role yet: orders will wait at this level." The admin role holds every permission, so it does not count as a level\'s approver.',
             'A new number of levels applies to orders nobody has approved yet. An order already approved at Level 1 keeps the number of levels it started with.',
-            'Approval Levels can only be picked while the template\'s approval switch is on. CPO, AO, EO and ALOC keep their switch on and can have levels too.',
+            'Approval Levels can only be picked while the template\'s approval switch is on. CPO keeps its switch on and can have levels too.',
         ],
         affects: 'Administrators who manage Ordering Template Approval and Roles.',
     },

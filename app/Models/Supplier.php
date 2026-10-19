@@ -38,28 +38,40 @@ class Supplier extends Model implements Auditable
      * Templates ordered the way CPO was in Mass Orders: any delivery date the store's month end
      * count has not closed (no cutoff, no weekday), every store that has the template on any day
      * of its delivery schedule, and the commissary catalogue (SupplierItems::catalogueCodesFor()).
-     * Their orders always wait in Mass Orders Approval, and approving one commits it and opens
-     * its receiving (no CS commit).
+     * They have no CS commit: approving one in Mass Orders Approval commits it and opens its
+     * receiving. With its approval switched off, an AO / EO / ALOC order is placed approved and
+     * goes straight to Inbound Orders, which receives it at its ordered quantity.
      */
     public const UNRESTRICTED_TEMPLATES = [self::CPO, 'AO', 'EO', 'ALOC'];
+
+    /**
+     * Templates whose orders wait in Mass Orders Approval whatever their switch says: CPO,
+     * whose typed costs and invoice are checked there (CPO Orders places every order pending).
+     */
+    public const ALWAYS_FOR_APPROVAL = [self::CPO];
 
     public static function isUnrestrictedTemplate(?string $supplierCode): bool
     {
         return in_array(strtoupper(trim((string) $supplierCode)), self::UNRESTRICTED_TEMPLATES, true);
     }
 
+    public static function isAlwaysForApproval(?string $supplierCode): bool
+    {
+        return in_array(strtoupper(trim((string) $supplierCode)), self::ALWAYS_FOR_APPROVAL, true);
+    }
+
     /**
      * Templates whose mass orders wait in Mass Orders Approval: those switched on in
-     * Ordering Template Approval, and the unrestricted ones always (their approval commits them).
+     * Ordering Template Approval, and CPO always.
      */
     public function scopeForMassOrderApproval(Builder $query): Builder
     {
-        return $query->where(fn ($q) => $q->where('is_forapproval_massorders', true)->orWhereIn('supplier_code', self::UNRESTRICTED_TEMPLATES));
+        return $query->where(fn ($q) => $q->where('is_forapproval_massorders', true)->orWhereIn('supplier_code', self::ALWAYS_FOR_APPROVAL));
     }
 
     public function needsMassOrderApproval(): bool
     {
-        return $this->is_forapproval_massorders || self::isUnrestrictedTemplate($this->supplier_code);
+        return $this->is_forapproval_massorders || self::isAlwaysForApproval($this->supplier_code);
     }
 
     public function store_orders()

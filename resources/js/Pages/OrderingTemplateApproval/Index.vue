@@ -94,7 +94,8 @@ const updateSupplier = (supplier, field, value) => {
                         Turn on approval for a template to send its mass orders to Mass Orders Approval, then choose how many
                         levels approve them. An order waits for Level 1, then Level 2, and so on, and is approved only when its
                         last level approves. Any level can reject it. A new number of levels applies to orders nobody has approved
-                        yet; an order already approved at a level keeps the levels it started with.
+                        yet; an order already approved at a level keeps the levels it started with. Approval cannot be switched off
+                        while the template still has orders waiting in Mass Orders Approval.
                     </p>
                     <Table>
                         <TableHeader>
@@ -115,6 +116,9 @@ const updateSupplier = (supplier, field, value) => {
                                         :disabled="supplier.always_for_approval && supplier.is_forapproval_massorders"
                                         @update:model-value="(value) => updateSupplier(supplier, 'is_forapproval_massorders', value)"
                                     />
+                                    <p v-if="supplier.always_for_approval" class="mt-1 text-xs text-gray-500">
+                                        Always on: CPO orders are checked and committed in Mass Orders Approval.
+                                    </p>
                                 </TableCell>
                                 <TableCell>
                                     <Select

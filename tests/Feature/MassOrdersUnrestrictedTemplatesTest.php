@@ -87,9 +87,10 @@ it('keeps the weekday rule for a regular template', function () {
     expect($headers)->not->toContain('GSI-STORE');
 });
 
-it('takes an AO order for any date, prices it from the commissary catalogue and sends it for approval', function () {
+it('takes an AO order for any date, prices it from the commissary catalogue, and sends it for approval only while its switch is on', function (bool $switchOn, string $status) {
     [$user, $aoStore] = unrestrictedTemplateFixture();
     $this->actingAs($user);
+    Supplier::where('supplier_code', 'AO')->update(['is_forapproval_massorders' => $switchOn]);
     $farDate = Carbon::now('Asia/Manila')->addDays(200)->toDateString(); // outside the 60-day window
 
     $sheet = (new Spreadsheet)->getActiveSheet();
@@ -108,15 +109,21 @@ it('takes an AO order for any date, prices it from the commissary catalogue and 
 
     expect(session('success'))->toBeTrue()
         ->and((int) $order->store_branch_id)->toBe($aoStore->id)
-        ->and($order->order_status)->toBe('pending') // although its approval switch is off
+        ->and($order->order_status)->toBe($status)
+        // Placed approved, it goes straight to Inbound Orders at its ordered quantity.
+        ->and((float) $order->store_order_items->first()->quantity_commited)->toBe(3.0)
         ->and((float) $order->store_order_items->first()->cost_per_quantity)->toBe(10.0)
         ->and((float) $order->store_order_items->first()->total_cost)->toBe(30.0);
-});
+})->with([
+    'approval on' => [true, 'pending'],
+    'approval off' => [false, 'approved'],
+]);
 
-it('lists an AO order in Mass Orders Approval, whose approval will commit it, with the switch off', function () {
+it('lists an AO order in Mass Orders Approval, whose approval will commit it, with the switch on', function () {
     [$user, $aoStore] = unrestrictedTemplateFixture();
     $this->actingAs($user);
     $ao = Supplier::where('supplier_code', 'AO')->firstOrFail();
+    $ao->update(['is_forapproval_massorders' => true]);
 
     $order = StoreOrder::create([
         'encoder_id' => $user->id, 'supplier_id' => $ao->id, 'store_branch_id' => $aoStore->id,
