@@ -32,7 +32,17 @@ const props = defineProps({
     orders: Object,
     counts: Object,
     filters: Object,
+    // The most approval levels any template uses (Ordering Template Approval).
+    approvalLevels: {
+        type: Number,
+        default: 1,
+    },
 });
+
+// One "For Level N" tab per level, only while a template approves in more than one.
+const levelTabs = computed(() =>
+    props.approvalLevels > 1 ? Array.from({ length: props.approvalLevels }, (_, index) => index + 1) : []
+);
 
 const statusBadgeColor = (status) => {
     switch (status?.toUpperCase()) {
@@ -108,6 +118,20 @@ const showOrderDetails = (id) => {
             </Button>
 
             <Button
+                v-for="level in levelTabs"
+                :key="`level_${level}`"
+                class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
+                :class="isFilterActive(`level_${level}`)"
+                :title="`Pending orders waiting for their Level ${level} approval`"
+                @click="changeFilter(`level_${level}`)"
+            >FOR LEVEL {{ level }}
+                <Badge
+                    class="sm:flex hidden border border-gray bg-transparent text-gray-900 px-2"
+                    :class="isFilterActive(`level_${level}`)"
+                >{{ counts[`level_${level}`] ?? 0 }}</Badge>
+            </Button>
+
+            <Button
                 class="sm:px-10 px-3 bg-white/10 text-gray-800 hover:text-white gap-5 sm:text-sm text-xs"
                 :class="isFilterActive('approved')"
                 @click="changeFilter('approved')"
@@ -157,6 +181,10 @@ const showOrderDetails = (id) => {
                                 :class="statusBadgeColor(order.order_status)"
                                 class="font-bold"
                             >{{ order.order_status ? order.order_status.toUpperCase() : 'N/A' }}</Badge>
+                            <span
+                                v-if="order.approval_progress && order.approval_progress.of > 1"
+                                class="block text-xs text-gray-500 mt-1"
+                            >Level {{ order.approval_progress.level }} of {{ order.approval_progress.of }}</span>
                         </TD>
                         <TD class="flex">
                             <Button

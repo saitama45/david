@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\MassOrderApprovalLevelService;
 use App\Models\StoreOrder;
+use App\Models\StoreOrderApproval;
 use App\Models\Supplier;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +17,10 @@ use App\Enum\OrderStatus;
 
 class MassOrdersApprovalController extends Controller
 {
+    public function __construct(private MassOrderApprovalLevelService $approvalLevels)
+    {
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -22,44 +29,94 @@ class MassOrdersApprovalController extends Controller
 
         $suppliersForApproval = Supplier::forMassOrderApproval()->pluck('id');
 
-        $query = StoreOrder::with(['supplier', 'store_branch'])
-            ->where('variant', 'mass regular')
+        $baseQuery = fn () => StoreOrder::where('variant', 'mass regular')
             ->whereIn('supplier_id', $suppliersForApproval)
             ->whereIn('store_branch_id', $branchIds);
 
-        $filter = $request->input('filter', 'pending');
+        // One "For Level N" tab per level while any template approves in more than one.
+        $levels = $this->approvalLevels->levelsInUse();
+        $filter = $request->input('filter', $this->defaultFilter($user, $levels));
 
-        if ($filter !== 'all') {
+        $query = $baseQuery()->with(['supplier', 'store_branch']);
+
+        if (preg_match('/^level_(\d+)$/', (string) $filter, $match)) {
+            // Waiting for Level N = pending, with the N - 1 levels before it passed.
+            $query->where('order_status', OrderStatus::PENDING->value)->where('approved_level', (int) $match[1] - 1);
+        } elseif ($filter !== 'all') {
             $query->where('order_status', $filter);
         }
 
-        $orders = $query->latest()->paginate(15)->withQueryString();
+        $orders = $query->latest()->paginate(15)->withQueryString()
+            ->through(function (StoreOrder $order) {
+                // "Level 1 of 2" under a pending order's status.
+                $order->setAttribute('approval_progress', strtolower((string) $order->order_status) === OrderStatus::PENDING->value
+                    ? ['level' => $this->approvalLevels->decisionLevel($order), 'of' => $this->approvalLevels->requiredLevels($order)]
+                    : null);
+
+                return $order;
+            });
 
         $counts = [
-            'all' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->whereIn('store_branch_id', $branchIds)->count(),
-            'pending' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->where('order_status', 'pending')->whereIn('store_branch_id', $branchIds)->count(),
-            'approved' => StoreOrder::where('variant', 'mass regular')->whereIn('supplier_id', $suppliersForApproval)->where('order_status', 'approved')->whereIn('store_branch_id', $branchIds)->count(),
+            'all' => $baseQuery()->count(),
+            'pending' => $baseQuery()->where('order_status', OrderStatus::PENDING->value)->count(),
+            'approved' => $baseQuery()->where('order_status', OrderStatus::APPROVED->value)->count(),
         ];
+
+        if ($levels > 1) {
+            $waiting = $baseQuery()->where('order_status', OrderStatus::PENDING->value)
+                ->selectRaw('approved_level, COUNT(*) as total')
+                ->groupBy('approved_level')
+                ->pluck('total', 'approved_level');
+
+            foreach (range(1, $levels) as $level) {
+                $counts["level_{$level}"] = (int) ($waiting[$level - 1] ?? 0);
+            }
+        }
 
         return Inertia::render('MassOrdersApproval/Index', [
             'orders' => $orders,
             'counts' => $counts,
             'filters' => ['currentFilter' => $filter],
+            'approvalLevels' => $levels,
         ]);
+    }
+
+    /**
+     * Every pending order, except for an approver of later levels only, who starts on the
+     * first level they decide.
+     */
+    private function defaultFilter(User $user, int $levels): string
+    {
+        $mine = $levels > 1 ? $this->approvalLevels->approvableLevels($user) : [];
+
+        return $mine && ! in_array(1, $mine, true) ? 'level_'.min($mine) : 'pending';
     }
 
     public function show($id)
     {
         // A CPO order also carries its vendor and the invoice / receipt to check against.
         $order = StoreOrder::with('storeOrderItems.supplierItem', 'supplier', 'store_branch', 'cpoAttachments')->findOrFail($id);
+        $user = Auth::user();
+        $level = $this->approvalLevels->decisionLevel($order);
+        $isFinal = $this->approvalLevels->isFinalLevel($order, $level);
 
         return Inertia::render('MassOrdersApproval/Show', [
             'order' => $order,
             // Why Approve and Reject are not offered on this order, or null while they are.
             // The page hides both on the same rule approve() and reject() enforce.
             'decisionProblem' => $this->decisionProblem($order),
-            // CPO, AO, EO, ALOC: approving also commits the order and opens its receiving.
-            'commitsOnApproval' => Supplier::isUnrestrictedTemplate($order->supplier?->supplier_code),
+            // CPO, AO, EO, ALOC: approving also commits the order and opens its receiving,
+            // at the order's last approval level.
+            'commitsOnApproval' => $isFinal && Supplier::isUnrestrictedTemplate($order->supplier?->supplier_code),
+            // The level that decides the order next, and whether this user's roles may.
+            'approval' => [
+                'level' => $level,
+                'levels' => $this->approvalLevels->requiredLevels($order),
+                'isFinal' => $isFinal,
+                'canApprove' => $user->can(MassOrderApprovalLevelService::approvePermission($level)),
+                'canReject' => $user->can(MassOrderApprovalLevelService::rejectPermission($level)),
+                'steps' => $this->approvalLevels->steps($order),
+            ],
         ]);
     }
 
@@ -100,6 +157,21 @@ class MassOrdersApprovalController extends Controller
         }
     }
 
+    /**
+     * Each level has its own permission: the route lets in any level's approver, this
+     * checks the level the order is waiting for.
+     *
+     * @throws ValidationException when the user's roles cannot decide at this level.
+     */
+    private function assertHoldsLevel(StoreOrder $order, int $level, string $permission, string $verb): void
+    {
+        if (! Auth::user()->can($permission)) {
+            throw ValidationException::withMessages([
+                'error' => "Order {$order->order_number} is waiting for its Level {$level} approval, which your role cannot {$verb}.",
+            ]);
+        }
+    }
+
     public function approve(Request $request, $id)
     {
         $validated = $request->validate([
@@ -115,15 +187,28 @@ class MassOrdersApprovalController extends Controller
             // cannot slip in between this check and the approval.
             $this->assertCanDecide($order);
 
-            // CPO, AO, EO and ALOC have no CS commit: approving commits them and opens receiving.
-            $commitsOnApproval = Supplier::isUnrestrictedTemplate($order->supplier?->supplier_code);
+            $level = $this->approvalLevels->decisionLevel($order);
+            $levels = $this->approvalLevels->requiredLevels($order);
+            $isFinal = $this->approvalLevels->isFinalLevel($order, $level);
+            $this->assertHoldsLevel($order, $level, MassOrderApprovalLevelService::approvePermission($level), 'give');
+
+            // CPO, AO, EO and ALOC have no CS commit: their last level's approval commits them
+            // and opens receiving.
+            $commitsOnApproval = $isFinal && Supplier::isUnrestrictedTemplate($order->supplier?->supplier_code);
             $now = Carbon::now();
 
-            $order->order_status = $commitsOnApproval
-                ? OrderStatus::COMMITTED->value
-                : OrderStatus::APPROVED->value;
-            $order->approver_id = Auth::id();
-            $order->approval_action_date = $now;
+            // Fixed at the first approval: a template changed later leaves this order alone.
+            $order->approval_levels = $levels;
+            $order->approved_level = $level;
+
+            // Below its last level the order stays pending, waiting for the next level.
+            if ($isFinal) {
+                $order->order_status = $commitsOnApproval
+                    ? OrderStatus::COMMITTED->value
+                    : OrderStatus::APPROVED->value;
+                $order->approver_id = Auth::id();
+                $order->approval_action_date = $now;
+            }
 
             if ($commitsOnApproval) {
                 $order->commiter_id = Auth::id();
@@ -163,6 +248,17 @@ class MassOrdersApprovalController extends Controller
                 }
             }
 
+            $order->approvalSteps()->create([
+                'level' => $level,
+                'action' => StoreOrderApproval::APPROVED,
+                'user_id' => Auth::id(),
+                'acted_at' => $now,
+            ]);
+
+            if (! $isFinal) {
+                return "Level {$level} approval saved. Order {$order->order_number} now waits for Level ".($level + 1)." of {$levels}.";
+            }
+
             return $commitsOnApproval
                 ? 'Order approved and committed successfully.'
                 : 'Order approved successfully.';
@@ -174,12 +270,23 @@ class MassOrdersApprovalController extends Controller
     public function reject(Request $request, $id)
     {
         DB::transaction(function () use ($id) {
-            $order = StoreOrder::lockForUpdate()->findOrFail($id);
+            $order = StoreOrder::with('supplier')->lockForUpdate()->findOrFail($id);
 
             $this->assertCanDecide($order);
 
+            // Any level may reject; the order is then rejected for good.
+            $level = $this->approvalLevels->decisionLevel($order);
+            $this->assertHoldsLevel($order, $level, MassOrderApprovalLevelService::rejectPermission($level), 'reject');
+
             $order->order_status = OrderStatus::REJECTED->value;
             $order->save();
+
+            $order->approvalSteps()->create([
+                'level' => $level,
+                'action' => StoreOrderApproval::REJECTED,
+                'user_id' => Auth::id(),
+                'acted_at' => Carbon::now(),
+            ]);
         });
 
         return redirect()->route('mass-orders-approval.index')->with('success', 'Order rejected successfully.');

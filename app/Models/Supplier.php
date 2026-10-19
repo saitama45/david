@@ -22,10 +22,12 @@ class Supplier extends Model implements Auditable
         'is_active',
         'remarks',
         'is_forapproval_massorders',
+        'mass_order_approval_levels',
     ];
 
     protected $casts = [
         'is_forapproval_massorders' => 'boolean',
+        'mass_order_approval_levels' => 'integer',
         'is_active' => 'boolean',
     ];
 

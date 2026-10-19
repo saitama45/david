@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Store ordering (regular / mass / DTS / interco / emergency / F&V / ice cream), approval matrices,
   receiving, wastage, month-end counts, stock adjustments, cost and inventory reporting.
 - Ingests sales and masterfile data (POS, SAP) through queued Excel imports.
-- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 62 models, 151 migrations, 574 routes.
+- Scale: ~90 page modules, 106 module controllers (121 files incl. `Auth/` and `Api/`), 72 models, 159 migrations, 574 routes.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `app/Http/Controllers/` — 106 module controllers + `Auth/`, one per module, kept thin
 - `app/Http/Services/` — **primary business logic** (35 classes)
 - `app/Services/` — infrastructure only: Google Drive, import queue, UOM commits
-- `app/Models/` — 62 models; 48 use `BelongsToEntity`
+- `app/Models/` — 72 models; 48 use `BelongsToEntity`
 - `app/Models/Concerns/`, `app/Models/Scopes/` — `BelongsToEntity`, `EntityScope`
 - `app/Support/` — `EntityContext`, `StockQuantity`
 - `app/Http/Middleware/` — `SetActiveEntity`, `HandleInertiaRequests`, `CheckUserPermission`, `CheckSidebarMenuActive`
@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `app/Console/Commands/` — import reconcilers, `david:e2e`
 - `app/Enum/` **and** `app/Enums/` — two live namespaces (see pitfalls)
 - `resources/js/Pages/<Module>/` — Inertia pages, one directory per module
-- `database/migrations/` (151) · `database/seeders/` (52)
+- `database/migrations/` (159) · `database/seeders/` (52)
 - `tests/Feature/`, `tests/Unit/` — Pest · `e2e/` — self-contained Playwright suite
 - `docs/knowledge/` — detailed notes indexed above
 
@@ -97,7 +97,7 @@ Full detail: [Data-Flows.md](docs/knowledge/Data-Flows.md).
 `OrderCalculatorService`, `OrderReceivingService`, `IntercoService`, `IntercoReceivingService`, `WastageService`,
 `MonthEndCountSettingsService`, `MonthEndCountReadinessService`, `MonthEndCountRejectionService`,
 `MonthEndCountIncidentReportService`, `MonthEndClosedPeriodService`,
-`InventoryMovementService`,
+`InventoryMovementService`, `MassOrderApprovalLevelService`,
 `RoleService`, `UserService`, `AdoptionRateTrackingService`, `SuccessRateService`, `GoLiveStoresService`.
 
 **Models**: `StoreOrder` + `StoreOrderItem` (core aggregate, discriminated by `variant` and
@@ -220,6 +220,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `pending`, or `approved` with nothing committed or received (`MassOrdersApprovalController::decisionProblem()`,
   also sent to the page to hide both buttons). Never approve by id without it: approving a received
   order reset its status and, on CPO, added receiving rows a finalized delivery can never receive.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **Mass Orders Approval runs in levels per template (1-3, `suppliers.mass_order_approval_levels`).**
+  An order stays `pending` until its last level approves; `store_orders.approved_level` counts levels
+  passed and `approval_levels` is fixed at the first approval. Each level has its own permission
+  (`approve mass order` / `... level 2` / `... level 3`, same for reject), checked against
+  `MassOrderApprovalLevelService::decisionLevel()`: never decide an order or count "awaiting approval"
+  without it, and never treat `pending` as "nobody approved yet". Only the last level commits CPO/AO/EO/ALOC.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **CPO is ordered in CPO Orders, never in Mass Orders** (since 2026-10-17). `CpoOrdersController` takes the
   vendor (`cpo_vendors`, copied onto the order), a typed Cost per line and a required invoice / receipt

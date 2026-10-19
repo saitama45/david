@@ -15,12 +15,41 @@ const props = defineProps({
         type: String,
         default: null,
     },
-    // CPO, AO, EO, ALOC: approving also commits the order and opens its receiving.
+    // CPO, AO, EO, ALOC: approving at the last level also commits the order and opens its receiving.
     commitsOnApproval: {
         type: Boolean,
         default: false,
     },
+    // The level that decides the order next (level / levels / isFinal), whether this user
+    // may approve or reject at it, and each level's decision (steps).
+    approval: {
+        type: Object,
+        default: () => ({ level: 1, levels: 1, isFinal: true, canApprove: true, canReject: true, steps: [] }),
+    },
 });
+
+const multiLevel = computed(() => props.approval.levels > 1);
+
+const formatStepDate = (value) => {
+    if (!value) return '';
+    const date = new Date(String(value).replace(' ', 'T'));
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
+const stepLabel = (step) => ({
+    approved: `Approved${step.by ? ` by ${step.by}` : ''}${step.at ? ` on ${formatStepDate(step.at)}` : ''}`,
+    rejected: `Rejected${step.by ? ` by ${step.by}` : ''}${step.at ? ` on ${formatStepDate(step.at)}` : ''}`,
+    waiting: 'Waiting for approval',
+    upcoming: 'Not yet',
+}[step.state] ?? step.state);
+
+const stepClass = (state) => ({
+    approved: 'border-green-200 bg-green-50 text-green-800',
+    rejected: 'border-red-200 bg-red-50 text-red-800',
+    waiting: 'border-amber-300 bg-amber-50 text-amber-800',
+}[state] ?? 'border-gray-200 bg-gray-50 text-gray-500');
+
+const approveLabel = computed(() => (multiLevel.value ? `Approve Level ${props.approval.level}` : 'Approve'));
 
 const form = useForm({
     items: props.order.store_order_items.map(item => ({
@@ -37,7 +66,9 @@ const formatAmount = (value) => (Number(value) || 0).toLocaleString('en-US', { m
 
 const approveOrder = () => {
     confirm.require({
-        message: "Are you sure you want to approve this mass order?",
+        message: props.approval.isFinal
+            ? "Are you sure you want to approve this mass order?"
+            : `Approve Level ${props.approval.level} of ${props.approval.levels}? The order then waits for its Level ${props.approval.level + 1} approval.`,
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -51,12 +82,13 @@ const approveOrder = () => {
         },
         accept: () => {
             form.post(route('mass-orders-approval.approve', props.order.id), {
-                onSuccess: () => {
+                onSuccess: (page) => {
                     toast.add({
                         severity: 'success',
                         summary: 'Success',
-                        detail: props.commitsOnApproval ? 'Order approved and committed successfully.' : 'Order approved successfully.',
-                        life: 3000
+                        detail: page.props.flash?.success
+                            ?? (props.commitsOnApproval ? 'Order approved and committed successfully.' : 'Order approved successfully.'),
+                        life: 4000
                     });
                 },
                 onError: (errors) => {
@@ -120,6 +152,26 @@ const rejectOrder = () => {
                 </CardContent>
             </Card>
 
+            <!-- A template approved in more than one level: where this order stands. -->
+            <Card v-if="multiLevel">
+                <CardHeader>
+                    <CardTitle>Approval Levels</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ol class="grid grid-cols-1 gap-3" :class="approval.steps.length > 2 ? 'md:grid-cols-3' : 'md:grid-cols-2'">
+                        <li
+                            v-for="step in approval.steps"
+                            :key="step.level"
+                            class="rounded-md border px-3 py-2 text-sm"
+                            :class="stepClass(step.state)"
+                        >
+                            <p class="font-semibold">Level {{ step.level }} of {{ approval.levels }}</p>
+                            <p>{{ stepLabel(step) }}</p>
+                        </li>
+                    </ol>
+                </CardContent>
+            </Card>
+
             <!-- A CPO order: check the purchase against the vendor's invoice / receipt. -->
             <Card v-if="isCpoOrder">
                 <CardHeader>
@@ -174,7 +226,7 @@ const rejectOrder = () => {
                                         type="number"
                                         v-model="form.items[index].quantity_approved"
                                         class="w-24"
-                                        :disabled="!!decisionProblem"
+                                        :disabled="!!decisionProblem || !approval.canApprove"
                                     />
                                 </TD>
                             </tr>
@@ -190,9 +242,16 @@ const rejectOrder = () => {
             >
                 {{ decisionProblem }}
             </p>
+            <!-- Each level has its own permission; the server checks it again. -->
+            <p
+                v-else-if="!approval.canApprove && !approval.canReject"
+                class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800"
+            >
+                This order is waiting for its Level {{ approval.level }} approval, which your role cannot give.
+            </p>
             <div v-else class="flex justify-end gap-4">
-                <Button @click="rejectOrder" variant="destructive">Reject</Button>
-                <Button @click="approveOrder" class="bg-green-500 hover:bg-green-300">Approve</Button> <!-- Corrected -->
+                <Button v-if="approval.canReject" @click="rejectOrder" variant="destructive">Reject</Button>
+                <Button v-if="approval.canApprove" @click="approveOrder" class="bg-green-500 hover:bg-green-300">{{ approveLabel }}</Button>
             </div>
         </div>
     </Layout>

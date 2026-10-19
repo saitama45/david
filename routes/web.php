@@ -592,8 +592,9 @@ Route::middleware('auth')
         Route::controller(MassOrdersApprovalController::class)->name('mass-orders-approval.')->prefix('mass-orders-approval')->group(function () {
             Route::middleware('permission:view mass order approval')->get('/', 'index')->name('index');
             Route::middleware('permission:view mass order approval')->get('/show/{id}', 'show')->name('show');
-            Route::middleware('permission:approve mass order')->post('/approve/{id}', 'approve')->name('approve');
-            Route::middleware('permission:reject mass order')->post('/reject/{id}', 'reject')->name('reject');
+            // Any level's approver; the controller checks the level the order waits for.
+            Route::middleware('permission:'.implode('|', \App\Http\Services\MassOrderApprovalLevelService::approvePermissions()))->post('/approve/{id}', 'approve')->name('approve');
+            Route::middleware('permission:'.implode('|', \App\Http\Services\MassOrderApprovalLevelService::rejectPermissions()))->post('/reject/{id}', 'reject')->name('reject');
         });
 
         // CS Mass Commits

@@ -12,7 +12,12 @@ use Illuminate\Http\Request;
 
 function createMassOrderApprovalOrder(string $supplierCode, float $committedQuantity = 4): array
 {
+    // A one-level template's approver: Level 1's approve and reject permissions.
     $user = User::factory()->create();
+    foreach (['approve mass order', 'reject mass order'] as $permission) {
+        Spatie\Permission\Models\Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+    }
+    $user->givePermissionTo(['approve mass order', 'reject mass order']);
 
     $supplier = Supplier::create([
         'supplier_code' => $supplierCode,

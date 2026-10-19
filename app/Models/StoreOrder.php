@@ -58,6 +58,10 @@ class StoreOrder extends Model implements Auditable
         'transfer_date' => 'date',
         'interco_status' => IntercoStatus::class,
         'receiving_finalized_at' => 'datetime',
+        // Mass Orders Approval levels: how many this order passes (fixed at its first
+        // approval) and how many it has passed. Not fillable: written by the approval only.
+        'approval_levels' => 'integer',
+        'approved_level' => 'integer',
     ];
 
     /**
@@ -92,6 +96,13 @@ class StoreOrder extends Model implements Auditable
     {
         return $this->belongsTo(User::class, 'approver_id');
     }
+
+    /** Each Mass Orders Approval level's decision on this order, oldest first. */
+    public function approvalSteps()
+    {
+        return $this->hasMany(StoreOrderApproval::class)->orderBy('id');
+    }
+
     public function commiter()
     {
         return $this->belongsTo(User::class, 'commiter_id');

@@ -15,6 +15,52 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 19, 2026
+    {
+        date: '2026-10-19',
+        module: 'Ordering Template Approval',
+        type: 'new',
+        title: 'New "Approval Levels" column in Ordering Template Approval: choose how many levels approve each template\'s mass orders',
+        summary:
+            'A template could only be switched on or off for Mass Orders Approval, and one approval was always enough. Each template now also has Approval Levels, from 1 to 3, and its mass orders must be approved at every level in turn. A new "Approvers per Level" panel shows the permissions of each level and the roles that hold them.',
+        steps: [
+            'Open Ordering Template Approval and switch on "Is For Approval (Mass Orders)" for the template.',
+            'Pick 1 level, 2 levels or 3 levels in its Approval Levels column. The choice is saved right away.',
+            'Check the "Approvers per Level" panel. Every level the template uses needs a role with that level\'s permission.',
+            'In Roles, under Ordering > Regular Mass Orders, give the approvers\' roles the permissions of their level.',
+        ],
+        rules: [
+            'Every template starts at 1 level, so mass orders are approved exactly as before until someone picks more.',
+            'Level 1 uses the permissions approvers already have: "approve mass order" and "reject mass order". Level 2 uses "approve mass order level 2" and "reject mass order level 2", and Level 3 uses "approve mass order level 3" and "reject mass order level 3".',
+            'A template that waits at a level no role can approve shows "No role can approve Level 2 yet." under its Approval Levels, and the panel shows "No role yet: orders will wait at this level." The admin role holds every permission, so it does not count as a level\'s approver.',
+            'A new number of levels applies to orders nobody has approved yet. An order already approved at Level 1 keeps the number of levels it started with.',
+            'Approval Levels can only be picked while the template\'s approval switch is on. CPO, AO, EO and ALOC keep their switch on and can have levels too.',
+        ],
+        affects: 'Administrators who manage Ordering Template Approval and Roles.',
+    },
+    {
+        date: '2026-10-19',
+        module: 'Mass Orders Approval',
+        type: 'new',
+        title: 'Mass Orders Approval in levels: "FOR LEVEL 1" and "FOR LEVEL 2" tabs, an "Approval Levels" card and an "Approve Level 1" button',
+        summary:
+            'One approval used to approve a mass order. For a template set to 2 or 3 Approval Levels, the order now stays Pending until every level has approved it, one level after the other. The page shows a tab for each level, and each order shows where it stands and who approved each level.',
+        steps: [
+            'The Level 1 approver opens Mass Orders Approval, opens the order and clicks "Approve Level 1". The order stays Pending and moves to the "FOR LEVEL 2" tab.',
+            'The Level 2 approver opens the "FOR LEVEL 2" tab, opens the order and clicks "Approve Level 2". At the last level the button is "Approve Level 2" or "Approve Level 3", and the order becomes Approved.',
+            'Any level may click "Reject" instead, and the order is rejected for good.',
+        ],
+        rules: [
+            'Each level needs its own permission. A user who cannot approve the level an order is waiting for sees "This order is waiting for its Level 2 approval, which your role cannot give." and no Approve or Reject button.',
+            'An approver of a later level only, such as a Level 2 approver, opens the page on that level\'s tab. Everyone else opens on Pending.',
+            'Each level can change the Approved quantities. The next level starts from the quantities the previous level approved.',
+            'The "Approval Levels" card shows each level as approved or rejected, with who and when, Waiting for approval, or Not yet.',
+            'For CPO, AO, EO and ALOC, only the last level\'s approval commits the order and opens its receiving. Earlier levels commit nothing.',
+            'The bell\'s Mass Orders Approval count shows an approver only the orders waiting for a level they can approve.',
+            'The "FOR LEVEL" tabs and the "Level 1 of 2" line under a Pending order show only while a template uses more than 1 level.',
+        ],
+        affects: 'Mass Orders Approval approvers, and stores whose mass orders now wait for more than one approval.',
+    },
     // ---------------------------------------------------------------- October 17, 2026
     {
         date: '2026-10-17',

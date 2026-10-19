@@ -133,6 +133,7 @@ class RoleService
                     'view mass orders', 'create mass orders', 'edit mass orders', 'show mass orders', 'view cost mass orders',
                     'view cpo orders', 'create cpo orders',
                     'view mass order approval', 'approve mass order', 'reject mass order',
+                    'approve mass order level 2', 'reject mass order level 2', 'approve mass order level 3', 'reject mass order level 3',
                     'view cs mass commits', 'create cs mass commits', 'edit cs mass commits', 'edit finished good commits', 'edit other commits', 'edit control commits', 'change commit uom', 'export cs mass commits',
                 ],
                 'DTS Mass Orders' => [

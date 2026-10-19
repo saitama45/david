@@ -162,9 +162,13 @@ class HandleInertiaRequests extends Middleware
 
                 if ($user->can('view mass order approval')) {
                     $suppliersForApproval = \App\Models\Supplier::forMassOrderApproval()->pluck('id');
+                    // An approver counts only orders waiting for a level they decide
+                    // (waiting for Level N = N - 1 levels passed); a viewer counts every pending one.
+                    $approvalLevels = app(\App\Http\Services\MassOrderApprovalLevelService::class)->approvableLevels($user);
                     $data['massOrdersApprovalCount'] = \App\Models\StoreOrder::where('variant', 'mass regular')
                         ->whereIn('supplier_id', $suppliersForApproval)
                         ->where('order_status', 'pending')
+                        ->when($approvalLevels, fn ($q) => $q->whereIn('approved_level', array_map(fn ($level) => $level - 1, $approvalLevels)))
                         ->whereBetween('order_date', [$monthStart, $monthEnd])
                         ->count();
                 }

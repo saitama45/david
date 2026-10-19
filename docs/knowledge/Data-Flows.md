@@ -87,6 +87,34 @@ date-less row per item that a delivery locked by Final Receive All could never r
 orders carried a wrong status from this; `database/queries/repair_mass_orders_reapproved_after_receiving.sql`
 puts them back. A CPO order is committed by its approval, so it cannot be approved a second time.
 
+**Mass Orders Approval levels** (2026-10-19). Ordering Template Approval sets
+`suppliers.mass_order_approval_levels` (1-3, default 1 = the old single approval) beside the
+`is_forapproval_massorders` switch. All level rules live in `MassOrderApprovalLevelService`:
+
+- **The order stays `pending` until its last level approves.** `store_orders.approved_level` counts
+  the levels passed (0 = none), so "waiting for Level N" is `pending` + `approved_level = N - 1`.
+  Every reader of `pending` (My Actions, workflow guidance, MEC blockers) keeps working unchanged.
+  Only the last level sets `approved` / `committed`, `approver_id` and `approval_action_date`; for
+  CPO / AO / EO / ALOC only the last level commits and opens receiving.
+- **`store_orders.approval_levels` is fixed at the first approval** (`requiredLevels()`: that value,
+  else the template's setting while pending, else 1 for orders decided before levels existed), so
+  changing a template only affects orders nobody has approved yet. An already `approved` order
+  (re-approved or rejected while nothing is committed) is decided at its last level.
+- **Each level has its own permission pair.** Level 1 keeps `approve mass order` /
+  `reject mass order`; levels 2-3 are `approve|reject mass order level N`. The routes admit any
+  level's permission; `approve()` / `reject()` then refuse unless the user holds the permission of
+  `decisionLevel()`, under the row lock. One user may approve several levels if their roles hold
+  them (no separation-of-duties rule was asked for).
+- **History.** Every approve / reject writes `store_order_approvals` (order, level, action, user,
+  `acted_at`); the Show page's Approval Levels card is built from it by `steps()`.
+- **Pages.** The index adds a "FOR LEVEL N" tab per level while `levelsInUse()` > 1 (template
+  settings and in-flight orders); an approver of later levels only lands on their first level's tab.
+  The bell's `massOrdersApprovalCount` counts, for an approver, only orders waiting for a level they hold.
+  Ordering Template Approval lists the roles holding each level's permission and warns when a level
+  in use has none besides admin.
+- **A store edit does not reset the progress.** Editing a pending order (Mass Orders edit) keeps
+  `approved_level`, as editing an approved order never sent it back to pending either.
+
 **CPO Orders** (`/cpo-orders`, 2026-10-17). CPO left Mass Orders: `MassOrdersController` drops it from
 the template list and the listing, and refuses it in upload / template / available dates / edit /
 update (no order moves to or from CPO there). `CpoOrdersController` + `CpoOrderService` run the same
