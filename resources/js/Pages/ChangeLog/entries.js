@@ -15,6 +15,26 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 20, 2026
+    {
+        date: '2026-10-20',
+        module: 'Interco Transfer',
+        type: 'improved',
+        title: 'The Item search of Create Store Transfer now lists items the Sending Store has none of, marked "Out of stock"',
+        summary:
+            'Typing an item the Sending Store had no stock of, for example "lemon", showed "No items found", as if the item were missing from the masterlists. The search now lists it, greyed out, with "Sender SOH: 0.00", "Out of stock" and "Cannot be added", so it is clear the item exists but the Sending Store has none to send.',
+        steps: [
+            'Open Interco Transfer and create a transfer, or edit one.',
+            'Choose My Store and the Sending Store, then type at least 3 characters of an item in Item.',
+            'Items the Sending Store has in stock are listed first, each with its Sender SOH. Items it has none of follow, greyed out.',
+        ],
+        rules: [
+            'The stock shown is always the Sending Store\'s, never My Store\'s. An item My Store has but the Sending Store does not is listed as "Out of stock".',
+            'An item marked "Out of stock" cannot be picked. To transfer it, choose a Sending Store that has it.',
+            '"No items found" now only means no active item in the SAP Masterlist matches what was typed.',
+        ],
+        affects: 'Store users who create or edit interco transfers.',
+    },
     // ---------------------------------------------------------------- October 19, 2026
     {
         date: '2026-10-19',

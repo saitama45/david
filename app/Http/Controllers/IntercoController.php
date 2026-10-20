@@ -684,7 +684,10 @@ class IntercoController extends Controller
                     'stock' => number_format($stockQty, 2, '.', ''), // Format to 2 decimal places
                     'is_available' => $stockQty > 0,
                 ];
-            });
+            })
+                // The sending store's items with stock first; the rest are listed so it is clear why they cannot be added.
+                ->sortBy(fn ($item) => $item['is_available'] ? 0 : 1)
+                ->values();
 
             return response()->json(['items' => $processedItems]);
 

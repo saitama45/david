@@ -1171,6 +1171,7 @@ const handleAutoCompleteItemSelect = (item) => {
               <ItemAutoComplete
                 v-model="selectedAutoCompleteItem"
                 :sending-store-id="form.sending_store_branch_id"
+                stock-label="Sender SOH"
                 placeholder="Type at least 3 characters to search for items..."
                 :disabled="!form.sending_store_branch_id || isLoading"
                 @item-selected="handleAutoCompleteItemSelect"

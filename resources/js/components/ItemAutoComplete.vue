@@ -29,6 +29,11 @@ const props = defineProps({
         type: String,
         default: 'items'
     },
+    // Whose stock the figure on each row is, e.g. the sending store's on an interco
+    stockLabel: {
+        type: String,
+        default: 'Stock'
+    },
     dropdownMaxWidth: {
         type: Number,
         default: 320
@@ -181,7 +186,8 @@ const debouncedSearch = debounce(async (searchTerm) => {
 
         if (seq !== searchSeq) return
 
-        searchResults.value = (response.data.items || []).filter(item => item.stock > 0 || props.searchRoute === 'wastage.items.search')
+        // Out-of-stock rows stay in the list (greyed out, not pickable); hiding them made the item look missing.
+        searchResults.value = response.data.items || []
         searchedTerm.value = searchTerm
         moreProducts.value = Boolean(response.data.more_products)
         // Stays open with nothing found, so the "nothing found" message answers the search
@@ -491,7 +497,7 @@ if (props.modelValue && typeof props.modelValue === 'object') {
                         </div>
                         <div v-else class="ml-2 text-right">
                             <div class="text-sm font-medium" :class="item.stock > 0 ? 'text-green-600' : 'text-red-600'">
-                                Stock: {{ item.stock }}
+                                {{ stockLabel }}: {{ item.stock }}
                             </div>
                             <div v-if="item.stock > 0" class="text-xs text-green-500">
                                 Available
