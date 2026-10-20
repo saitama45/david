@@ -168,13 +168,17 @@ class IntercoRequest extends FormRequest
             return;
         }
 
+        // Lines of one item in different units (Bag and Gm) draw on the same balance, so what the
+        // transfer asks of each balance is added up across its lines, in the balance's unit.
+        $requested = [];
+
         foreach ($items as $index => $item) {
             $itemCode = $item['item_code'] ?? null;
             $quantity = $item['quantity_ordered'] ?? 0;
 
             \Log::info("Validating item {$index}: code={$itemCode}, quantity={$quantity}");
 
-            if (!$itemCode || $quantity <= 0) {
+            if (!$itemCode || !is_numeric($quantity) || $quantity <= 0) {
                 continue;
             }
 
@@ -190,17 +194,28 @@ class IntercoRequest extends FormRequest
                 continue;
             }
 
-            // The stock history is the balance, as on the Sender SOH the page shows. The stock cache
-            // can hold several rows per store and item, so reading one of them was not the balance.
-            $balance = app(\App\Http\Services\SohAdjustmentService::class)
-                ->balances((int) $sendingStoreId, [$stockRow->id])
-                ->get($stockRow->id, 0.0);
+            $requested[$stockRow->id] ??= ['qty' => 0.0, 'index' => $index, 'code' => $itemCode, 'factor' => $factor];
+            $requested[$stockRow->id]['qty'] += $quantity * $factor;
+        }
 
-            if (round($balance, 4) < round($quantity * $factor, 4)) {
-                // Report both figures in the requested unit.
-                $available = round($balance / $factor, 4);
-                $validator->errors()->add("items.{$index}.quantity_ordered",
-                    "Insufficient stock for item {$itemCode} in the Sender Store. Available: {$available}, Requested: {$quantity}.");
+        if (empty($requested)) {
+            return;
+        }
+
+        // The stock history is the balance, as on the Sender SOH the page shows. The stock cache
+        // can hold several rows per store and item, so reading one of them was not the balance.
+        $balances = app(\App\Http\Services\SohAdjustmentService::class)
+            ->balances((int) $sendingStoreId, array_keys($requested));
+
+        foreach ($requested as $stockRowId => $line) {
+            $balance = $balances->get($stockRowId, 0.0);
+
+            if (round($balance, 4) < round($line['qty'], 4)) {
+                // Both figures in the unit of the item's first line.
+                $available = round($balance / $line['factor'], 4);
+                $total = round($line['qty'] / $line['factor'], 4);
+                $validator->errors()->add("items.{$line['index']}.quantity_ordered",
+                    "Insufficient stock for item {$line['code']} in the Sender Store. Available: {$available}, Requested: {$total}.");
             }
         }
     }

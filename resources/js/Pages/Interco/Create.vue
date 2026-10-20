@@ -8,6 +8,7 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "@/composables/useToast";
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useEditQuantity } from "@/composables/useEditQuantity";
+import { heldInTransfer, sohLeft, formatSoh, exceedsSoh } from '@/lib/intercoSoh'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -84,7 +85,27 @@ const productDetails = reactive({
   cost: null,
   total_cost: null,
   uom: null,
+  stock: null,
+  stock_row_id: null,
+  stock_factor: null,
 })
+
+// The item picked in Add Items, shaped like a transfer line for the Sender SOH helpers
+const addFormLine = computed(() => ({
+  item_code: productDetails.inventory_code,
+  unit_of_measurement: productDetails.unit_of_measurement,
+  stock: productDetails.stock,
+  stock_row_id: productDetails.stock_row_id,
+  stock_factor: productDetails.stock_factor,
+}))
+
+// What the transfer already holds of the picked item, in its unit, and the Sender SOH left
+const addFormHeld = computed(() => productDetails.inventory_code
+  ? heldInTransfer(selectedItems.value, addFormLine.value) / (Number(productDetails.stock_factor) || 1)
+  : 0)
+const addFormSohLeft = computed(() => productDetails.inventory_code
+  ? sohLeft(selectedItems.value, addFormLine.value)
+  : 0)
 
 // Item form for validation (from MassOrders)
 const itemForm = useForm({
@@ -290,6 +311,11 @@ const addToOrdersButton = () => {
     itemForm.setError("quantity", "Quantity must be more than 0 and a valid number")
     return
   }
+  // The lines already in the transfer hold their share of the Sender SOH
+  if (exceedsSoh(productDetails.quantity, addFormSohLeft.value)) {
+    itemForm.setError("quantity", `Only ${formatSoh(addFormSohLeft.value)} ${productDetails.unit_of_measurement} of the Sender SOH is left for this item`)
+    return
+  }
   if (productDetails.cost === null || Number(productDetails.cost) === 0) {
     toast.add({
       severity: "error",
@@ -348,10 +374,10 @@ const addToOrdersButton = () => {
 
     existingItem.quantity_ordered = newTotalQuantity
     existingItem.total_cost = newTotalCost
-    // Ensure stock data is preserved for existing items
-    if (existingItem.stock === undefined && productDetails.stock !== undefined) {
-      existingItem.stock = productDetails.stock
-    }
+    // The SOH just fetched is the newer figure
+    existingItem.stock = productDetails.stock || 0
+    existingItem.stock_row_id = productDetails.stock_row_id
+    existingItem.stock_factor = productDetails.stock_factor
   } else {
     const newItem = {
       id: Date.now(), // Temporary ID for new items
@@ -363,6 +389,8 @@ const addToOrdersButton = () => {
       cost_per_quantity: Number(productDetails.cost),
       uom: productDetails.uom,
       stock: productDetails.stock || 0, // Preserve SOH stock data
+      stock_row_id: productDetails.stock_row_id,
+      stock_factor: productDetails.stock_factor,
       total_cost: parseFloat((Number(productDetails.quantity) * Number(productDetails.cost)).toFixed(2)),
       sap_masterfile_id: productDetails.id || null,
     }
@@ -424,6 +452,14 @@ const editQuantity = () => {
     if (isNaN(newQuantity) || newQuantity <= 0) {
       formQuantity.errors.quantity = "Quantity must be a positive number."
       toast.add({ severity: "error", summary: "Validation Error", detail: "Quantity must be a positive number.", life: 3000 })
+      return
+    }
+
+    const left = sohLeft(selectedItems.value, currentItem, currentItem)
+    if (exceedsSoh(newQuantity, left)) {
+      const message = `Only ${formatSoh(left)} ${currentItem.unit_of_measurement} of the Sender SOH is left for this item.`
+      formQuantity.errors.quantity = message
+      toast.add({ severity: "error", summary: "Validation Error", detail: message, life: 3000 })
       return
     }
 
@@ -516,9 +552,11 @@ const validateForm = () => {
       errors[`item_${index}_quantity`] = 'Quantity must be more than 0'
     }
 
-    if (item.quantity_ordered > (item.stock || 0)) {
+    // Lines of one item share its Sender SOH, whatever unit each is in
+    const left = sohLeft(selectedItems.value, item, item)
+    if (exceedsSoh(item.quantity_ordered, left)) {
       console.log(`❌ Item ${index + 1} insufficient stock`)
-      errors[`item_${index}_stock`] = `Insufficient stock. Only ${item.stock || 0} available`
+      errors[`item_${index}_stock`] = `Insufficient stock. Only ${formatSoh(left)} available`
     }
   })
 
@@ -828,6 +866,8 @@ watch(productId, async (itemCode) => {
         productDetails.cost = Number(result.cost_per_quantity)
         productDetails.uom = result.uom
         productDetails.stock = result.stock || 0
+        productDetails.stock_row_id = result.stock_row_id ?? null
+        productDetails.stock_factor = result.stock_factor ?? null
 
         // Log specifically for 916A2C
         if (parsedItemCode === '916A2C') {
@@ -963,6 +1003,8 @@ const handleAutoCompleteItemSelect = (item) => {
   productDetails.cost = Number(item.cost_per_quantity || 1.0)
   productDetails.uom = item.uom
   productDetails.stock = item.stock || 0
+  productDetails.stock_row_id = item.stock_row_id ?? null
+  productDetails.stock_factor = item.stock_factor ?? null
 
   // Set the selected item for reference
   selectedAutoCompleteItem.value = item
@@ -1169,9 +1211,12 @@ const handleAutoCompleteItemSelect = (item) => {
               <Input
                 type="text"
                 disabled
-                :value="productDetails.stock || 0"
+                :value="formatSoh(addFormSohLeft)"
                 class="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm"
               />
+              <p v-if="addFormHeld > 0" class="text-xs text-gray-500">
+                Sender SOH {{ formatSoh(productDetails.stock) }}, less {{ formatSoh(addFormHeld) }} already in this transfer
+              </p>
             </div>
 
             <!-- Quantity -->

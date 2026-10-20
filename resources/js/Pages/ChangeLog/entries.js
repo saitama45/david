@@ -20,6 +20,27 @@ export const changeLog = [
         date: '2026-10-20',
         module: 'Interco Transfer',
         type: 'improved',
+        title: 'The SOH Stock in Add Items now takes off what the transfer already holds of the item',
+        summary:
+            'Picking an item that was already in Transfer Items showed the Sender Store\'s full SOH again, so the same stock could be added twice. The SOH Stock now shows what is left: with 1.50 Bag on hand and 0.5 Bag already in the transfer, it shows 1.00, with the note "Sender SOH 1.50, less 0.50 already in this transfer".',
+        steps: [
+            'Add an item to the transfer with Add to Transfer.',
+            'Pick the same item again in Item. SOH Stock shows the Sender SOH less what the transfer already holds.',
+            'Add to Transfer accepts a quantity up to that figure. Adding more is refused with "Only 1.00 Bag of the Sender SOH is left for this item".',
+        ],
+        rules: [
+            'Nothing leaves the Sender Store until the transfer is received, so every line in the transfer holds its quantity of the Sender SOH.',
+            'Units of one item share one SOH. With 1.50 Bag on hand where 1 Bag is 1,000 Gm, 0.5 Bag in the transfer leaves 1,000 Gm to add in Gm.',
+            'Changing a line\'s quantity in Transfer Items is held to the same SOH, less the item\'s other lines.',
+            'When the transfer is saved, the lines of one item are added up and checked against the Sender SOH together.',
+            'When an interco transfer is edited, the lines already saved hold their quantities the same way.',
+        ],
+        affects: 'Store users who create or edit interco transfers.',
+    },
+    {
+        date: '2026-10-20',
+        module: 'Interco Transfer',
+        type: 'improved',
         title: 'Create Store Transfer asks for the Sender Store (source of stocks) first, then the Destination Store',
         summary:
             'The form asked for "My Store" first and the "Sending Store" second, which made it look as if the stock came from My Store. It now asks for the "Sender Store (source of stocks)" first and the "Destination Store" second, so it is clear which store gives the stock and which store receives it.',

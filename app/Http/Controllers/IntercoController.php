@@ -684,6 +684,10 @@ class IntercoController extends Controller
                     'cost_per_quantity' => $supplierCosts->for($item->ItemCode, $stockUnit, $item->AltUOM),
                     'stock' => number_format($stockQty, 2, '.', ''), // Format to 2 decimal places
                     'is_available' => $stockQty > 0,
+                    // Units of one item can share one balance (1 Bag = 1000 Gm): the page takes the
+                    // transfer's other lines off it with these (quantity x factor = balance unit).
+                    'stock_row_id' => $stockRow?->id,
+                    'stock_factor' => $factor,
                 ];
             })
                 // The sending store's items with stock first; the rest are listed so it is clear why they cannot be added.
@@ -749,6 +753,8 @@ class IntercoController extends Controller
                 'cost_per_quantity' => \App\Support\SupplierUnitCost::forItems([$itemCode])->for($itemCode, $stockUnit, $selectedItem->AltUOM),
                 'stock' => number_format($stock, 2, '.', ''), // Format to 2 decimal places
                 'is_available' => $stock > 0,
+                'stock_row_id' => $stockTrackingItem?->id,
+                'stock_factor' => $factor,
             ];
 
             return response()->json(['item' => $itemDetails]);

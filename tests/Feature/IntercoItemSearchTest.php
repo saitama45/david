@@ -78,16 +78,21 @@ function intercoStockByUnit(array $items): array
     return $byUnit;
 }
 
-// The validation errors saving one line of a transfer from $sender to $destination gives.
-function intercoSaveErrors(StoreBranch $sender, StoreBranch $destination, string $itemCode, string $uom, $quantity): array
+// The validation errors saving a transfer from $sender to $destination gives, one line per
+// [item code, unit, quantity] (a single line may be passed as its three values).
+function intercoSaveErrors(StoreBranch $sender, StoreBranch $destination, ...$lines): array
 {
+    if (! is_array($lines[0])) {
+        $lines = [$lines];
+    }
+
     $data = [
         'sending_store_branch_id' => $sender->id, 'store_branch_id' => $destination->id,
         'interco_reason' => 'Test', 'transfer_date' => '2026-10-20',
-        'items' => [[
-            'item_code' => $itemCode, 'uom' => $uom, 'cost_per_quantity' => 1,
-            'quantity_ordered' => $quantity, 'quantity_committed' => $quantity,
-        ]],
+        'items' => array_map(fn ($line) => [
+            'item_code' => $line[0], 'uom' => $line[1], 'cost_per_quantity' => 1,
+            'quantity_ordered' => $line[2], 'quantity_committed' => $line[2],
+        ], $lines),
     ];
 
     $request = IntercoRequest::create('/interco', 'POST', $data);
@@ -119,6 +124,29 @@ it('shows the SOH of the Sender Store chosen', function () {
         'RM-FRUIT|Gm' => ['4500.00', true],
         'RM-FRUIT|Kg' => ['4.50', true],
     ]);
+});
+
+it('tells the page which balance each unit draws on, so the transfer\'s lines can be taken off it', function () {
+    $f = intercoSearchFixture();
+
+    $byUnit = collect(intercoSearch($f['fruitStore'], 'Fruit'))->keyBy('alt_uom');
+    $details = app(IntercoController::class)->getItemDetails(Request::create('/interco/get-item-details', 'GET', [
+        'itemCode' => 'RM-FRUIT', 'altUOM' => 'Gm', 'sendingStoreId' => $f['fruitStore']->id,
+    ]))->getData(true)['item'];
+
+    // Kg and Gm share the Kg balance; 1 Gm is 0.001 of it.
+    expect($byUnit['Kg'])->toMatchArray(['stock_row_id' => $f['sap']['RM-FRUIT|Kg'], 'stock_factor' => 1])
+        ->and($byUnit['Gm'])->toMatchArray(['stock_row_id' => $f['sap']['RM-FRUIT|Kg'], 'stock_factor' => 0.001])
+        ->and($details)->toMatchArray(['stock' => '4500.00', 'stock_row_id' => $f['sap']['RM-FRUIT|Kg'], 'stock_factor' => 0.001]);
+});
+
+it('adds up lines of one item in different units against its Sender SOH', function () {
+    $f = intercoSearchFixture();
+
+    // 1 Kg + 3,500 Gm is the whole 4.5 Kg; 100 Gm more is not there.
+    expect(intercoSaveErrors($f['fruitStore'], $f['realLemonStore'], ['RM-FRUIT', 'Kg', 1], ['RM-FRUIT', 'Gm', 3500]))->toBe([])
+        ->and(intercoSaveErrors($f['fruitStore'], $f['realLemonStore'], ['RM-FRUIT', 'Kg', 1], ['RM-FRUIT', 'Gm', 3600]))
+        ->toBe(['Insufficient stock for item RM-FRUIT in the Sender Store. Available: 4.5, Requested: 4.6.']);
 });
 
 it('saves a quantity below 1, and refuses 0', function () {

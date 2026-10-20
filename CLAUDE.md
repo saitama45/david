@@ -326,6 +326,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   The interco save check (`IntercoRequest`) read the cache until 2026-10-20. On Create Store Transfer the
   **Sender Store (source of stocks)** (`sending_store_branch_id`, any active store) is chosen first, then the
   **Destination Store** (`store_branch_id`, the user's assigned stores); quantities may be any amount above 0.
+  Lines hold Sender SOH until received, and units of one item share one balance: the item endpoints send
+  `stock_row_id` + `stock_factor`, the pages subtract with `resources/js/lib/intercoSoh.js`, and
+  `IntercoRequest` sums lines per stock row. Keep all three in step.
 - **An interco line received short or over waits for the sending store, and nothing moves for it.**
   `IntercoReceivingService::finalReceive()` posts only lines whose receipts add up to `quantity_commited`
   (4 dp); the rest become receipt status `for_confirmation`, which the `pending`/`received` lists of every
