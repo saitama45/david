@@ -374,8 +374,8 @@ const addToOrdersButton = () => {
     itemForm.setError("item", "Item field is required")
     return
   }
-  if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 1) {
-    itemForm.setError("quantity", "Quantity must be at least 1 and a valid number")
+  if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) <= 0) {
+    itemForm.setError("quantity", "Quantity must be more than 0 and a valid number")
     return
   }
   if (productDetails.cost === null || Number(productDetails.cost) === 0) {
@@ -399,7 +399,7 @@ const addToOrdersButton = () => {
     validationErrors.push("UOM is missing")
   }
 
-  if (!productDetails.quantity || Number(productDetails.quantity) < 1) {
+  if (!productDetails.quantity || Number(productDetails.quantity) <= 0) {
     validationErrors.push("Valid quantity is required")
   }
 
@@ -545,15 +545,15 @@ const validateForm = () => {
 
   // Validate store selection
   if (!form.sending_store_branch_id) {
-    errors.sending_store_branch_id = 'Sending store is required'
+    errors.sending_store_branch_id = 'Sender Store is required'
   }
 
   if (!form.store_branch_id) {
-    errors.store_branch_id = 'Receiving store is required'
+    errors.store_branch_id = 'Destination Store is required'
   }
 
   if (form.sending_store_branch_id === form.store_branch_id) {
-    errors.store_selection = 'Sending and receiving stores must be different'
+    errors.store_selection = 'Sender Store and Destination Store must be different'
   }
 
   // Validate transfer date
@@ -573,8 +573,8 @@ const validateForm = () => {
 
   // Validate each item
   selectedItems.value.forEach((item, index) => {
-    if (!item.quantity_ordered || item.quantity_ordered < 1) {
-      errors[`item_${index}_quantity`] = 'Quantity must be at least 1'
+    if (!item.quantity_ordered || item.quantity_ordered <= 0) {
+      errors[`item_${index}_quantity`] = 'Quantity must be more than 0'
     }
 
     if (item.quantity_ordered > (item.stock || 0)) {
@@ -647,8 +647,8 @@ const executeFormSubmission = () => {
       const mappedItem = {
         id: item.original_id || null, // Include original ID for existing items
         item_code: String(item.item_code),
-        quantity_ordered: parseInt(Number(item.quantity_ordered)),
-        quantity_committed: parseInt(Number(item.quantity_ordered)),
+        quantity_ordered: Number(item.quantity_ordered),
+        quantity_committed: Number(item.quantity_ordered),
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
         remarks: item.remarks || '',
@@ -695,14 +695,14 @@ const executeFormSubmission = () => {
         toast.add({
           severity: "error",
           summary: "Store Selection Error",
-          detail: `Receiving store: ${errors.store_branch_id}`,
+          detail: `Destination Store: ${errors.store_branch_id}`,
           life: 8000,
         })
       } else if (errors.sending_store_branch_id) {
         toast.add({
           severity: "error",
           summary: "Store Selection Error",
-          detail: `Sending store: ${errors.sending_store_branch_id}`,
+          detail: `Sender Store: ${errors.sending_store_branch_id}`,
           life: 8000,
         })
       } else {
@@ -1041,12 +1041,29 @@ const handleAutoCompleteItemSelect = (item) => {
         <!-- Section Content -->
         <div v-show="openSections.transferDetails" class="px-4 sm:px-6 py-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- My Store -->
+            <!-- Sender Store: the source of stocks -->
             <div class="space-y-2">
-              <Label for="receiving_store">My Store *</Label>
+              <Label for="sending_store">Sender Store (source of stocks) *</Label>
               <Select
                 filter
-                placeholder="Select your store"
+                placeholder="Select sender store"
+                v-model="form.sending_store_branch_id"
+                :options="props.sendingStoreOptions"
+                optionLabel="label"
+                optionValue="value"
+                class="w-full"
+              />
+              <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
+                {{ formErrors.sending_store_branch_id }}
+              </p>
+            </div>
+
+            <!-- Destination Store -->
+            <div class="space-y-2">
+              <Label for="receiving_store">Destination Store *</Label>
+              <Select
+                filter
+                placeholder="Select destination store"
                 v-model="form.store_branch_id"
                 :options="filteredMyStoreOptions"
                 :disabled="isMyStoreDisabled"
@@ -1058,24 +1075,7 @@ const handleAutoCompleteItemSelect = (item) => {
                 {{ formErrors.store_branch_id }}
               </p>
               <p v-if="!form.sending_store_branch_id" class="text-sm text-muted-foreground">
-                Select a sending store first
-              </p>
-            </div>
-
-            <!-- Sending Store -->
-            <div class="space-y-2">
-              <Label for="sending_store">Sending Store *</Label>
-              <Select
-                filter
-                placeholder="Select sending store"
-                v-model="form.sending_store_branch_id"
-                :options="props.sendingStoreOptions"
-                optionLabel="label"
-                optionValue="value"
-                class="w-full"
-              />
-              <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
-                {{ formErrors.sending_store_branch_id }}
+                Select the Sender Store first
               </p>
             </div>
 
@@ -1212,7 +1212,7 @@ const handleAutoCompleteItemSelect = (item) => {
           </div>
 
           <p v-if="!form.sending_store_branch_id" class="text-sm text-muted-foreground mt-2">
-            Select a sending store to add items
+            Select a Sender Store to add items
           </p>
         </div>
       </div>

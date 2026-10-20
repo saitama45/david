@@ -20,17 +20,51 @@ export const changeLog = [
         date: '2026-10-20',
         module: 'Interco Transfer',
         type: 'improved',
-        title: 'The Item search of Create Store Transfer now lists items the Sending Store has none of, marked "Out of stock"',
+        title: 'Create Store Transfer asks for the Sender Store (source of stocks) first, then the Destination Store',
         summary:
-            'Typing an item the Sending Store had no stock of, for example "lemon", showed "No items found", as if the item were missing from the masterlists. The search now lists it, greyed out, with "Sender SOH: 0.00", "Out of stock" and "Cannot be added", so it is clear the item exists but the Sending Store has none to send.',
+            'The form asked for "My Store" first and the "Sending Store" second, which made it look as if the stock came from My Store. It now asks for the "Sender Store (source of stocks)" first and the "Destination Store" second, so it is clear which store gives the stock and which store receives it.',
         steps: [
             'Open Interco Transfer and create a transfer, or edit one.',
-            'Choose My Store and the Sending Store, then type at least 3 characters of an item in Item.',
-            'Items the Sending Store has in stock are listed first, each with its Sender SOH. Items it has none of follow, greyed out.',
+            'Choose the Sender Store (source of stocks): the store the items are taken from.',
+            'Choose the Destination Store: the store that receives them. It can be chosen once a Sender Store is chosen.',
+            'Add the items. The SOH shown for each item is the Sender Store\'s.',
         ],
         rules: [
-            'The stock shown is always the Sending Store\'s, never My Store\'s. An item My Store has but the Sending Store does not is listed as "Out of stock".',
-            'An item marked "Out of stock" cannot be picked. To transfer it, choose a Sending Store that has it.',
+            'The Sender Store can be any active store. The Destination Store is one of the stores assigned to you, as My Store was.',
+            'The Sender Store and the Destination Store cannot be the same store.',
+            'Changing the Sender Store on a new transfer clears the items added so far, because their SOH belonged to the previous Sender Store.',
+            'When the transfer is saved, each quantity is checked against the same Sender SOH the page shows. A quantity above it is refused, for example "Insufficient stock for item RM-TC-0031 in the Sender Store. Available: 4.5, Requested: 5."',
+        ],
+        affects: 'Store users who create or edit interco transfers.',
+    },
+    {
+        date: '2026-10-20',
+        module: 'Interco Transfer',
+        type: 'improved',
+        title: 'Interco transfer quantities can now be below 1, for example 0.5',
+        summary:
+            'Add to Transfer refused any quantity below 1 with "Quantity must be at least 1 and a valid number", so half a Bag or 0.5 Kg could not be transferred. Any quantity more than 0 is now accepted.',
+        rules: [
+            'The quantity must be more than 0. A quantity of 0 or less is refused with "Quantity must be more than 0 and a valid number".',
+            'The quantity still cannot be more than the Sender Store\'s SOH for that item.',
+        ],
+        affects: 'Store users who create or edit interco transfers.',
+    },
+    {
+        date: '2026-10-20',
+        module: 'Interco Transfer',
+        type: 'improved',
+        title: 'The Item search of Create Store Transfer now lists items the Sender Store has none of, marked "Out of stock"',
+        summary:
+            'Typing an item the Sender Store had no stock of, for example "lemon", showed "No items found", as if the item were missing from the masterlists. The search now lists it, greyed out, with "Sender SOH: 0.00", "Out of stock" and "Cannot be added", so it is clear the item exists but the Sender Store has none to send.',
+        steps: [
+            'Open Interco Transfer and create a transfer, or edit one.',
+            'Choose the Sender Store and the Destination Store, then type at least 3 characters of an item in Item.',
+            'Items the Sender Store has in stock are listed first, each with its Sender SOH. Items it has none of follow, greyed out.',
+        ],
+        rules: [
+            'The stock shown is always the Sender Store\'s, never the Destination Store\'s. An item the Destination Store has but the Sender Store does not is listed as "Out of stock".',
+            'An item marked "Out of stock" cannot be picked. To transfer it, choose a Sender Store that has it.',
             '"No items found" now only means no active item in the SAP Masterlist matches what was typed.',
         ],
         affects: 'Store users who create or edit interco transfers.',

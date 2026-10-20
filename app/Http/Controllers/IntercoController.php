@@ -169,7 +169,7 @@ class IntercoController extends Controller
 
             // Validate store difference
             if ($receivingStore->id === $sendingStore->id) {
-                throw new \Exception('Sending and receiving stores cannot be the same.');
+                throw new \Exception('The Sender Store and the Destination Store cannot be the same.');
             }
 
             // Generate interco number with error handling
@@ -648,9 +648,10 @@ class IntercoController extends Controller
             $stockData = DB::table('product_inventory_stock_managers')
                 ->select(
                     'product_inventory_id',
+                    // The balance IntercoRequest checks on save (SohAdjustmentService::balances())
                     DB::raw('SUM(CASE
                         WHEN action IN (\'add\', \'add_quantity\') THEN quantity
-                        WHEN action = \'out\' THEN -quantity
+                        WHEN action IN (\'out\', \'deduct\', \'log_usage\') THEN -quantity
                         ELSE 0
                     END) as stock_on_hand')
                 )
@@ -734,7 +735,7 @@ class IntercoController extends Controller
                 $calculatedStock = DB::table('product_inventory_stock_managers')
                     ->where('store_branch_id', $sendingStoreId)
                     ->where('product_inventory_id', $stockTrackingItem->id)
-                    ->sum(DB::raw('CASE WHEN action IN (\'add\', \'add_quantity\') THEN quantity WHEN action = \'out\' THEN -quantity ELSE 0 END'));
+                    ->sum(DB::raw('CASE WHEN action IN (\'add\', \'add_quantity\') THEN quantity WHEN action IN (\'out\', \'deduct\', \'log_usage\') THEN -quantity ELSE 0 END'));
                 
                 $stock = $factor ? ($calculatedStock ?? 0) / $factor : 0;
             }

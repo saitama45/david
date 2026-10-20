@@ -60,16 +60,17 @@ class IntercoRequest extends FormRequest
                 'required',
                 'exists:sap_masterfiles,ItemCode',
             ],
+            // Any quantity above 0 (0.5 Kg), not only whole numbers
             'items.*.quantity_ordered' => [
                 'required',
-                'integer',
-                'min:1',
+                'numeric',
+                'gt:0',
                 'max:999999',
             ],
             'items.*.quantity_committed' => [
                 'required',
-                'integer',
-                'min:1',
+                'numeric',
+                'gt:0',
                 'max:999999',
             ],
             'items.*.cost_per_quantity' => [
@@ -95,13 +96,13 @@ class IntercoRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'store_branch_id.required' => 'Please select a receiving store.',
-            'store_branch_id.exists' => 'Selected receiving store is invalid.',
-            'store_branch_id.different' => 'Receiving store must be different from sending store.',
+            'store_branch_id.required' => 'Please select a Destination Store.',
+            'store_branch_id.exists' => 'Selected Destination Store is invalid.',
+            'store_branch_id.different' => 'Destination Store must be different from the Sender Store.',
 
-            'sending_store_branch_id.required' => 'Please select a sending store.',
-            'sending_store_branch_id.exists' => 'Selected sending store is invalid.',
-            'sending_store_branch_id.different' => 'Sending store must be different from receiving store.',
+            'sending_store_branch_id.required' => 'Please select a Sender Store.',
+            'sending_store_branch_id.exists' => 'Selected Sender Store is invalid.',
+            'sending_store_branch_id.different' => 'Sender Store must be different from the Destination Store.',
 
             'interco_reason.required' => 'Please provide a reason for the interco transfer.',
             'interco_reason.max' => 'Reason must not exceed 1000 characters.',
@@ -119,8 +120,8 @@ class IntercoRequest extends FormRequest
             'items.*.item_code.exists' => 'Selected item is invalid.',
 
             'items.*.quantity_ordered.required' => 'Quantity is required for all items.',
-            'items.*.quantity_ordered.integer' => 'Quantity must be a whole number.',
-            'items.*.quantity_ordered.min' => 'Quantity must be at least 1.',
+            'items.*.quantity_ordered.numeric' => 'Quantity must be a number.',
+            'items.*.quantity_ordered.gt' => 'Quantity must be more than 0.',
             'items.*.quantity_ordered.max' => 'Quantity must not exceed 999,999.',
 
             'items.*.cost_per_quantity.required' => 'Cost per quantity is required for all items.',
@@ -189,18 +190,17 @@ class IntercoRequest extends FormRequest
                 continue;
             }
 
-            $stock = \App\Models\ProductInventoryStock::where('product_inventory_id', $stockRow->id)
-                ->where('store_branch_id', $sendingStoreId)
-                ->first();
+            // The stock history is the balance, as on the Sender SOH the page shows. The stock cache
+            // can hold several rows per store and item, so reading one of them was not the balance.
+            $balance = app(\App\Http\Services\SohAdjustmentService::class)
+                ->balances((int) $sendingStoreId, [$stockRow->id])
+                ->get($stockRow->id, 0.0);
 
-            if (!$stock) {
-                $validator->errors()->add("items.{$index}.quantity_ordered",
-                    "No stock record found for item {$itemCode} in the sending store.");
-            } elseif ($stock->quantity < $quantity * $factor) {
+            if (round($balance, 4) < round($quantity * $factor, 4)) {
                 // Report both figures in the requested unit.
-                $available = round($stock->quantity / $factor, 4);
+                $available = round($balance / $factor, 4);
                 $validator->errors()->add("items.{$index}.quantity_ordered",
-                    "Insufficient stock for item {$itemCode}. Available: {$available}, Requested: {$quantity}.");
+                    "Insufficient stock for item {$itemCode} in the Sender Store. Available: {$available}, Requested: {$quantity}.");
             }
         }
     }

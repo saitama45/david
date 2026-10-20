@@ -47,8 +47,8 @@ const { toast } = useToast();
 
 // Form state
 const form = useForm({
-  store_branch_id: props.user_store_branch_id, // Receiving Store - selected first
-  sending_store_branch_id: null, // Sending Store - selected second
+  sending_store_branch_id: null, // Sender Store, the source of stocks - selected first
+  store_branch_id: props.user_store_branch_id, // Destination Store - selected second
   transfer_date: new Date().toISOString().split('T')[0],
   interco_reason: '',
   remarks: '',
@@ -193,19 +193,19 @@ const isValidStoreSelection = computed(() => {
   return form.sending_store_branch_id && form.store_branch_id && form.sending_store_branch_id !== form.store_branch_id
 })
 
-// Computed property for filtered sending store options (reversed logic)
-const filteredSendingStoreOptions = computed(() => {
-  if (!form.store_branch_id) {
-    return props.sendingStoreOptions;
+// Destination Store options: the user's own stores, never the Sender Store
+const filteredDestinationOptions = computed(() => {
+  if (!form.sending_store_branch_id) {
+    return props.myStoreOptions;
   }
-  return props.sendingStoreOptions.filter(branch =>
-    branch.value !== form.store_branch_id
+  return props.myStoreOptions.filter(branch =>
+    branch.value !== form.sending_store_branch_id
   )
 })
 
-// Computed property for sending store dropdown disabled state (reversed logic)
-const isSendingStoreDisabled = computed(() => {
-  return !form.store_branch_id
+// The Destination Store is chosen after the Sender Store
+const isDestinationDisabled = computed(() => {
+  return !form.sending_store_branch_id
 })
 
 // Methods (MassOrders-style)
@@ -286,8 +286,8 @@ const addToOrdersButton = () => {
     itemForm.setError("item", "Item field is required")
     return
   }
-  if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) < 1) {
-    itemForm.setError("quantity", "Quantity must be at least 1 and a valid number")
+  if (isNaN(Number(productDetails.quantity)) || Number(productDetails.quantity) <= 0) {
+    itemForm.setError("quantity", "Quantity must be more than 0 and a valid number")
     return
   }
   if (productDetails.cost === null || Number(productDetails.cost) === 0) {
@@ -311,7 +311,7 @@ const addToOrdersButton = () => {
     validationErrors.push("UOM is missing")
   }
 
-  if (!productDetails.quantity || Number(productDetails.quantity) < 1) {
+  if (!productDetails.quantity || Number(productDetails.quantity) <= 0) {
     validationErrors.push("Valid quantity is required")
   }
 
@@ -461,21 +461,21 @@ const validateForm = () => {
   console.log('📋 Checking store selection...')
   if (!form.sending_store_branch_id) {
     console.log('❌ Sending store missing')
-    errors.sending_store_branch_id = 'Sending store is required'
+    errors.sending_store_branch_id = 'Sender Store is required'
   } else {
     console.log('✅ Sending store OK:', form.sending_store_branch_id)
   }
 
   if (!form.store_branch_id) {
     console.log('❌ Receiving store missing')
-    errors.store_branch_id = 'Receiving store is required'
+    errors.store_branch_id = 'Destination Store is required'
   } else {
     console.log('✅ Receiving store OK:', form.store_branch_id)
   }
 
   if (form.sending_store_branch_id === form.store_branch_id) {
     console.log('❌ Stores are the same')
-    errors.store_selection = 'Sending and receiving stores must be different'
+    errors.store_selection = 'Sender Store and Destination Store must be different'
   }
 
   // Validate transfer date
@@ -511,9 +511,9 @@ const validateForm = () => {
       stock: item.stock
     })
 
-    if (!item.quantity_ordered || item.quantity_ordered < 1) {
+    if (!item.quantity_ordered || item.quantity_ordered <= 0) {
       console.log(`❌ Item ${index + 1} quantity invalid`)
-      errors[`item_${index}_quantity`] = 'Quantity must be at least 1'
+      errors[`item_${index}_quantity`] = 'Quantity must be more than 0'
     }
 
     if (item.quantity_ordered > (item.stock || 0)) {
@@ -607,8 +607,8 @@ const executeFormSubmission = () => {
     items: selectedItems.value.map((item, index) => {
       const mappedItem = {
         item_code: String(item.item_code),
-        quantity_ordered: parseInt(Number(item.quantity_ordered)),
-        quantity_committed: parseInt(Number(item.quantity_ordered)),
+        quantity_ordered: Number(item.quantity_ordered),
+        quantity_committed: Number(item.quantity_ordered),
         cost_per_quantity: Number(item.cost_per_quantity || 1.0),
         uom: String(item.unit_of_measurement || item.uom || 'PCS'),
         remarks: item.remarks || '',
@@ -661,14 +661,14 @@ const executeFormSubmission = () => {
         toast.add({
           severity: "error",
           summary: "Store Selection Error",
-          detail: `Receiving store: ${errors.store_branch_id}`,
+          detail: `Destination Store: ${errors.store_branch_id}`,
           life: 8000,
         })
       } else if (errors.sending_store_branch_id) {
         toast.add({
           severity: "error",
           summary: "Store Selection Error",
-          detail: `Sending store: ${errors.sending_store_branch_id}`,
+          detail: `Sender Store: ${errors.sending_store_branch_id}`,
           life: 8000,
         })
       } else {
@@ -751,46 +751,17 @@ const clearAllItems = () => {
   }
 }
 
-// Watch for receiving store changes
-watch(() => form.store_branch_id, (newValue) => {
-  // Clear dependent fields when receiving store changes
-  productId.value = null
-  selectedAutoCompleteItem.value = null
-  Object.keys(productDetails).forEach((key) => {
-    productDetails[key] = null
-  })
-
-  // Clear sending store if it matches the new receiving store (reversed logic)
-  if (form.sending_store_branch_id === newValue) {
-    form.sending_store_branch_id = null
+// The Sender Store is the source of stocks: every item and SOH on the page is its own
+watch(() => form.sending_store_branch_id, (newValue) => {
+  // The Destination Store cannot be the Sender Store
+  if (form.store_branch_id === newValue) {
+    form.store_branch_id = null
   }
 
-  // Clear items since sending store changed
+  // Items added so far carry the previous Sender Store's SOH
   selectedItems.value = []
   availableProductsOptions.value = []
-})
 
-// Watch for sending store changes (for item fetching)
-watch(() => form.sending_store_branch_id, (newValue) => {
-  if (newValue) {
-    // Clear available products - items will be loaded via auto-complete search
-    availableProductsOptions.value = []
-  } else {
-    availableProductsOptions.value = []
-  }
-
-  // Clear auto-complete selection when sending store changes
-  selectedAutoCompleteItem.value = null
-  Object.keys(productDetails).forEach((key) => {
-    productDetails[key] = null
-  })
-
-  // Clear selected items if they don't have stock in the new sending store
-  selectedItems.value = selectedItems.value.filter(item => {
-    return item.stock > 0
-  })
-
-  // Clear dependent fields
   productId.value = null
   selectedAutoCompleteItem.value = null
   Object.keys(productDetails).forEach((key) => {
@@ -1053,32 +1024,14 @@ const handleAutoCompleteItemSelect = (item) => {
         <!-- Section Content -->
         <div v-show="openSections.transferDetails" class="px-4 sm:px-6 py-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- My Store -->
+            <!-- Sender Store: the source of stocks -->
             <div class="space-y-2">
-              <Label for="receiving_store">My Store *</Label>
+              <Label for="sending_store">Sender Store (source of stocks) *</Label>
               <Select
                 filter
-                placeholder="Select your store"
-                v-model="form.store_branch_id"
-                :options="props.myStoreOptions"
-                optionLabel="label"
-                optionValue="value"
-                class="w-full"
-              />
-              <p v-if="formErrors.store_branch_id" class="text-sm text-red-600">
-                {{ formErrors.store_branch_id }}
-              </p>
-            </div>
-
-            <!-- Sending Store -->
-            <div class="space-y-2">
-              <Label for="sending_store">Sending Store *</Label>
-              <Select
-                filter
-                placeholder="Select sending store"
+                placeholder="Select sender store"
                 v-model="form.sending_store_branch_id"
-                :options="filteredSendingStoreOptions"
-                :disabled="isSendingStoreDisabled"
+                :options="props.sendingStoreOptions"
                 optionLabel="label"
                 optionValue="value"
                 class="w-full"
@@ -1086,8 +1039,26 @@ const handleAutoCompleteItemSelect = (item) => {
               <p v-if="formErrors.sending_store_branch_id" class="text-sm text-red-600">
                 {{ formErrors.sending_store_branch_id }}
               </p>
-              <p v-if="!form.store_branch_id" class="text-sm text-muted-foreground">
-                Select My Store first
+            </div>
+
+            <!-- Destination Store -->
+            <div class="space-y-2">
+              <Label for="receiving_store">Destination Store *</Label>
+              <Select
+                filter
+                placeholder="Select destination store"
+                v-model="form.store_branch_id"
+                :options="filteredDestinationOptions"
+                :disabled="isDestinationDisabled"
+                optionLabel="label"
+                optionValue="value"
+                class="w-full"
+              />
+              <p v-if="formErrors.store_branch_id" class="text-sm text-red-600">
+                {{ formErrors.store_branch_id }}
+              </p>
+              <p v-if="!form.sending_store_branch_id" class="text-sm text-muted-foreground">
+                Select the Sender Store first
               </p>
             </div>
 
@@ -1224,7 +1195,7 @@ const handleAutoCompleteItemSelect = (item) => {
           </div>
 
           <p v-if="!form.sending_store_branch_id" class="text-sm text-muted-foreground mt-2">
-            Select a sending store to add items
+            Select a Sender Store to add items
           </p>
         </div>
       </div>

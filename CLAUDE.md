@@ -320,6 +320,12 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   Inbound Orders lists them under the For Final Receive All tab (`currentFilter=for_final`: open order
   with a `received` row). Interco Receiving has the same three actions (Zero All, Confirm Receive All,
   Final Receive All), with per-line posting (next bullet). Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+- **`product_inventory_stocks` is not a balance.** Receiving and interco `create()` rows in it (several per
+  store and item, some negative), so `->first()` reads one fragment. SOH is the stock history, store-filtered
+  and unscoped: `SohAdjustmentService::balances()`, the same sum the interco item search shows as Sender SOH.
+  The interco save check (`IntercoRequest`) read the cache until 2026-10-20. On Create Store Transfer the
+  **Sender Store (source of stocks)** (`sending_store_branch_id`, any active store) is chosen first, then the
+  **Destination Store** (`store_branch_id`, the user's assigned stores); quantities may be any amount above 0.
 - **An interco line received short or over waits for the sending store, and nothing moves for it.**
   `IntercoReceivingService::finalReceive()` posts only lines whose receipts add up to `quantity_commited`
   (4 dp); the rest become receipt status `for_confirmation`, which the `pending`/`received` lists of every
