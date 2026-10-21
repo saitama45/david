@@ -15,6 +15,27 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 21, 2026
+    {
+        date: '2026-10-21',
+        module: 'Adoption Rate Tracking',
+        type: 'improved',
+        title: 'Tabs renamed to Order Placement, Order Commitment, Order Receiving, Sales Uploading and Wastage Uploading',
+        summary:
+            'The five indicator tabs had different names from the rows of the Overall Adoption Rate tab. The tabs and the indicator rows now use the same five names. What each indicator measures, and how it is scored, has not changed.',
+        rules: [
+            'Ordering Timeliness is now Order Placement.',
+            'Commit Order Timeliness (FG & Traded) is now Order Commitment.',
+            'Delivery Logging Timeliness is now Order Receiving.',
+            'Sales Upload Timeliness is now Sales Uploading.',
+            'Wastage Upload Timeliness is now Wastage Uploading.',
+            'The Overall Adoption Rate tab and the Adoption Rate chart on the Dashboard list the indicators under the same new names.',
+            'The Excel export of a tab is named after its new name, for example adoption-rate-tracking-order-placement-2026-10-21.xlsx.',
+            'Saved remarks and links to a tab still work.',
+        ],
+        affects: 'Management and operations teams who track adoption rates.',
+    },
+
     // ---------------------------------------------------------------- October 20, 2026
     {
         date: '2026-10-20',

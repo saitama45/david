@@ -557,10 +557,10 @@ class AdoptionRateTrackingService
         $wastageRows = $wastageData['rows'];
         $indicatorRates = collect([
             ['no' => 1, 'indicator' => 'Order Placement', 'rate' => $orderingData['totals']['adoption_rate']],
-            ['no' => 2, 'indicator' => 'Timeliness of Committing of Order', 'rate' => $commitData['totals']['combined_adoption_rate']],
-            ['no' => 3, 'indicator' => 'Timeliness of Receiving of Orders', 'rate' => $deliveryData['totals']['adoption_rate']],
-            ['no' => 4, 'indicator' => 'Timeliness of Sales Uploading', 'rate' => $salesData['totals']['adoption_rate']],
-            ['no' => 5, 'indicator' => 'Timeliness of Wastage Uploading', 'rate' => $wastageData['totals']['upload_adoption_rate']],
+            ['no' => 2, 'indicator' => 'Order Commitment', 'rate' => $commitData['totals']['combined_adoption_rate']],
+            ['no' => 3, 'indicator' => 'Order Receiving', 'rate' => $deliveryData['totals']['adoption_rate']],
+            ['no' => 4, 'indicator' => 'Sales Uploading', 'rate' => $salesData['totals']['adoption_rate']],
+            ['no' => 5, 'indicator' => 'Wastage Uploading', 'rate' => $wastageData['totals']['upload_adoption_rate']],
         ]);
 
         $sections = $stores->map(function (StoreBranch $store) use ($weeks, $orderingRows, $commitRows, $deliveryRows, $salesRows, $wastageRows) {
@@ -575,28 +575,28 @@ class AdoptionRateTrackingService
                 ],
                 [
                     'no' => 2,
-                    'indicator' => 'Timeliness of Committing of Order',
+                    'indicator' => 'Order Commitment',
                     'responsible' => "Customer Service\n(GSI & Pulilan)",
                     'rates' => $this->weeklyRates($weeks, $commitRows, $storeId, 'delivery_date', fn (Collection $rows) => $this->commitOverallRate($rows)),
                     'overall_rate' => $this->commitOverallRate($this->storeRows($commitRows, $storeId)),
                 ],
                 [
                     'no' => 3,
-                    'indicator' => 'Timeliness of Receiving of Orders',
+                    'indicator' => 'Order Receiving',
                     'responsible' => 'Operations',
                     'rates' => $this->weeklyRates($weeks, $deliveryRows, $storeId, 'sap_dr_date', fn (Collection $rows) => $this->statusRate($rows, 'on_time', ['Yes'], ['Yes', 'No'])),
                     'overall_rate' => $this->statusRate($this->storeRows($deliveryRows, $storeId), 'on_time', ['Yes'], ['Yes', 'No']),
                 ],
                 [
                     'no' => 4,
-                    'indicator' => 'Timeliness of Sales Uploading',
+                    'indicator' => 'Sales Uploading',
                     'responsible' => 'Sales Audit',
                     'rates' => $this->weeklyRates($weeks, $salesRows, $storeId, 'date_of_sales', fn (Collection $rows) => $this->statusRate($rows, 'sales_report_uploaded_on_time', ['Yes'], ['Yes', 'No'])),
                     'overall_rate' => $this->statusRate($this->storeRows($salesRows, $storeId), 'sales_report_uploaded_on_time', ['Yes'], ['Yes', 'No']),
                 ],
                 [
                     'no' => 5,
-                    'indicator' => 'Timeliness of Wastage Uploading',
+                    'indicator' => 'Wastage Uploading',
                     'responsible' => 'Operations',
                     'rates' => $this->weeklyRates($weeks, $wastageRows, $storeId, 'date_of_wastage', fn (Collection $rows) => $this->statusRate($rows, 'wastage_report_uploaded', ['Yes'], ['Yes', 'No'])),
                     'overall_rate' => $this->statusRate($this->storeRows($wastageRows, $storeId), 'wastage_report_uploaded', ['Yes'], ['Yes', 'No']),

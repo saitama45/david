@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
 /**
- * Ordering Adoption Rate — Ordering Timeliness tab.
+ * Adoption Rate Tracking — Order Placement tab.
  *
  * Covers the two ticket items:
  *   1. F&V listed only the handful of stores with an explicit
@@ -36,7 +36,7 @@ const REPORT = '/reports/adoption-rate-tracking';
 const reportUrl = (params = '') => `${REPORT}?tab=ordering_timeliness&${RANGE}${params}`;
 const template = (name) => `&ordering_templates[]=${encodeURIComponent(name)}`;
 
-// Ordering Timeliness columns: 1 Week No | 2 Date Range | 3 Supplier Code |
+// Order Placement columns: 1 Week No | 2 Date Range | 3 Supplier Code |
 // 4 Store | 5 DAVID Delivery Date | 6 Plotted? | 7 Remarks.
 const plottedValues = (page) => page.locator('tbody tr td:nth-child(6)').allInnerTexts();
 const storeValues = (page) => page.locator('tbody tr td:nth-child(4)').allInnerTexts();

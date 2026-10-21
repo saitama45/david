@@ -341,7 +341,7 @@ class AdoptionRateTrackingServiceTest extends TestCase
                 'weeks' => 1,
                 'overall_rate' => 9.11,
                 'indicator_rates' => [
-                    ['no' => 3, 'indicator' => 'Timeliness of Receiving of Orders', 'rate' => 25.21],
+                    ['no' => 3, 'indicator' => 'Order Receiving', 'rate' => 25.21],
                 ],
             ],
             'filters' => [
@@ -364,7 +364,7 @@ class AdoptionRateTrackingServiceTest extends TestCase
         $this->assertSame('2026-05-01', $trend['meta']['date_from']);
         $this->assertSame('2026-07-14', $trend['meta']['date_to']);
         $this->assertSame(25.21, $trend['meta']['indicator_rates'][0]['rate']);
-        $this->assertSame([25.21, 25.21], $trend['combined']->firstWhere('label', 'Timeliness of Receiving of Orders')['data']);
+        $this->assertSame([25.21, 25.21], $trend['combined']->firstWhere('label', 'Order Receiving')['data']);
         $this->assertSame([9.11, 9.11], $trend['combined']->firstWhere('label', 'Overall')['data']);
         $this->assertSame([2.44], $trend['per_store']->first()['data']);
     }

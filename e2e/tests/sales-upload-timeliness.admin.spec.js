@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
 /**
- * Adoption Rate Tracking — Sales Upload Timeliness tab.
+ * Adoption Rate Tracking — Sales Uploading tab.
  *
  * Covers the column split:
  *   1. "Sales Report Uploaded?" renamed to "Sales Report Uploaded On Time?"
@@ -56,7 +56,7 @@ async function login(page, email, password) {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
 }
 
-test.describe('Sales Upload Timeliness — elevated (admin, all stores)', () => {
+test.describe('Sales Uploading — elevated (admin, all stores)', () => {
   test('renders both columns, renamed on-time first', async ({ page }) => {
     await page.goto(reportUrl());
     await expect(page.getByRole('heading', { name: 'Adoption Rate Tracking' })).toBeVisible();
@@ -125,7 +125,7 @@ test.describe('Sales Upload Timeliness — elevated (admin, all stores)', () => 
     const salesRate = (await totalCard(page, 'Adoption Rate').innerText()).trim();
 
     await page.goto(`${REPORT}?tab=overall_adoption_rate&${RANGE}&store_ids[]=15`);
-    const row = page.locator('tbody tr', { hasText: 'Timeliness of Sales Uploading' }).first();
+    const row = page.locator('tbody tr', { hasText: 'Sales Uploading' }).first();
     await expect(row).toBeVisible();
     // Last cell is the Overall column — must match the tab's own adoption rate,
     // i.e. it still reads the renamed on-time key rather than a missing one.
@@ -158,7 +158,7 @@ test.describe('Sales Upload Timeliness — elevated (admin, all stores)', () => 
   });
 });
 
-test.describe('Sales Upload Timeliness — restricted profile', () => {
+test.describe('Sales Uploading — restricted profile', () => {
   const scoped = { email: process.env.E2E_SCOPED_EMAIL, password: 'e2e-password' };
 
   test('store-scoped user sees only their branches, with both columns intact', async ({ browser }) => {

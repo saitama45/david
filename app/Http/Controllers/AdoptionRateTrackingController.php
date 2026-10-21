@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\AdoptionRateTrackingExport;
 use App\Http\Services\AdoptionRateTrackingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -63,10 +64,12 @@ class AdoptionRateTrackingController extends Controller
 
         $tab = $this->service->resolveTab($filters);
         $data = $this->service->getReportData($filters, $request->user(), false);
+        // Named after the tab's label, not its key: the keys keep the tabs' old names.
+        $label = collect($this->tabs())->firstWhere('key', $tab)['label'] ?? $tab;
 
         return Excel::download(
             new AdoptionRateTrackingExport($data['rows'], $tab),
-            'adoption-rate-tracking-' . str_replace('_', '-', $tab) . '-' . now()->format('Y-m-d') . '.xlsx'
+            'adoption-rate-tracking-' . Str::slug($label) . '-' . now()->format('Y-m-d') . '.xlsx'
         );
     }
 
@@ -90,11 +93,11 @@ class AdoptionRateTrackingController extends Controller
     private function tabs(): array
     {
         return [
-            ['key' => 'ordering_timeliness', 'label' => 'Ordering Timeliness', 'enabled' => true],
-            ['key' => 'commit_order_timeliness', 'label' => 'Commit Order Timeliness (FG & Traded)', 'enabled' => true],
-            ['key' => 'delivery_logging_timeliness', 'label' => 'Delivery Logging Timeliness', 'enabled' => true],
-            ['key' => 'sales_upload_timeliness', 'label' => 'Sales Upload Timeliness', 'enabled' => true],
-            ['key' => 'wastage_upload_timeliness', 'label' => 'Wastage Upload Timeliness', 'enabled' => true],
+            ['key' => 'ordering_timeliness', 'label' => 'Order Placement', 'enabled' => true],
+            ['key' => 'commit_order_timeliness', 'label' => 'Order Commitment', 'enabled' => true],
+            ['key' => 'delivery_logging_timeliness', 'label' => 'Order Receiving', 'enabled' => true],
+            ['key' => 'sales_upload_timeliness', 'label' => 'Sales Uploading', 'enabled' => true],
+            ['key' => 'wastage_upload_timeliness', 'label' => 'Wastage Uploading', 'enabled' => true],
             ['key' => 'overall_adoption_rate', 'label' => 'Overall Adoption Rate', 'enabled' => true],
         ];
     }
