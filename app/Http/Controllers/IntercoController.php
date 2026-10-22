@@ -41,7 +41,9 @@ class IntercoController extends Controller
 
         $query = StoreOrder::whereNotNull('interco_number')
             ->whereNotNull('sending_store_branch_id')
-            ->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.sapMasterfile']);
+            ->with(['store_branch', 'sendingStore', 'encoder', 'store_order_items.sapMasterfile'])
+            // Items received short or over that wait for the sending store's Confirm or Re-Send
+            ->withCount(['ordered_item_receive_dates as for_confirmation_count' => fn ($q) => $q->where('status', IntercoReceivingService::FOR_CONFIRMATION)]);
 
         // Apply store-based filtering for ALL users based on receiving store (store_branch_id)
         // This matches the IntercoApproval pattern and UserAssignedStoreBranch model
@@ -58,8 +60,7 @@ class IntercoController extends Controller
         // Filter by status. "For Your Confirmation": transfers the user's store sent whose
         // received quantity differs from what was sent and waits for the store to confirm it.
         if ($status === IntercoReceivingService::FOR_CONFIRMATION) {
-            $query->whereIn('sending_store_branch_id', $assignedStoreIds)
-                ->whereHas('ordered_item_receive_dates', fn ($q) => $q->where('status', IntercoReceivingService::FOR_CONFIRMATION));
+            $this->intercoService->whereAwaitingSenderConfirmation($query, $assignedStoreIds);
         } elseif ($status && $status !== 'all') {
             $query->where('interco_status', $status);
         }
@@ -83,7 +84,12 @@ class IntercoController extends Controller
         $orders = $query->orderBy('id', 'desc')
                      ->orderBy('order_date', 'desc')
                      ->paginate(10)
-                     ->withQueryString();
+                     ->withQueryString()
+                     // The sending store answers a confirmation; the receiving store only waits for it
+                     ->through(fn ($order) => $order->setAttribute(
+                         'confirmation_is_yours',
+                         $assignedStoreIds->contains($order->sending_store_branch_id)
+                     ));
         $statistics = $this->intercoService->getIntercoStatistics(
             $assignedStoreIds->isNotEmpty() ? $assignedStoreIds->toArray() : null
         );

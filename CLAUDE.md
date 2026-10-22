@@ -337,7 +337,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `sender_decision = resent`. The transfer is RECEIVED and locked only once every receipt is `approved`.
   Receiving opens at `approved`: the Store Commits commit is optional, and the first receiving action
   moves the transfer `in_transit`, which closes Store Commits. A `for_confirmation` row holds the
-  sending store's MEC (`interco_confirm`) - not the dropped "not committed" check. Outbound Interco in
+  sending store's MEC (`interco_confirm`) - not the dropped "not committed" check. The `/interco` "For Your
+  Confirmation" card and filter (`status=for_confirmation`, which the MEC blocker links to) both use
+  `IntercoService::whereAwaitingSenderConfirmation()`; rows carry `for_confirmation_count`. Outbound Interco in
   the Inventory Movement Report is posted receipts only, never `quantity_commited`; what is not posted
   yet shows in its Pending Interco Transactions column (`interco_pending_qty`, + in / - out), which
   is in no balance: never add it to Theoretical SOH, Variance or Final Variance.

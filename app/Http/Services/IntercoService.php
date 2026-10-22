@@ -221,6 +221,16 @@ class IntercoService extends StoreOrderService
     }
 
     /**
+     * Transfers sent by one of $storeIds whose received quantity differs from what was sent and
+     * waits for that store to Confirm or Re-Send - the "For Your Confirmation" list and its count.
+     */
+    public function whereAwaitingSenderConfirmation($query, $storeIds)
+    {
+        return $query->whereIn('sending_store_branch_id', $storeIds)
+            ->whereHas('ordered_item_receive_dates', fn ($q) => $q->where('status', IntercoReceivingService::FOR_CONFIRMATION));
+    }
+
+    /**
      * Get summary statistics for interco transfers
      */
     public function getIntercoStatistics(?array $storeIds = null): array
@@ -243,6 +253,10 @@ class IntercoService extends StoreOrderService
             'in_transit' => $query->clone()->where('interco_status', IntercoStatus::IN_TRANSIT)->count(),
             'received' => $query->clone()->where('interco_status', IntercoStatus::RECEIVED)->count(),
             'disapproved' => $query->clone()->where('interco_status', IntercoStatus::DISAPPROVED)->count(),
+            // Only a store's own transfers wait for its confirmation
+            'for_confirmation' => $storeIds
+                ? $this->whereAwaitingSenderConfirmation($query->clone(), $storeIds)->count()
+                : 0,
         ];
     }
 }

@@ -195,6 +195,44 @@ it('posts a transfer nobody confirmed at its committed quantity on Final Receive
         ->and($f['order']->fresh()->interco_status)->toBe(IntercoStatus::RECEIVED);
 });
 
+it('shows the sending store, on the transfer list, the transfers waiting for its confirmation', function () {
+    $f = intercoReceivingFixture();
+    $this->actingAs($f['user']);
+
+    intercoRecord($f, 1.5);
+    app(IntercoReceivingController::class)->finalReceive($f['order']->interco_number);
+
+    // The list asks for these to show its buttons.
+    foreach (['create', 'edit', 'approve', 'commit'] as $action) {
+        Permission::findOrCreate("{$action} interco requests");
+    }
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $list = function (User $viewer, array $query) {
+        auth()->setUser($viewer);
+
+        return app(IntercoController::class)
+            ->index(Request::create('/interco', 'GET', $query))
+            ->toResponse(Request::create('/interco'))->getOriginalContent()->getData()['page']['props'];
+    };
+
+    // The sending store: counted on the For Your Confirmation card, listed by its filter, flagged as its own.
+    $sender = $list($f['sender'], ['status' => IntercoReceivingService::FOR_CONFIRMATION]);
+    expect($sender['statistics']['for_confirmation'])->toBe(1)
+        ->and(collect($sender['orders']['data'])->pluck('id')->map(fn ($id) => (int) $id)->all())->toBe([$f['order']->id])
+        ->and($sender['orders']['data'][0])->toMatchArray(['for_confirmation_count' => 1, 'confirmation_is_yours' => true]);
+
+    // The receiving store sees the row flagged as waiting on the other store, and nothing to answer itself.
+    $receiver = $list($f['user'], ['status' => 'all']);
+    expect($receiver['statistics']['for_confirmation'])->toBe(0)
+        ->and($receiver['orders']['data'][0])->toMatchArray(['for_confirmation_count' => 1, 'confirmation_is_yours' => false])
+        ->and($list($f['user'], ['status' => IntercoReceivingService::FOR_CONFIRMATION])['orders']['data'])->toBe([]);
+
+    // Once the sending store confirms, nothing waits any more.
+    intercoSenderAnswers($f, 'confirm');
+    expect($list($f['sender'], ['status' => 'all'])['statistics']['for_confirmation'])->toBe(0);
+});
+
 it('sends a short line to the sending store, and moves it at the received quantity once it confirms', function () {
     $f = intercoReceivingFixture();
     $this->actingAs($f['user']);

@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, ArrowLeftRight } from 'lucide-vue-next'
+import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, ArrowLeftRight, AlertCircle } from 'lucide-vue-next'
 import TransferStatusBadge from './components/TransferStatusBadge.vue'
 import TransferSummary from './components/TransferSummary.vue'
 import MobileTableContainer from '@/components/table/MobileTableContainer.vue'
@@ -42,16 +42,34 @@ const hasActiveFilters = computed(() => {
          dateRange.value
 })
 
+// Each card lists its transfers when clicked
 const filteredStats = computed(() => {
   const stats = props.statistics ? props.statistics : {}
   return [
-    { label: 'Total Transfers', value: stats.total ? stats.total : 0, color: 'text-blue-600' },
-    { label: 'Open', value: stats.open ? stats.open : 0, color: 'text-gray-600' },
-    { label: 'In Transit', value: stats.in_transit ? stats.in_transit : 0, color: 'text-purple-600' },
-    { label: 'Approved', value: stats.approved ? stats.approved : 0, color: 'text-orange-600' },
-    { label: 'Received', value: stats.received ? stats.received : 0, color: 'text-green-600' }
+    { label: 'Total Transfers', status: 'all', value: stats.total ? stats.total : 0, color: 'text-blue-600' },
+    { label: 'Open', status: 'open', value: stats.open ? stats.open : 0, color: 'text-gray-600' },
+    { label: 'In Transit', status: 'in_transit', value: stats.in_transit ? stats.in_transit : 0, color: 'text-purple-600' },
+    { label: 'Approved', status: 'approved', value: stats.approved ? stats.approved : 0, color: 'text-orange-600' },
+    { label: 'Received', status: 'received', value: stats.received ? stats.received : 0, color: 'text-green-600' },
+    // Transfers your store sent that the receiving store got short or over: waiting for your Confirm or Re-Send
+    { label: 'For Your Confirmation', status: 'for_confirmation', value: stats.for_confirmation ? stats.for_confirmation : 0, color: 'text-orange-600', alert: true },
   ]
 })
+
+const showStatus = (value) => {
+  status.value = value
+}
+
+// A transfer with items received short or over, waiting for the sending store's Confirm or Re-Send
+const itemCount = (count) => `${count} item${count === 1 ? '' : 's'}`
+
+const confirmationLabel = (order) => order.confirmation_is_yours
+  ? `For your confirmation · ${itemCount(order.for_confirmation_count)}`
+  : `Waiting for ${fromStoreName(order)} · ${itemCount(order.for_confirmation_count)}`
+
+const confirmationTitle = (order) => order.confirmation_is_yours
+  ? `${toStoreName(order)} received a different quantity than was sent. Open the transfer to Confirm or Re-Send.`
+  : `${fromStoreName(order)} has to confirm the received quantity of ${itemCount(order.for_confirmation_count)}. Nothing has moved for them yet.`
 
 // Methods
 const applyFilters = () => {
@@ -153,16 +171,33 @@ let searchTimeout
     </template>
 
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-      <Card v-for="stat in filteredStats" :key="stat.label">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+      <Card
+        v-for="stat in filteredStats"
+        :key="stat.label"
+        role="button"
+        tabindex="0"
+        class="cursor-pointer transition hover:shadow-md"
+        :class="[
+          stat.alert && stat.value > 0 ? 'border-orange-300 bg-orange-50' : '',
+          status === stat.status ? 'ring-2 ring-primary' : '',
+        ]"
+        :title="stat.alert ? 'Transfers your store sent that were received short or over. Open one to Confirm or Re-Send.' : `Show ${stat.label}`"
+        @click="showStatus(stat.status)"
+        @keydown.enter="showStatus(stat.status)"
+      >
         <CardContent class="p-4">
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
               <p class="text-2xl font-bold" :class="stat.color">{{ stat.value }}</p>
             </div>
-            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <ArrowLeftRight class="w-4 h-4 text-primary" />
+            <div
+              class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center"
+              :class="stat.alert ? 'bg-orange-100' : 'bg-primary/10'"
+            >
+              <AlertCircle v-if="stat.alert" class="w-4 h-4 text-orange-600" />
+              <ArrowLeftRight v-else class="w-4 h-4 text-primary" />
             </div>
           </div>
         </CardContent>
@@ -259,7 +294,18 @@ let searchTimeout
                   {{ calculateTotalQuantity(order.store_order_items) }}
                 </TableCell>
                 <TableCell>
-                  <TransferStatusBadge :status="order.interco_status" />
+                  <div class="flex flex-wrap items-center gap-2">
+                    <TransferStatusBadge :status="order.interco_status" />
+                    <Link
+                      v-if="order.for_confirmation_count > 0"
+                      :href="route('interco.show', order.id)"
+                      class="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-100"
+                      :title="confirmationTitle(order)"
+                    >
+                      <AlertCircle class="w-3 h-3" />
+                      {{ confirmationLabel(order) }}
+                    </Link>
+                  </div>
                 </TableCell>
                 <TableCell>
                   {{ formatDate(order.order_date) }}
@@ -311,6 +357,16 @@ let searchTimeout
                 </Button>
               </div>
             </div>
+
+            <Link
+              v-if="order.for_confirmation_count > 0"
+              :href="route('interco.show', order.id)"
+              class="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700"
+              :title="confirmationTitle(order)"
+            >
+              <AlertCircle class="w-3 h-3" />
+              {{ confirmationLabel(order) }}
+            </Link>
 
             <!-- Store Information -->
             <div class="grid grid-cols-2 gap-3 text-sm">

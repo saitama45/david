@@ -15,6 +15,28 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 22, 2026
+    {
+        date: '2026-10-22',
+        module: 'Interco Transfer',
+        type: 'improved',
+        title: 'Interco Transfer shows a "For Your Confirmation" card, and marks every transfer whose received quantity waits for the sending store',
+        summary:
+            'When the receiving store got less or more than was sent, the transfer only showed "In Transit" on the list, and the transfers waiting for the sending store\'s answer could only be found by picking "For Your Confirmation" at the bottom of the status filter. The list now has a "For Your Confirmation" card with the count, and each of these transfers carries an orange note beside its status.',
+        steps: [
+            'Open Interco Transfer. The "For Your Confirmation" card shows how many transfers your store sent that were received short or over. It turns orange while there are any.',
+            'Click the card to list only those transfers.',
+            'Click the orange note, or the eye icon, to open the transfer and answer it with Confirm or Re-Send under Received Quantity Confirmation.',
+        ],
+        rules: [
+            'The sending store sees "For your confirmation · 1 item" on the transfer. The receiving store sees "Waiting for Glorietta 4 · 1 item" (the sending store\'s name), because only the sending store can answer.',
+            'The card and its list count only transfers sent by a store assigned to you.',
+            'A transfer leaves the card once every item received short or over has been confirmed or re-sent.',
+            'Every card on the page can now be clicked to list its transfers: Total Transfers lists all, and Open, In Transit, Approved and Received list their status.',
+            'Nothing moves for an item waiting for confirmation, and neither store can do its Month End Count until it is answered.',
+        ],
+        affects: 'Store users of both the sending and the receiving store of an interco transfer.',
+    },
     // ---------------------------------------------------------------- October 21, 2026
     {
         date: '2026-10-21',
