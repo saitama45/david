@@ -15,6 +15,19 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 28, 2026
+    {
+        date: '2026-10-28',
+        module: 'CS Mass Commits',
+        type: 'improved',
+        title: 'CS Mass Commits Export to Excel works for templates with many stores',
+        summary:
+            'Export to Excel on CS Mass Commits showed an Internal Server Error when the report had more than 26 columns, which happens on a template that delivers to many stores. The export now downloads the full report whatever the number of stores.',
+        rules: [
+            'Every store column is included in the file, and each column is sized to fit its contents.',
+        ],
+        affects: 'Users who export CS Mass Commits.',
+    },
     // ---------------------------------------------------------------- October 22, 2026
     {
         date: '2026-10-22',

@@ -6,6 +6,7 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class CSMassCommitsExport implements FromCollection, WithHeadings, WithStyles, WithStrictNullComparison
@@ -71,9 +72,10 @@ class CSMassCommitsExport implements FromCollection, WithHeadings, WithStyles, W
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF92D050'); // A shade of green
 
-        // Auto-size columns
-        foreach (range('A', $sheet->getHighestColumn()) as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        // Auto-size columns (by index: range('A', 'AA') fails once there are more than 26 columns)
+        $lastColumn = Coordinate::columnIndexFromString($sheet->getHighestColumn());
+        for ($col = 1; $col <= $lastColumn; $col++) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
         }
 
         return [];
