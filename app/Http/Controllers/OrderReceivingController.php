@@ -11,6 +11,7 @@ use App\Http\Requests\OrderReceiving\ReceiveOrderRequest;
 use App\Http\Requests\OrderReceiving\UpdateDeliveryReceiptNumberRequest;
 use App\Http\Requests\OrderReceiving\UpdateReceiveDateHistoryRequest;
 use App\Http\Services\OrderReceivingService;
+use App\Models\CpoOrderAttachment;
 use App\Models\DeliveryReceipt;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
@@ -94,6 +95,12 @@ class OrderReceivingController extends Controller
             'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images,
+            // A CPO order: the vendor's invoice / receipt replaces the image, and receiving needs it.
+            'cpoInvoice' => $order->isCpo() ? [
+                'files' => $order->cpoAttachments()->get(),
+                'maxFiles' => CpoOrderAttachment::MAX_FILES,
+                'maxMb' => CpoOrderAttachment::MAX_KB / 1024,
+            ] : null,
             // Set once Final Receive All locked the item list; the page then hides every
             // receiving action, on the same rule the server enforces.
             'receivingFinalized' => $order->receiving_finalized_at ? [
@@ -286,6 +293,42 @@ class OrderReceivingController extends Controller
         }
 
         return redirect()->back()->with('success', 'Image uploaded successfully.');
+    }
+
+    /**
+     * Upload a CPO order's invoice / receipt. CPO Orders does not take it (the store has it, not
+     * the office that places the order), so the store uploads it here, and receiving needs it
+     * (OrderReceivingService::deliveryEvidenceProblem). Kept with the CPO Orders files, so CPO
+     * Orders and Mass Orders Approval show it too. Like images, Final Receive All does not lock it.
+     */
+    public function attachInvoice(Request $request, StoreOrder $order)
+    {
+        abort_unless($order->isCpo(), 404);
+        $access = User::rolesAndAssignedBranches();
+        abort_unless($access['isAdmin'] || in_array($order->store_branch_id, $access['assignedBranches']), 403);
+
+        $request->validate([
+            'file' => 'required|file|mimes:jpg,jpeg,png,pdf|max:'.CpoOrderAttachment::MAX_KB,
+        ], [
+            'file.required' => 'Choose the invoice or receipt file.',
+            'file.mimes' => 'An invoice or receipt must be a JPG, PNG or PDF file.',
+            'file.max' => 'The invoice or receipt file must be '.(CpoOrderAttachment::MAX_KB / 1024).' MB or smaller.',
+        ]);
+
+        if ($order->cpoAttachments()->count() >= CpoOrderAttachment::MAX_FILES) {
+            return back()->withErrors(['file' => 'An order takes at most '.CpoOrderAttachment::MAX_FILES.' invoice / receipt files.']);
+        }
+
+        $file = $request->file('file');
+        $order->cpoAttachments()->create([
+            'file_path' => $file->store(CpoOrderAttachment::DIRECTORY, CpoOrderAttachment::DISK),
+            'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
+            'mime_type' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'uploaded_by' => Auth::id(),
+        ]);
+
+        return redirect()->back()->with('success', 'Invoice / receipt uploaded.');
     }
 
 

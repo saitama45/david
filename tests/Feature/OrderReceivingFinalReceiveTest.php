@@ -3,6 +3,7 @@
 use App\Enum\OrderStatus;
 use App\Http\Controllers\OrderReceivingController;
 use App\Http\Services\OrderReceivingService;
+use App\Models\CpoOrderAttachment;
 use App\Models\DeliveryReceipt;
 use App\Models\ImageAttachment;
 use App\Models\OrderedItemReceiveDate;
@@ -15,7 +16,10 @@ use App\Models\Supplier;
 use App\Models\SupplierItems;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * An order from supplier UNL, delivered 10 days ago (past the old 3-day window), with one
@@ -277,6 +281,42 @@ it('refuses Final Receive All without a delivery receipt or image', function () 
 
     expect($order->fresh()->receiving_finalized_at)->toBeNull()
         ->and(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('received');
+});
+
+it('asks a CPO order for the invoice / receipt in place of the image, uploaded by the store in Inbound Orders', function () {
+    Storage::fake(CpoOrderAttachment::DISK);
+    [$user, $order, $branch] = receivingFixture(); // it has an image
+    $user->store_branches()->attach($branch->id);
+    $this->actingAs($user);
+
+    $controller = app(OrderReceivingController::class);
+    $service = app(OrderReceivingService::class);
+    $attach = fn (StoreOrder $order) => $controller->attachInvoice(
+        Request::create('/', 'POST', [], [], ['file' => UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf')]),
+        $order
+    );
+
+    // Only a CPO order takes an invoice / receipt here.
+    expect(fn () => $attach($order))->toThrow(HttpException::class);
+
+    Supplier::whereKey($order->supplier_id)->update(['supplier_code' => Supplier::CPO]);
+    $order = $order->fresh();
+
+    // The image does not count on a CPO order: the vendor's invoice / receipt does.
+    expect($service->deliveryEvidenceProblem($order))->toBe('Add the invoice / receipt to this order before recording received quantities.');
+    $controller->finalReceive($order->id);
+    expect($order->fresh()->receiving_finalized_at)->toBeNull();
+
+    $attach($order);
+
+    $file = $order->cpoAttachments()->sole();
+    Storage::disk(CpoOrderAttachment::DISK)->assertExists($file->file_path);
+    expect($file->original_name)->toBe('invoice.pdf')
+        ->and((int) $file->uploaded_by)->toBe($user->id)
+        ->and($service->deliveryEvidenceProblem($order))->toBeNull();
+
+    $controller->finalReceive($order->id);
+    expect($order->fresh()->receiving_finalized_at)->not->toBeNull();
 });
 
 it('refuses every receiving action before the Delivery Date and allows them from that day on', function () {

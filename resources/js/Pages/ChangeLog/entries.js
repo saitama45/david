@@ -15,6 +15,43 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- October 31, 2026
+    {
+        date: '2026-10-31',
+        module: 'Inbound Orders',
+        type: 'improved',
+        title: 'CPO orders have a required "Upload Invoice / Receipt" section in Inbound Orders, in place of Image Attachments',
+        summary:
+            'The invoice or receipt of a CPO order used to be attached by the person who placed the order in CPO Orders, although the store is the one holding it. The store now uploads it in Inbound Orders when it receives the order. On a CPO order, the Image Attachments section is replaced by "Upload Invoice / Receipt", and a red notice at the top of the page says it is still missing.',
+        steps: [
+            'The store opens the CPO order in Inbound Orders. While nothing is uploaded, a red notice reads "Upload the invoice / receipt of this CPO order".',
+            'Click Upload Invoice / Receipt, in the notice or in the "Upload Invoice / Receipt" section, and choose the vendor\'s invoice or receipt.',
+            'Click Upload. The file appears in the section, and receiving can start once the delivery receipt is added too.',
+        ],
+        rules: [
+            'On a CPO order, nothing can be received, confirmed with Confirm Receive All or finalized with Final Receive All until the invoice or receipt is uploaded and a delivery receipt is added.',
+            'On a CPO order, an image under Image Attachments no longer takes the place of the invoice or receipt. An image uploaded before stays visible, but the invoice or receipt is still asked for.',
+            'The file must be a JPG, PNG or PDF of 5 MB or less. Photos are shrunk automatically. An order takes at most 5 files.',
+            'Only a user with the permission to receive orders, assigned to the order\'s store, can upload it. The invoice or receipt can be uploaded before the Delivery Date and after Final Receive All.',
+            'Zero All still needs no delivery receipt and no invoice or receipt, for a purchase that did not arrive.',
+            'Orders of every other ordering template keep the required Image Attachments section as before.',
+        ],
+        affects: 'Store users who receive CPO orders.',
+    },
+    {
+        date: '2026-10-31',
+        module: 'CPO Orders',
+        type: 'improved',
+        title: 'Create New CPO Order no longer asks for the invoice / receipt',
+        summary:
+            'Create New CPO Order required the vendor\'s invoice or receipt with the Excel file, but the person placing the order does not hold it: the store does. Step 3 now takes only the completed Excel file, and the store uploads the invoice or receipt in Inbound Orders when it receives the order.',
+        rules: [
+            'The Invoice / Receipt column of CPO Orders, and the order\'s page in CPO Orders and in Mass Orders Approval, show "Not uploaded yet" until the store has uploaded it.',
+            'Mass Orders Approval therefore approves a new CPO order before its invoice or receipt is uploaded. The cost of each line is still typed in from the invoice or receipt when the order is placed.',
+            'A CPO order cannot be received in Inbound Orders until its invoice or receipt is uploaded there.',
+        ],
+        affects: 'Users who place CPO orders, and approvers in Mass Orders Approval.',
+    },
     // ---------------------------------------------------------------- October 28, 2026
     {
         date: '2026-10-28',

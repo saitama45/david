@@ -5,12 +5,11 @@ import Select from "primevue/select";
 import Button from "primevue/button";
 import { ref, watch, computed } from "vue";
 import axios from "axios";
-import { Download, Upload, Eye, Plus, Pencil, X, Paperclip } from "lucide-vue-next";
+import { Download, Upload, Eye, Plus, Pencil } from "lucide-vue-next";
 import { throttle } from "lodash";
 import { useAuth } from "@/composables/useAuth";
 import { useSelectOptions } from "@/composables/useSelectOptions";
 import { useToast } from "@/composables/useToast";
-import { compressImageFile, formatBytes } from "@/lib/imageCompression";
 import CpoVendorPicker from "@/components/CpoVendorPicker.vue";
 
 const props = defineProps({
@@ -23,8 +22,6 @@ const props = defineProps({
     hasCpoStores: { type: Boolean, default: false },
     // The CPO ordering template is assigned to the user; placing an order needs it.
     cpoAssigned: { type: Boolean, default: false },
-    maxAttachments: { type: Number, default: 5 },
-    maxAttachmentMb: { type: Number, default: 5 },
 });
 
 const { hasAccess } = useAuth();
@@ -56,7 +53,6 @@ const form = useForm({
     order_date: null,
     cpo_vendor_id: null,
     mass_order_file: null,
-    attachments: [],
 });
 
 const vendor = ref(null);
@@ -65,14 +61,12 @@ watch(vendor, (value) => {
 });
 
 const excelInput = ref(null);
-const attachmentInput = ref(null);
 
 const resetCreate = () => {
     form.reset();
     form.clearErrors();
     vendor.value = null;
     if (excelInput.value) excelInput.value.value = "";
-    if (attachmentInput.value) attachmentInput.value.value = "";
 };
 
 watch(isModalVisible, (open) => {
@@ -87,45 +81,7 @@ const minDate = computed(() => {
     return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
 });
 
-const preparingFiles = ref(false);
-
-const addAttachments = async (event) => {
-    const picked = Array.from(event.target.files || []);
-    event.target.value = "";
-    form.clearErrors("attachments");
-
-    if (form.attachments.length + picked.length > props.maxAttachments) {
-        form.setError("attachments", `Attach at most ${props.maxAttachments} files.`);
-        return;
-    }
-
-    preparingFiles.value = true;
-    try {
-        for (const file of picked) {
-            if (file.type.startsWith("image/")) {
-                // Phone photos are shrunk in the browser to fit the size limit.
-                const { file: ready } = await compressImageFile(file, { maxSizeBytes: props.maxAttachmentMb * 1024 * 1024 });
-                form.attachments.push(ready);
-            } else {
-                if (file.size > props.maxAttachmentMb * 1024 * 1024) {
-                    form.setError("attachments", `${file.name} is larger than ${props.maxAttachmentMb} MB.`);
-                    continue;
-                }
-                form.attachments.push(file);
-            }
-        }
-    } catch (error) {
-        form.setError("attachments", error.message || "The file could not be read.");
-    } finally {
-        preparingFiles.value = false;
-    }
-};
-
-const removeAttachment = (index) => {
-    form.attachments.splice(index, 1);
-};
-
-const canUpload = computed(() => form.order_date && form.cpo_vendor_id && form.mass_order_file && form.attachments.length > 0 && !preparingFiles.value);
+const canUpload = computed(() => form.order_date && form.cpo_vendor_id && form.mass_order_file);
 
 const submitUpload = () => {
     form.post(route("cpo-orders.upload"), {
@@ -139,10 +95,6 @@ const submitUpload = () => {
 // Problems with the rows of the file, one message each.
 const rowProblems = computed(() => Object.entries(form.errors)
     .filter(([key]) => key.startsWith("rows."))
-    .map(([, message]) => message));
-
-const attachmentErrors = computed(() => Object.entries(form.errors)
-    .filter(([key]) => key === "attachments" || key.startsWith("attachments."))
     .map(([, message]) => message));
 
 // --- Vendor add / edit: no delete ---
@@ -238,6 +190,9 @@ const showOrder = (orderNumber) => router.get(route("cpo-orders.show", orderNumb
 // An order placed in Mass Orders before CPO Orders existed recorded no vendor; it shows its
 // ordering template (CPO), as Mass Orders did.
 const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "N/A";
+
+// The store uploads the invoice / receipt in Inbound Orders when it receives the order.
+const invoiceLabel = (order) => order.cpo_attachments_count > 0 ? `${order.cpo_attachments_count} file(s)` : "Not uploaded yet";
 </script>
 
 <template>
@@ -353,7 +308,7 @@ const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "
                     <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
                         <div class="flex items-center mb-4">
                             <span class="flex items-center justify-center size-8 rounded-full bg-blue-600 text-white font-bold text-lg mr-4">3</span>
-                            <h2 class="text-xl font-semibold text-gray-800">Upload Completed File and Invoice / Receipt</h2>
+                            <h2 class="text-xl font-semibold text-gray-800">Upload Completed File</h2>
                         </div>
                         <form @submit.prevent="submitUpload" class="space-y-5">
                             <div>
@@ -372,34 +327,10 @@ const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "
                                 </ul>
                             </div>
 
-                            <div>
-                                <label for="attachments" class="block text-sm font-medium text-gray-700">Invoice / Receipt <span class="text-red-500">*</span></label>
-                                <p class="text-xs text-gray-500">JPG, PNG or PDF, up to {{ maxAttachments }} files of {{ maxAttachmentMb }} MB each. Photos are shrunk automatically.</p>
-                                <input
-                                    id="attachments"
-                                    ref="attachmentInput"
-                                    type="file"
-                                    multiple
-                                    accept="image/jpeg,image/png,application/pdf"
-                                    :disabled="preparingFiles || form.attachments.length >= maxAttachments"
-                                    @change="addAttachments"
-                                    class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                                />
-                                <p v-if="preparingFiles" class="mt-1 text-xs text-gray-500">Preparing files...</p>
-                                <ul v-if="form.attachments.length" class="mt-2 divide-y rounded-md border border-gray-200">
-                                    <li v-for="(file, index) in form.attachments" :key="index" class="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                                        <span class="flex items-center gap-2 min-w-0">
-                                            <Paperclip class="size-4 shrink-0 text-gray-400" />
-                                            <span class="truncate">{{ file.name }}</span>
-                                            <span class="text-xs text-gray-400 shrink-0">{{ formatBytes(file.size) }}</span>
-                                        </span>
-                                        <button type="button" class="text-gray-400 hover:text-red-600" title="Remove" @click="removeAttachment(index)">
-                                            <X class="size-4" />
-                                        </button>
-                                    </li>
-                                </ul>
-                                <p v-for="(message, index) in attachmentErrors" :key="index" class="mt-1 text-sm text-red-600">{{ message }}</p>
-                            </div>
+                            <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                                The invoice / receipt is not uploaded here. The store uploads it in <strong>Inbound Orders</strong> when it
+                                receives the order, and the order cannot be received without it.
+                            </p>
 
                             <div class="flex justify-end">
                                 <Button type="submit" :disabled="!canUpload || form.processing">
@@ -506,7 +437,7 @@ const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "
                             <TD>{{ order.order_number }}</TD>
                             <TD>{{ formatDisplayDate(order.order_date) }}</TD>
                             <TD>{{ formatDisplayDateTime(order.created_at) }}</TD>
-                            <TD>{{ order.cpo_attachments_count > 0 ? `${order.cpo_attachments_count} file(s)` : "None" }}</TD>
+                            <TD>{{ invoiceLabel(order) }}</TD>
                             <TD>
                                 <Badge :class="statusBadgeColor(order.order_status)" class="font-bold">{{ statusLabel(order.order_status) }}</Badge>
                             </TD>
@@ -531,6 +462,7 @@ const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "
                     <LabelXS>Status: <span :class="statusBadgeColor(order.order_status)" class="font-semibold p-1 rounded text-white">{{ statusLabel(order.order_status) }}</span></LabelXS>
                     <LabelXS>Store: {{ order.store_branch?.name ?? "N/A" }}</LabelXS>
                     <LabelXS>Delivery Date: {{ formatDisplayDate(order.order_date) }}</LabelXS>
+                    <LabelXS>Invoice / Receipt: {{ invoiceLabel(order) }}</LabelXS>
                 </MobileTableRow>
             </MobileTableContainer>
 

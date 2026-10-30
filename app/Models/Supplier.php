@@ -46,7 +46,7 @@ class Supplier extends Model implements Auditable
 
     /**
      * Templates whose orders wait in Mass Orders Approval whatever their switch says: CPO,
-     * whose typed costs and invoice are checked there (CPO Orders places every order pending).
+     * whose typed costs are checked there (CPO Orders places every order pending).
      */
     public const ALWAYS_FOR_APPROVAL = [self::CPO];
 

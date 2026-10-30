@@ -312,7 +312,7 @@ const formatQuantity = (value) => {
                                 {{ file.original_name }}
                             </a>
                         </div>
-                        <span v-else class="text-sm text-gray-500">No invoice or receipt attached.</span>
+                        <span v-else class="text-sm text-gray-500">Not uploaded yet. The store uploads it in Inbound Orders when it receives the order.</span>
                     </div>
 
                     <Table>

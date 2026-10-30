@@ -4,7 +4,6 @@ use App\Enum\OrderStatus;
 use App\Http\Controllers\CpoOrdersController;
 use App\Http\Controllers\MassOrdersApprovalController;
 use App\Http\Controllers\MassOrdersController;
-use App\Models\CpoOrderAttachment;
 use App\Models\CpoVendor;
 use App\Models\DeliverySchedule;
 use App\Models\StoreBranch;
@@ -75,16 +74,13 @@ beforeEach(function () {
     Storage::fake('local');
 });
 
-it('creates one pending CPO order per store with the typed cost, the vendor and the invoice', function () {
+it('creates one pending CPO order per store with the typed cost and the vendor, and no invoice yet', function () {
     [$user, $storeA, $storeB, $vendor] = cpoFixture();
     $this->actingAs($user);
 
     uploadCpoOrder(
         ['order_date' => '2026-10-19', 'cpo_vendor_id' => $vendor->id],
-        [
-            'mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', 'Pandesal', '', 'PCK', 12.5, 2, 3]]),
-            'attachments' => [UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf')],
-        ]
+        ['mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', 'Pandesal', '', 'PCK', 12.5, 2, 3]])]
     );
 
     expect(session('success'))->toBeTrue()
@@ -100,7 +96,8 @@ it('creates one pending CPO order per store with the typed cost, the vendor and 
             ->and($order->cpo_vendor_name)->toBe('Corner Market')
             ->and($order->cpo_vendor_tin)->toBe('123-456')
             ->and($order->cpo_vendor_address)->toBe('Quezon City')
-            ->and($order->cpoAttachments)->toHaveCount(1)
+            // The store uploads the invoice / receipt in Inbound Orders when it receives the order.
+            ->and($order->cpoAttachments)->toHaveCount(0)
             ->and((float) $order->store_order_items->first()->cost_per_quantity)->toBe(12.5);
     }
 
@@ -108,11 +105,6 @@ it('creates one pending CPO order per store with the typed cost, the vendor and 
     expect((float) $lineA->quantity_ordered)->toBe(2.0)
         ->and((float) $lineA->total_cost)->toBe(25.0)
         ->and($lineA->uom)->toBe('PCK');
-
-    // One file, linked to both orders.
-    $path = $orders->first()->cpoAttachments->first()->file_path;
-    expect($orders->last()->cpoAttachments->first()->file_path)->toBe($path);
-    Storage::disk(CpoOrderAttachment::DISK)->assertExists($path);
 });
 
 it('refuses the whole upload when a line with a quantity has no cost or an unknown item', function () {
@@ -127,7 +119,6 @@ it('refuses the whole upload when a line with a quantity has no cost or an unkno
                 ['CPO', '', '', 'NOPE-99', 'Unknown', '', 'PCK', 5, 1, ''],
                 ['CPO', '', '', 'BREAD-01', 'Pandesal', '', '', 5, '', ''], // no quantity: not checked
             ]),
-            'attachments' => [UploadedFile::fake()->create('receipt.jpg', 50, 'image/jpeg')],
         ]
     );
 
@@ -144,7 +135,7 @@ it('refuses the whole upload when a line with a quantity has no cost or an unkno
     expect(StoreOrder::count())->toBe(0);
 });
 
-it('requires the vendor and an invoice or receipt', function () {
+it('requires the vendor but not the invoice or receipt', function () {
     [$user] = cpoFixture();
     $this->actingAs($user);
 
@@ -152,8 +143,8 @@ it('requires the vendor and an invoice or receipt', function () {
         uploadCpoOrder(['order_date' => '2026-10-19'], ['mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']])]);
         $this->fail('The upload should have been refused.');
     } catch (ValidationException $e) {
-        expect($e->errors())->toHaveKeys(['cpo_vendor_id', 'attachments'])
-            ->and($e->errors()['attachments'][0])->toBe('Attach the invoice or receipt.');
+        expect($e->errors())->toHaveKey('cpo_vendor_id')
+            ->and($e->errors())->not->toHaveKey('attachments');
     }
 });
 
@@ -163,10 +154,7 @@ it('skips a store that already has an open order from the vendor that day, but n
 
     $upload = fn () => uploadCpoOrder(
         ['order_date' => '2026-10-19', 'cpo_vendor_id' => $vendor->id],
-        [
-            'mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']]),
-            'attachments' => [UploadedFile::fake()->create('invoice.pdf', 10, 'application/pdf')],
-        ]
+        ['mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']])]
     );
 
     $upload();
@@ -257,7 +245,6 @@ it('lets a user without the CPO template assigned see CPO Orders but not place a
 
     expect(fn () => uploadCpoOrder(['order_date' => '2026-10-19', 'cpo_vendor_id' => $vendor->id], [
         'mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']]),
-        'attachments' => [UploadedFile::fake()->create('invoice.pdf', 10, 'application/pdf')],
     ]))->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class)
         ->and(fn () => $controller->storeVendor(Request::create('/cpo-orders/vendors', 'POST', ['name' => 'X', 'address' => 'Y'])))
         ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);

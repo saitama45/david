@@ -3,13 +3,14 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "primevue/usetoast";
 import { router } from "@inertiajs/vue3";
-import { X, Eye, PackagePlus, PackageX, Search, Check, Loader2, Lock, CalendarClock } from "lucide-vue-next";
+import { X, Eye, PackagePlus, PackageX, Search, Check, Loader2, Lock, CalendarClock, FileText, Receipt } from "lucide-vue-next";
 import { useConfirm } from "primevue/useconfirm";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
 import { useBackButton } from "@/composables/useBackButton";
 import { useAuth } from "@/composables/useAuth";
+import { compressImageFile } from "@/lib/imageCompression";
 import {
     Dialog,
     DialogContent,
@@ -182,6 +183,11 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    // A CPO order: { files, maxFiles, maxMb } of the vendor's invoice / receipt, otherwise null.
+    cpoInvoice: {
+        type: Object,
+        default: null,
+    },
     // Last date the store closed with a final approved month end count, otherwise null.
     closedThrough: {
         type: String,
@@ -257,6 +263,78 @@ const submitImageUpload = () => {
     });
 };
 
+
+// A CPO order is placed by the office without the vendor's invoice / receipt: the store uploads
+// it here, in place of the image, and receiving needs it (OrderReceivingService::deliveryEvidenceProblem).
+const isInvoiceUploadModalVisible = ref(false);
+const invoiceForm = useForm({
+    file: null,
+});
+const invoiceInput = ref(null);
+const invoicePreviewUrl = ref(null);
+const preparingInvoice = ref(false);
+
+const isImageFile = (file) => String(file?.mime_type || file?.type || "").startsWith("image/");
+
+const clearInvoiceFile = () => {
+    if (invoicePreviewUrl.value) URL.revokeObjectURL(invoicePreviewUrl.value);
+    invoicePreviewUrl.value = null;
+    invoiceForm.file = null;
+    if (invoiceInput.value) invoiceInput.value.value = "";
+};
+
+const openInvoiceUploadModal = () => {
+    invoiceForm.clearErrors();
+    isInvoiceUploadModalVisible.value = true;
+};
+
+const closeInvoiceUploadModal = () => {
+    isInvoiceUploadModalVisible.value = false;
+    clearInvoiceFile();
+    invoiceForm.clearErrors();
+};
+
+const onInvoiceFileChange = async (event) => {
+    const picked = event.target.files?.[0];
+    clearInvoiceFile();
+    invoiceForm.clearErrors();
+    if (!picked) return;
+
+    const maxBytes = props.cpoInvoice.maxMb * 1024 * 1024;
+    preparingInvoice.value = true;
+    try {
+        // Phone photos are shrunk in the browser to fit the size limit.
+        const file = isImageFile(picked)
+            ? (await compressImageFile(picked, { maxSizeBytes: maxBytes })).file
+            : picked;
+        if (file.size > maxBytes) {
+            invoiceForm.setError("file", `${picked.name} is larger than ${props.cpoInvoice.maxMb} MB.`);
+            return;
+        }
+        invoiceForm.file = file;
+        if (isImageFile(file)) invoicePreviewUrl.value = URL.createObjectURL(file);
+    } catch (error) {
+        invoiceForm.setError("file", error.message || "The file could not be read.");
+    } finally {
+        preparingInvoice.value = false;
+    }
+};
+
+const submitInvoiceUpload = () => {
+    invoiceForm.post(route("orders-receiving.attach-invoice", props.order.id), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Invoice / receipt uploaded.",
+                life: 3000,
+            });
+            closeInvoiceUploadModal();
+        },
+    });
+};
 
 const deliveryReceiptForm = useForm({
     id: null,
@@ -480,13 +558,14 @@ const closeEditModal = () => {
 const closeAllModals = () => {
     isEditModalVisible.value = false;
     isImageUploadModalVisible.value = false;
+    if (isInvoiceUploadModalVisible.value) closeInvoiceUploadModal();
     isDeliveryReceiptModalVisible.value = false;
     isViewModalVisible.value = false;
 };
 
 const handleEscapeKey = (event) => {
     if (event.key === "Escape") {
-        if (isEditModalVisible.value || isImageUploadModalVisible.value || isDeliveryReceiptModalVisible.value || isViewModalVisible.value) {
+        if (isEditModalVisible.value || isImageUploadModalVisible.value || isInvoiceUploadModalVisible.value || isDeliveryReceiptModalVisible.value || isViewModalVisible.value) {
             closeAllModals();
         }
     }
@@ -555,14 +634,22 @@ const variance = computed(() => {
 });
 
 // A delivery receipt and an image are required before any quantity may be recorded, not
-// only before Confirm Receive. The server enforces the same rule on every receiving
-// endpoint (OrderReceivingService::deliveryEvidenceProblem).
+// only before Confirm Receive; on a CPO order the vendor's invoice / receipt takes the image's
+// place. The server enforces the same rule on every receiving endpoint
+// (OrderReceivingService::deliveryEvidenceProblem).
 const missingEvidence = computed(() => {
     const missing = [];
     if (props.order.delivery_receipts.length === 0) missing.push("a delivery receipt");
-    if (props.images.length === 0) missing.push("an image attachment");
+    if (props.cpoInvoice) {
+        if (props.cpoInvoice.files.length === 0) missing.push("the invoice / receipt");
+    } else if (props.images.length === 0) {
+        missing.push("an image attachment");
+    }
     return missing;
 });
+
+// What Confirm / Final Receive All ask for besides the delivery receipt.
+const proofName = computed(() => (props.cpoInvoice ? "the invoice / receipt" : "image"));
 
 // Confirm Receive All accepts the recorded quantities but posts nothing and does not end
 // receiving: an item found afterwards can still be added and corrected. Only Final Receive All
@@ -857,7 +944,7 @@ const promptConfirmReceive = () => {
         toast.add({
             severity: "error",
             summary: "Unable to Confirm",
-            detail: "A delivery receipt and image are required before confirming.",
+            detail: `A delivery receipt and ${proofName.value} are required before confirming.`,
             life: 5000,
         });
         return;
@@ -979,7 +1066,7 @@ const promptFinalReceive = () => {
         toast.add({
             severity: "error",
             summary: "Unable to Finalize",
-            detail: "A delivery receipt and image are required before finalizing.",
+            detail: `A delivery receipt and ${proofName.value} are required before finalizing.`,
             life: 5000,
         });
         return;
@@ -1014,6 +1101,32 @@ const promptFinalReceive = () => {
 <template>
     <Layout heading="Order Details">
         <div class="space-y-6">
+            <!-- A CPO order arrives here without the vendor's invoice / receipt: the store
+                 uploads it, and nothing can be received until it does. -->
+            <div
+                v-if="cpoInvoice && cpoInvoice.files.length === 0"
+                role="alert"
+                class="flex flex-col gap-3 rounded-xl border-2 border-red-300 bg-red-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="flex items-start gap-4">
+                    <Receipt class="mt-0.5 size-8 shrink-0 text-red-600" />
+                    <div class="space-y-1">
+                        <p class="text-base font-bold text-red-900">Upload the invoice / receipt of this CPO order</p>
+                        <p class="text-sm text-red-900">
+                            This order was bought from {{ order.cpo_vendor_name || "an outside vendor" }} and placed without the vendor's invoice or receipt.
+                            Upload it here: items cannot be received, confirmed or finalized until it is uploaded.
+                        </p>
+                    </div>
+                </div>
+                <Button
+                    v-if="hasReceivePermission"
+                    class="shrink-0 bg-red-600 text-white hover:bg-red-700"
+                    @click="openInvoiceUploadModal"
+                >
+                    Upload Invoice / Receipt
+                </Button>
+            </div>
+
             <!-- Order Information Card -->
             <Card class="overflow-hidden bg-white shadow-sm border border-gray-200 rounded-xl">
                 <div class="p-6">
@@ -1237,14 +1350,73 @@ const promptFinalReceive = () => {
                     </MobileTableContainer>
                 </TableContainer>
 
-                <!-- Image Attachments -->
-                <Card class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
+                <!-- Invoice / Receipt of a CPO order: required, in place of the image -->
+                <Card
+                    v-if="cpoInvoice"
+                    class="bg-white shadow-sm border-2 rounded-xl overflow-hidden"
+                    :class="cpoInvoice.files.length ? 'border-gray-200' : 'border-red-300'"
+                >
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center gap-3 bg-gray-50/50">
+                        <div>
+                            <CardTitle class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                Upload Invoice / Receipt <span class="text-red-500 text-sm">*</span>
+                                <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ cpoInvoice.files.length }}</span>
+                            </CardTitle>
+                            <p class="mt-1 text-xs font-semibold text-red-600">Required on a CPO order before anything can be received.</p>
+                        </div>
+                        <Button
+                            v-if="hasReceivePermission"
+                            size="sm"
+                            variant="outline"
+                            class="shrink-0"
+                            :disabled="cpoInvoice.files.length >= cpoInvoice.maxFiles"
+                            :title="cpoInvoice.files.length >= cpoInvoice.maxFiles ? `An order takes at most ${cpoInvoice.maxFiles} files.` : ''"
+                            @click="openInvoiceUploadModal"
+                        >
+                            Upload Invoice / Receipt
+                        </Button>
+                    </div>
+                    <div class="p-6">
+                        <div v-if="cpoInvoice.files.length" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <a
+                                v-for="file in cpoInvoice.files"
+                                :key="file.id"
+                                :href="file.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                :title="file.original_name"
+                                class="group relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
+                            >
+                                <img
+                                    v-if="isImageFile(file)"
+                                    :src="file.url"
+                                    :alt="file.original_name"
+                                    class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                                <template v-else>
+                                    <FileText class="size-10 text-gray-400" />
+                                    <span class="mt-2 w-full truncate px-2 text-center text-xs text-blue-600">{{ file.original_name }}</span>
+                                </template>
+                            </a>
+                        </div>
+                        <div v-else class="text-center py-8 bg-red-50 rounded-lg border border-dashed border-red-300">
+                            <div class="flex flex-col items-center justify-center text-red-600">
+                                <Receipt class="size-10 mb-2" />
+                                <span class="text-sm font-medium">No invoice / receipt uploaded yet</span>
+                                <span class="mt-1 text-xs">JPG, PNG or PDF, up to {{ cpoInvoice.maxFiles }} files of {{ cpoInvoice.maxMb }} MB each.</span>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+
+                <!-- Image Attachments: a CPO order shows them only if it already has some -->
+                <Card v-if="!cpoInvoice || images.length > 0" class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
                     <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <CardTitle class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                            Image Attachments <span class="text-red-500 text-sm">*</span>
+                            Image Attachments <span v-if="!cpoInvoice" class="text-red-500 text-sm">*</span>
                             <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ images.length }}</span>
                         </CardTitle>
-                        <Button size="sm" variant="outline" @click="openImageUploadModal">
+                        <Button v-if="!cpoInvoice" size="sm" variant="outline" @click="openImageUploadModal">
                              Upload Image
                         </Button>
                     </div>
@@ -1343,7 +1515,7 @@ const promptFinalReceive = () => {
                             @click="promptConfirmReceive"
                             :disabled="!canConfirmReceive"
                             :variant="!canConfirmReceive ? 'secondary' : 'default'"
-                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before confirming.' : 'Confirm the received quantity of every item. Nothing is added to stock on hand yet, and the list stays open for changes.'"
+                            :title="!canConfirmReceive ? `A delivery receipt and ${proofName} are required before confirming.` : 'Confirm the received quantity of every item. Nothing is added to stock on hand yet, and the list stays open for changes.'"
                         >
                             Confirm Receive All
                         </Button>
@@ -1356,7 +1528,7 @@ const promptFinalReceive = () => {
                                     ? 'bg-emerald-600 text-white ring-emerald-300 hover:bg-emerald-700'
                                     : 'bg-gray-200 text-gray-500 ring-gray-200',
                             ]"
-                            :title="!canConfirmReceive ? 'A delivery receipt and image are required before finalizing.' : 'Final step: add the received quantities to stock on hand (SOH) and lock this delivery so its items can no longer be changed'"
+                            :title="!canConfirmReceive ? `A delivery receipt and ${proofName} are required before finalizing.` : 'Final step: add the received quantities to stock on hand (SOH) and lock this delivery so its items can no longer be changed'"
                         >
                             <Loader2 v-if="finalReceiveForm.processing" class="size-4 animate-spin" />
                             <Lock v-else class="size-4" />
@@ -1384,7 +1556,7 @@ const promptFinalReceive = () => {
                         </p>
                         <p class="text-sm text-amber-800">
                             Zero All, Add Unlisted Item, Confirm Receive All, Final Receive All and the edit buttons will appear here on {{ receivingNotDue.date }}.
-                            The delivery receipt and the image can already be added.
+                            The delivery receipt and {{ cpoInvoice ? "the invoice / receipt" : "the image" }} can already be added.
                         </p>
                     </div>
                 </div>
@@ -1981,6 +2153,67 @@ const promptFinalReceive = () => {
                     <Button @click="submitImageUpload" :disabled="!imageUploadForm.image || imageUploadForm.processing">
                         <span v-if="imageUploadForm.processing">Uploading...</span>
                         <span v-else>Upload Image</span>
+                    </Button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice / Receipt Upload Modal (CPO orders) -->
+        <div
+            v-if="isInvoiceUploadModalVisible && cpoInvoice"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+        >
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeInvoiceUploadModal"></div>
+            <div class="relative z-10 w-full sm:max-w-[500px] mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 p-6">
+                <div class="flex items-start justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">Upload Invoice / Receipt</h2>
+                        <p class="text-sm text-gray-500">
+                            The vendor's invoice or receipt for this CPO order. JPG, PNG or PDF, up to {{ cpoInvoice.maxMb }} MB. Photos are shrunk automatically.
+                        </p>
+                    </div>
+                    <button @click="closeInvoiceUploadModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X class="size-6" />
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div
+                        class="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors"
+                        @click="invoiceInput?.click()"
+                    >
+                        <input
+                            type="file"
+                            ref="invoiceInput"
+                            @change="onInvoiceFileChange"
+                            accept="image/jpeg,image/png,application/pdf"
+                            class="hidden"
+                        />
+                        <div v-if="preparingInvoice" class="flex items-center gap-2 text-sm text-gray-600">
+                            <Loader2 class="size-5 animate-spin" /> Preparing file...
+                        </div>
+                        <div v-else-if="!invoiceForm.file" class="flex flex-col items-center">
+                            <Receipt class="size-10 text-gray-400 mb-2" />
+                            <span class="text-sm font-medium text-gray-600">Click to select the invoice or receipt</span>
+                        </div>
+                        <div v-else class="relative w-full">
+                            <img v-if="invoicePreviewUrl" :src="invoicePreviewUrl" class="w-full max-h-64 object-contain rounded" />
+                            <div v-else class="flex items-center justify-center gap-2 py-4 text-sm text-gray-700">
+                                <FileText class="size-6 shrink-0 text-gray-400" />
+                                <span class="truncate">{{ invoiceForm.file.name }}</span>
+                            </div>
+                            <button @click.stop="clearInvoiceFile" class="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70">
+                                <X class="size-4" />
+                            </button>
+                        </div>
+                    </div>
+                    <FormError>{{ invoiceForm.errors.file }}</FormError>
+                </div>
+                <div class="flex justify-end items-center gap-3 mt-8">
+                    <Button variant="ghost" @click="closeInvoiceUploadModal">Cancel</Button>
+                    <Button @click="submitInvoiceUpload" :disabled="!invoiceForm.file || preparingInvoice || invoiceForm.processing">
+                        <span v-if="invoiceForm.processing">Uploading...</span>
+                        <span v-else>Upload</span>
                     </Button>
                 </div>
             </div>

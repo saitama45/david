@@ -444,7 +444,13 @@ class OrderReceivingService extends StoreOrderService
             $missing[] = 'a delivery receipt';
         }
 
-        if ($order->image_attachments()->count() === 0) {
+        // A CPO order's proof is the vendor's invoice / receipt, which the store uploads on the
+        // Inbound Orders page in place of the image (CPO Orders does not take it).
+        if ($order->isCpo()) {
+            if ($order->cpoAttachments()->count() === 0) {
+                $missing[] = 'the invoice / receipt';
+            }
+        } elseif ($order->image_attachments()->count() === 0) {
             $missing[] = 'an image attachment';
         }
 

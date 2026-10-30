@@ -160,6 +160,12 @@ class StoreOrder extends Model implements Auditable
         return $this->hasMany(CpoOrderAttachment::class);
     }
 
+    /** Whether this is a CPO order: receiving it needs the vendor's invoice / receipt. */
+    public function isCpo(): bool
+    {
+        return strcasecmp((string) $this->supplier?->supplier_code, Supplier::CPO) === 0;
+    }
+
     // Interco-specific methods
     public function isInterco()
     {

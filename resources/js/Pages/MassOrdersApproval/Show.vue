@@ -172,7 +172,7 @@ const rejectOrder = () => {
                 </CardContent>
             </Card>
 
-            <!-- A CPO order: check the purchase against the vendor's invoice / receipt. -->
+            <!-- A CPO order: the vendor and, once the store has uploaded it while receiving, its invoice / receipt. -->
             <Card v-if="isCpoOrder">
                 <CardHeader>
                     <CardTitle>Vendor and Invoice / Receipt</CardTitle>
@@ -197,7 +197,7 @@ const rejectOrder = () => {
                                 {{ file.original_name }}
                             </a>
                         </div>
-                        <p v-else class="text-sm text-gray-500">No invoice or receipt attached.</p>
+                        <p v-else class="text-sm text-gray-500">Not uploaded yet. The store uploads it in Inbound Orders when it receives the order.</p>
                     </div>
                 </CardContent>
             </Card>

@@ -229,9 +229,12 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   without it, and never treat `pending` as "nobody approved yet". Only the last level commits CPO/AO/EO/ALOC.
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **CPO is ordered in CPO Orders, never in Mass Orders** (since 2026-10-17). `CpoOrdersController` takes the
-  vendor (`cpo_vendors`, copied onto the order), a typed Cost per line and a required invoice / receipt
-  (private disk); every CPO order is `pending` and `Supplier::forMassOrderApproval()` always includes CPO.
-  `MassOrdersController` refuses CPO everywhere, including moving an order to or from it in edit.
+  vendor (`cpo_vendors`, copied onto the order) and a typed Cost per line; every CPO order is `pending` and
+  `Supplier::forMassOrderApproval()` always includes CPO. `MassOrdersController` refuses CPO everywhere,
+  including moving an order to or from it in edit. **The invoice / receipt is not taken at creation**
+  (since 2026-10-31: the office places the order, the store holds the receipt): the store uploads it in
+  Inbound Orders (`orders-receiving.attach-invoice`, into `cpo_order_attachments`), and on a CPO order
+  `deliveryEvidenceProblem()` asks for it **in place of** the image (`StoreOrder::isCpo()`).
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **AO, EO and ALOC order the way CPO did in Mass Orders** (`Supplier::UNRESTRICTED_TEMPLATES`): any date
   but a closed one (`massOrderDateBlock()` null), stores with the template on **any** schedule day

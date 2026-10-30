@@ -25,15 +25,11 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * CPO Orders: purchases from outside vendors, placed through the mass order template with
- * the vendor and its invoice / receipt, then approved in Mass Orders Approval.
+ * the vendor, then approved in Mass Orders Approval. The store uploads the vendor's invoice /
+ * receipt in Inbound Orders when it receives the order.
  */
 class CpoOrdersController extends Controller
 {
-    /** The most invoice / receipt files one upload takes, and the size of each (KB). */
-    public const MAX_ATTACHMENTS = 5;
-
-    public const MAX_ATTACHMENT_KB = 5120;
-
     private const NOT_ASSIGNED = 'The CPO ordering template is not assigned to you. Ask your administrator to assign it in Users.';
 
     public function __construct(
@@ -85,8 +81,6 @@ class CpoOrdersController extends Controller
             'hasCpoStores' => $cpoStores->isNotEmpty(),
             // Placing an order also needs the CPO template assigned to the user, as in Mass Orders.
             'cpoAssigned' => $this->assignedCpo(),
-            'maxAttachments' => self::MAX_ATTACHMENTS,
-            'maxAttachmentMb' => self::MAX_ATTACHMENT_KB / 1024,
         ]);
     }
 
@@ -128,15 +122,8 @@ class CpoOrdersController extends Controller
             'order_date' => 'required|date',
             'cpo_vendor_id' => ['required', 'integer', Rule::exists('cpo_vendors', 'id')],
             'mass_order_file' => 'required|file|mimes:xlsx,xls',
-            'attachments' => 'required|array|min:1|max:'.self::MAX_ATTACHMENTS,
-            'attachments.*' => 'required|file|mimes:jpg,jpeg,png,pdf|max:'.self::MAX_ATTACHMENT_KB,
         ], [
             'cpo_vendor_id.required' => 'Select the vendor the store bought from.',
-            'attachments.required' => 'Attach the invoice or receipt.',
-            'attachments.min' => 'Attach the invoice or receipt.',
-            'attachments.max' => 'Attach at most '.self::MAX_ATTACHMENTS.' files.',
-            'attachments.*.mimes' => 'An invoice or receipt must be a JPG, PNG or PDF file.',
-            'attachments.*.max' => 'Each invoice or receipt file must be '.(self::MAX_ATTACHMENT_KB / 1024).' MB or smaller.',
         ]);
 
         // Looked up through the entity scope, so another entity's vendor is not found.
@@ -151,7 +138,6 @@ class CpoOrdersController extends Controller
             $rows,
             $request->input('order_date'),
             $vendor,
-            $request->file('attachments'),
             Auth::user()
         );
 
@@ -197,7 +183,7 @@ class CpoOrdersController extends Controller
         return response()->json($vendor->toOption());
     }
 
-    /** An invoice / receipt file, for a user who may see the order's store. */
+    /** An invoice / receipt file, for a user who may see the order's store (also opened from Inbound Orders). */
     public function attachment(CpoOrderAttachment $attachment)
     {
         $order = StoreOrder::findOrFail($attachment->store_order_id);

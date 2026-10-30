@@ -4,7 +4,6 @@ namespace App\Http\Services;
 
 use App\Enum\OrderRequestStatus;
 use App\Enum\OrderStatus;
-use App\Models\CpoOrderAttachment;
 use App\Models\CpoVendor;
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
@@ -13,7 +12,6 @@ use App\Models\Supplier;
 use App\Models\SupplierItems;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,7 +19,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * CPO Orders: a store's purchase from an outside vendor, placed through the mass order
- * template (one column per store) with the vendor and its invoice / receipt attached.
+ * template (one column per store) with the vendor. The vendor's invoice / receipt is not
+ * taken here: the store uploads it in Inbound Orders, and receiving needs it
+ * (OrderReceivingService::deliveryEvidenceProblem).
  *
  * Unlike a Mass Orders upload, the cost of each line is typed in from the receipt, every
  * order waits in Mass Orders Approval, and approving it commits it for receiving
@@ -69,13 +69,12 @@ class CpoOrderService
     /**
      * Create one pending CPO order per store with quantities in the file.
      *
-     * @param  UploadedFile[]  $attachments  the vendor's invoice / receipt, linked to every order created
      * @return array{success: bool, message: string, skipped_stores: array, created_count: int}
      *
      * @throws ValidationException when the file is not a filled CPO template, a line misses
      *                             its item, unit or cost, or no store in it may order
      */
-    public function processUpload(Collection $rows, string $orderDate, CpoVendor $vendor, array $attachments, User $user): array
+    public function processUpload(Collection $rows, string $orderDate, CpoVendor $vendor, User $user): array
     {
         $orderDate = Carbon::parse($orderDate)->toDateString();
 
@@ -149,19 +148,10 @@ class CpoOrderService
             $this->refuse('The file has no quantities. Enter a quantity under a store for at least one item.');
         }
 
-        // The files are stored once and linked to every order the upload creates.
-        $stored = array_map(fn (UploadedFile $file) => [
-            'file_path' => $file->store(CpoOrderAttachment::DIRECTORY, CpoOrderAttachment::DISK),
-            'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-            'uploaded_by' => $user->id,
-        ], $attachments);
-
         $supplier = Supplier::where('supplier_code', Supplier::CPO)->firstOrFail();
         $created = 0;
 
-        DB::transaction(function () use ($linesByStore, $usable, $supplier, $vendor, $orderDate, $stored, $user, &$skipped, &$created) {
+        DB::transaction(function () use ($linesByStore, $usable, $supplier, $vendor, $orderDate, $user, &$skipped, &$created) {
             foreach ($linesByStore as $header => $lines) {
                 $store = $usable[$header];
 
@@ -206,16 +196,12 @@ class CpoOrderService
                     ]);
                 }
 
-                foreach ($stored as $file) {
-                    $order->cpoAttachments()->create($file);
-                }
-
                 $created++;
             }
         });
 
         $message = $created
-            ? "Successfully created {$created} CPO order(s). They are now waiting in Mass Orders Approval."
+            ? "Successfully created {$created} CPO order(s). They are now waiting in Mass Orders Approval. The store uploads the invoice / receipt in Inbound Orders when it receives the order."
             : 'No CPO order was created.';
 
         if ($skipped) {

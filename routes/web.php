@@ -543,6 +543,8 @@ Route::middleware('auth')
 
                 // New route for attaching images
                 Route::post('/orders-receiving/{order}/attach-image', 'attachImage')->name('attach-image');
+                // A CPO order's invoice / receipt, uploaded by the store in place of the image
+                Route::post('/orders-receiving/{order}/attach-invoice', 'attachInvoice')->name('attach-invoice');
 
                 Route::middleware('permission:export approved orders')->get('/orders-receiving/export', 'export')->name('export'); // Corrected permission
 
@@ -585,7 +587,8 @@ Route::middleware('auth')
                 Route::post('/vendors', 'storeVendor')->name('vendors.store');
                 Route::put('/vendors/{vendor}', 'updateVendor')->name('vendors.update');
             });
-            Route::middleware('permission:view cpo orders|view mass order approval')
+            // Also opened from Inbound Orders, where the store uploads it.
+            Route::middleware('permission:view cpo orders|view mass order approval|view approved order')
                 ->get('/attachments/{attachment}', 'attachment')->name('attachments.show');
         });
 

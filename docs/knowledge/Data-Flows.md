@@ -145,10 +145,16 @@ template flow with CPO fixed and three additions:
   `Cost` is among the static headers). Every row with a store quantity needs Item Code (in
   `SupplierItems::forSupplierCode('CPO')`), a Unit that is a catalogue or SAP unit of it, and Cost > 0;
   any problem refuses the file, one `rows.N` error per row (Inertia keeps only the first message of a key).
-- **Invoice / receipt.** 1-5 JPG / PNG / PDF of 5 MB, stored once on the private `local` disk
-  (`cpo-invoices/`) and linked to every order of the upload (`cpo_order_attachments`). They open only
-  through `cpo-orders.attachments.show` (`view cpo orders` or `view mass order approval`, plus admin or
-  store assignment).
+- **Invoice / receipt, uploaded by the store while receiving** (2026-10-31; until then CPO Orders took
+  1-5 files with the Excel file and linked them to every order of the upload). The person placing the
+  order does not hold the receipt, so the store uploads it on `/orders-receiving/show`
+  (`OrderReceivingController::attachInvoice()`, route `orders-receiving.attach-invoice`, `receive orders`
+  + admin or store assignment, CPO orders only): one JPG / PNG / PDF of 5 MB per upload, at most
+  `CpoOrderAttachment::MAX_FILES` (5) per order, on the private `local` disk (`cpo-invoices/`,
+  `cpo_order_attachments`). Not locked by Final Receive All or the Delivery Date, like images. The files
+  open through `cpo-orders.attachments.show` (`view cpo orders`, `view mass order approval` or
+  `view approved order`, plus admin or store assignment). CPO Orders and Mass Orders Approval show
+  "Not uploaded yet" until then, so approvers decide a new CPO order without it.
 
 Every CPO order is created `pending`. `Supplier::forMassOrderApproval()` / `needsMassOrderApproval()`
 always include CPO (approval list, counts, notification, My Actions), and Ordering Template Approval
@@ -159,7 +165,11 @@ a wrong order is rejected and placed again. The order page reuses `MassOrders/Sh
 
 **Receiving: delivery evidence and Zero All.** Recording a quantity on `/orders-receiving/show`
 (receive, edit, Add Unlisted Item) needs a delivery receipt and an image
-(`OrderReceivingService::deliveryEvidenceProblem()`). Zero All (`PUT /orders-receiving/zero-all/{id}`,
+(`OrderReceivingService::deliveryEvidenceProblem()`). On a CPO order (`StoreOrder::isCpo()`) the
+vendor's invoice / receipt (`cpo_order_attachments`) replaces the image: an image no longer counts there,
+so a CPO order placed in Mass Orders before CPO Orders existed needs the invoice too. The page swaps the
+Image Attachments card for a required "Upload Invoice / Receipt" card (the old card stays only if the
+order already has images) and shows a red notice while nothing is uploaded (`cpoInvoice` prop). Zero All (`PUT /orders-receiving/zero-all/{id}`,
 `zeroUnconfirmedReceipts()`) is the exception, for a delivery that did not arrive: under a row lock it
 sets every `pending` / `received` row to quantity 0, remarks `Unserved`, status `received`, stamped
 with the receiver and the Manila time, and leaves `approved` rows alone. It posts nothing and does not
