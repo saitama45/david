@@ -37,7 +37,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
     /** Column groups exactly as the PDF header renders them: label => column span. */
     private const COLUMN_GROUPS = [
-        'ITEM INFO' => 4,
+        'ITEM INFO' => 5,
         'PROCUREMENT (DATE RANGE)' => 3,
         'BEGINNING' => 1,
         'DEDUCTIONS / TRANSFERS' => 5,
@@ -48,6 +48,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         'Supplier',
         'SAP Code',
         'Item Description',
+        'Item Type',
         'UOM',
         'Ordered',
         'Committed',
@@ -69,22 +70,22 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
     /** Columns the PDF shades and bolds, keyed by column letter. */
     private const HIGHLIGHTED_COLUMNS = [
-        'G' => 'F0F7FF', // Received
-        'H' => 'F0FFF4', // Beg Bal Qty
-        'N' => 'F5F3FF', // Theoretical
+        'H' => 'F0F7FF', // Received
+        'I' => 'F0FFF4', // Beg Bal Qty
+        'O' => 'F5F3FF', // Theoretical
     ];
 
-    private const LAST_COLUMN = 'T';
+    private const LAST_COLUMN = 'U';
 
     /** The last column that holds a quantity; the one after it is the adjustment's reason, a text. */
-    private const LAST_QUANTITY_COLUMN = 'S';
+    private const LAST_QUANTITY_COLUMN = 'T';
 
-    private const REASON_COLUMN = 'T';
+    private const REASON_COLUMN = 'U';
 
     /** A reason can run to 500 characters: it wraps in a column of this width instead of sizing it. */
     private const REASON_COLUMN_WIDTH = 45;
 
-    private const WASTAGE_COLUMN = 'J';
+    private const WASTAGE_COLUMN = 'K';
 
     public function __construct(
         private $movementData,
@@ -124,6 +125,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
             $item['supplier'] ?: '-',
             $item['sap_code'],
             $item['item_description'],
+            ($item['item_type'] ?? null) ?: '-',
             $item['uom'],
             (float) $item['ordered_qty'],
             (float) $item['committed_qty'],
@@ -154,7 +156,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
 
                 $sheet->mergeCells('A1:'.$last.'1');
                 $sheet->setCellValue('A1', 'Inventory Movement Report');
-                $sheet->getComment('D5')->getText()->createTextRun(
+                $sheet->getComment('E5')->getText()->createTextRun(
                     'All quantities use the unit shown in this column (the SAP base unit, for example 36 Gm of a 1,000 Gm Bag = 0.0360 Bag).'
                 );
 
@@ -167,6 +169,8 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
                     .'  |  Supplier: '.($this->supplier
                         ? $this->supplier->name.' ('.$this->supplier->supplier_code.')'
                         : 'All Suppliers')
+                    .'  |  Inventory Class: '.($this->filters['inventory_class'] ?? \App\Models\SapItemType::INVENTORIABLE)
+                    .(filled($this->filters['filter_item_type'] ?? null) ? '  |  Item Type: '.$this->filters['filter_item_type'] : '')
                     .'  |  Generated: '.$this->generatedAt
                     .'  |  By: '.$this->generatedBy);
 
@@ -266,13 +270,13 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         ]);
 
         // Text columns read left, UOM centres, every quantity right-aligned with four decimals.
-        $sheet->getStyle('A'.$firstRow.':C'.$lastRow)
+        $sheet->getStyle('A'.$firstRow.':D'.$lastRow)
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
 
-        $sheet->getStyle('D'.$firstRow.':D'.$lastRow)
+        $sheet->getStyle('E'.$firstRow.':E'.$lastRow)
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet->getStyle('E'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)->applyFromArray([
+        $sheet->getStyle('F'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)->applyFromArray([
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
             'numberFormat' => ['formatCode' => \App\Support\ReportNumber::EXCEL],
         ]);
@@ -288,7 +292,7 @@ class InventoryMovementReportExport implements FromCollection, ShouldAutoSize, W
         }
 
         // Actual MEC, Variance, Pending Interco Transactions, Adjustment and Final Variance are bold in the PDF but carry no fill.
-        $sheet->getStyle('O'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)
+        $sheet->getStyle('P'.$firstRow.':'.self::LAST_QUANTITY_COLUMN.$lastRow)
             ->getFont()->setBold(true);
 
         return $sheet;

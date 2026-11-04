@@ -223,3 +223,54 @@ it('filters the computed rows and explains a row with the report\'s own columns'
         ->and((float) $breakdown['theoretical'])->toBe(1.0)
         ->and((float) $breakdown['actual_mec'])->toBe(1.0);
 });
+
+it('lists INVENTORIABLE by default and the types marked otherwise under NON-INVENTORIABLE, with the totals of that list', function () {
+    $f = qtyVarianceFixture();
+    SapItemType::where('name', 'OPERATING SUPPLIES')->update(['inventory_class' => SapItemType::NON_INVENTORIABLE]);
+
+    [$rows, $props] = qtyVarianceRows($f);
+    expect(array_keys($rows))->toEqualCanonicalizing(['A|RM-MILK', 'B|RM-MILK'])
+        ->and($rows['A|RM-MILK']['item_type'])->toBe('FOOD')
+        ->and($props['filters']['inventory_class'])->toBe(SapItemType::INVENTORIABLE)
+        ->and($props['paginatedData']['total'])->toBe(2);
+
+    [$rows, $props] = qtyVarianceRows($f, ['inventory_class' => SapItemType::NON_INVENTORIABLE]);
+    expect(array_keys($rows))->toEqualCanonicalizing(['A|RM-LID', 'A|RM-CUP'])
+        ->and($rows['A|RM-CUP']['item_type'])->toBe('OPERATING SUPPLIES')
+        ->and($props['paginatedData']['total'])->toBe(2);
+});
+
+it('keeps an item with no Item Type on the INVENTORIABLE list', function () {
+    $f = qtyVarianceFixture();
+    DB::table('sap_item_type_assignments')->where('item_code', 'RM-LID')->update(['sap_item_type_id' => null]);
+
+    [$rows] = qtyVarianceRows($f);
+    expect($rows)->toHaveKey('A|RM-LID')
+        ->and($rows['A|RM-LID']['item_type'])->toBeNull();
+
+    [$rows] = qtyVarianceRows($f, ['inventory_class' => SapItemType::NON_INVENTORIABLE]);
+    expect($rows)->toBeEmpty();
+});
+
+it('keeps a type left out of the totals on the list, marked so the page and export can leave it out', function () {
+    $f = qtyVarianceFixture();
+    SapItemType::where('name', 'OPERATING SUPPLIES')->update(['counts_in_totals' => false]);
+    // An item with no Item Type counts: only a type marked otherwise leaves one out.
+    DB::table('sap_item_type_assignments')->where('item_code', 'RM-MILK')->update(['sap_item_type_id' => null]);
+
+    [$rows] = qtyVarianceRows($f);
+
+    expect($rows)->toHaveCount(4)
+        ->and($rows['A|RM-LID']['in_totals'])->toBeFalse()
+        ->and($rows['A|RM-CUP']['in_totals'])->toBeFalse()
+        ->and($rows['A|RM-MILK']['in_totals'])->toBeTrue()
+        ->and($rows['B|RM-MILK']['in_totals'])->toBeTrue();
+});
+
+it('narrows the rows by part of the Item Type', function () {
+    $f = qtyVarianceFixture();
+
+    [$rows] = qtyVarianceRows($f, ['filter_item_type' => 'suppl']);
+
+    expect(array_keys($rows))->toEqualCanonicalizing(['A|RM-LID', 'A|RM-CUP']);
+});

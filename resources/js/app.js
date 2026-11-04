@@ -80,6 +80,14 @@ import DeleteButton from "./components/button/DeleteButton.vue";
 import Select from "primevue/select";
 import PrimeDialog from "primevue/dialog";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     Select as SelectShad,
     SelectContent,
     SelectGroup,
@@ -138,6 +146,13 @@ createInertiaApp({
             .component("Presence", Presence)
             .component("Textarea", Textarea)
             .component("Select", Select)
+            // Without these Vue renders the browser's own <dialog>: the form opens inline under the page.
+            .component("Dialog", Dialog)
+            .component("DialogContent", DialogContent)
+            .component("DialogDescription", DialogDescription)
+            .component("DialogFooter", DialogFooter)
+            .component("DialogHeader", DialogHeader)
+            .component("DialogTitle", DialogTitle)
             .component("InputContainer", InputContainer)
             .component("EllipsisVertical", EllipsisVertical)
             .component("Card", Card)

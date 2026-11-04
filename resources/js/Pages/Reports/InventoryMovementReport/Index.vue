@@ -34,6 +34,11 @@ const props = defineProps({
     suppliers: {
         type: Array,
         required: true,
+    },
+    // The Inventory Class lists, the default first.
+    inventoryClasses: {
+        type: Array,
+        required: true,
     }
 });
 
@@ -68,6 +73,8 @@ const dateFrom = ref(props.filters.date_from || '');
 const dateTo = ref(props.filters.date_to || '');
 const branchId = ref(props.filters.branch_id || '');
 const supplierCode = ref(props.filters.supplier_code || '');
+const inventoryClass = ref(props.filters.inventory_class || props.inventoryClasses[0]);
+const filterItemType = ref(props.filters.filter_item_type || '');
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 const sortField = ref(props.filters.sort_field || '');
@@ -92,6 +99,8 @@ const updateFilters = () => {
             date_to: dateTo.value,
             branch_id: branchId.value || null,
             supplier_code: supplierCode.value || null,
+            inventory_class: inventoryClass.value,
+            filter_item_type: filterItemType.value,
             search: search.value,
             per_page: perPage.value,
             sort_field: sortField.value,
@@ -116,6 +125,8 @@ const resetFilters = () => {
     dateTo.value = '';
     branchId.value = props.branches[0]?.id || '';
     supplierCode.value = '';
+    inventoryClass.value = props.inventoryClasses[0];
+    filterItemType.value = '';
     search.value = '';
     perPage.value = 50;
     sortField.value = '';
@@ -287,6 +298,8 @@ const exportParams = () => new URLSearchParams({
     date_to: dateTo.value,
     branch_id: branchId.value,
     supplier_code: supplierCode.value,
+    inventory_class: inventoryClass.value,
+    filter_item_type: filterItemType.value,
     search: search.value,
 });
 
@@ -383,6 +396,32 @@ const formatNumber = formatReportNumber;
 
                     <div class="space-y-2 lg:col-span-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <Filter class="w-4 h-4" />
+                            Inventory Class
+                        </label>
+                        <Select
+                            v-model="inventoryClass"
+                            :options="inventoryClasses"
+                            size="small"
+                            class="w-full"
+                        />
+                    </div>
+
+                    <div class="space-y-2 lg:col-span-2">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <Filter class="w-4 h-4" />
+                            Item Type
+                        </label>
+                        <Input
+                            v-model="filterItemType"
+                            placeholder="Type to narrow, for example CAPEX"
+                            class="w-full border-gray-300 focus:border-blue-500 rounded-lg"
+                            @keyup.enter="handleSearch"
+                        />
+                    </div>
+
+                    <div class="space-y-2 lg:col-span-4">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             <Search class="w-4 h-4" />
                             Search Item
                         </label>
@@ -413,6 +452,7 @@ const formatNumber = formatReportNumber;
             A Wastage Qty marked <span class="rounded bg-amber-100 px-1 py-0.5 text-[11px] font-semibold text-amber-800">Sub-Prep</span> includes a wasted Sub-Prep, charged to this raw material through its BOM.
             Click any underlined figure to see the transactions behind it.
             <template v-if="canAdjust">Click a figure under Adjustment to enter an adjustment for the Variance and the reason for it.</template>
+            The Inventory Class is set per Item Type in SAP Item Types. An item with no Item Type is listed under INVENTORIABLE.
         </p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
             <div v-if="isLoading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -426,7 +466,7 @@ const formatNumber = formatReportNumber;
                 <table class="min-w-full border-separate border-spacing-0">
                     <thead class="sticky -top-4 lg:-top-6 z-20 bg-gray-50 shadow-sm">
                         <tr>
-                            <th colspan="4" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
+                            <th colspan="5" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-gray-100">Item Info</th>
                             <th colspan="3" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-blue-50">Procurement (Date Range)</th>
                             <th class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-emerald-50">Beginning</th>
                             <th colspan="5" class="px-1.5 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 bg-orange-50">Deductions / Transfers</th>
@@ -454,6 +494,14 @@ const formatNumber = formatReportNumber;
                                     Item Description
                                     <ArrowUp v-if="sortField === 'item_description' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowDown v-else-if="sortField === 'item_description' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_type')" class="px-1.5 py-3 text-left border-r border-gray-200 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex items-center justify-between gap-1">
+                                    Item Type
+                                    <ArrowUp v-if="sortField === 'item_type' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                    <ArrowDown v-else-if="sortField === 'item_type' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
                                     <ArrowUpDown v-else class="w-3 h-3 text-gray-400 group-hover:text-blue-400" />
                                 </div>
                             </th>
@@ -589,7 +637,7 @@ const formatNumber = formatReportNumber;
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="movementData.length === 0" class="hover:bg-gray-50">
-                            <td colspan="19" class="text-center py-12 text-gray-500">
+                            <td colspan="20" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <Package class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No movement data found</span>
@@ -601,6 +649,7 @@ const formatNumber = formatReportNumber;
                             <td class="px-1.5 py-4 text-gray-900 border-r border-gray-100">{{ item.supplier || '-' }}</td>
                             <td class="px-1.5 py-4 font-mono text-gray-900 border-r border-gray-100">{{ item.sap_code }}</td>
                             <td class="px-1.5 py-4 text-gray-900 border-r border-gray-100">{{ item.item_description }}</td>
+                            <td class="px-1.5 py-4 text-gray-600 border-r border-gray-100">{{ item.item_type || '-' }}</td>
                             <td class="px-1.5 py-4 text-center text-gray-500 border-r border-gray-100 italic">
                                 {{ item.uom }}
                                 <div

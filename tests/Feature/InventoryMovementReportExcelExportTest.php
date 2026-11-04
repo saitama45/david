@@ -133,19 +133,19 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
     expect($sheet->getCell('A3')->getValue())->toContain('Filinvest Super Mall');
     expect($sheet->getCell('A3')->getValue())->toContain('Generated: 2026-09-18 15:16:42');
     expect($sheet->getCell('A4')->getValue())->toBe('ITEM INFO');
-    expect($sheet->getCell('E4')->getValue())->toBe('PROCUREMENT (DATE RANGE)');
-    expect($sheet->getCell('H4')->getValue())->toBe('BEGINNING');
-    expect($sheet->getCell('I4')->getValue())->toBe('DEDUCTIONS / TRANSFERS');
-    expect($sheet->getCell('N4')->getValue())->toBe('FINAL BALANCE');
+    expect($sheet->getCell('F4')->getValue())->toBe('PROCUREMENT (DATE RANGE)');
+    expect($sheet->getCell('I4')->getValue())->toBe('BEGINNING');
+    expect($sheet->getCell('J4')->getValue())->toBe('DEDUCTIONS / TRANSFERS');
+    expect($sheet->getCell('O4')->getValue())->toBe('FINAL BALANCE');
 
     $headings = [];
 
-    foreach (range('A', 'P') as $column) {
+    foreach (range('A', 'Q') as $column) {
         $headings[] = $sheet->getCell($column.'5')->getValue();
     }
 
     expect($headings)->toBe([
-        'Supplier', 'SAP Code', 'Item Description', 'UOM',
+        'Supplier', 'SAP Code', 'Item Description', 'Item Type', 'UOM',
         'Ordered', 'Committed', 'Received', 'Beg Bal Qty',
         'Sales Qty', 'Wastage Qty', 'Supplies Used', 'In Interco', 'Out Interco',
         'Theoretical', 'Actual MEC', 'Variance',
@@ -154,12 +154,13 @@ it('writes the same columns as the PDF, with quantities as numbers', function ()
     // First data row holds the item, with Sales Qty as a number, not a string.
     expect($sheet->getCell('B6')->getValue())->toBe('199D9A');
     expect($sheet->getCell('C6')->getValue())->toBe('Sugar Cookies, medium');
-    expect($sheet->getCell('I6')->getValue())->toBe(4.0);
-    expect($sheet->getCell('K6')->getValue())->toBe(0.0); // not a supplies item
-    expect($sheet->getCell('N6')->getValue())->toBe(-4.0); // theoretical = 0 - sales
-    expect($sheet->getCell('E6')->getValue())->toBe(0.0); // zero quantities stay 0, not blank
-    expect($sheet->getCell('O6')->getValue())->toBe(0.0);
-    expect($sheet->getCell('P6')->getValue())->toBe(4.0); // variance = actual MEC - theoretical
+    expect($sheet->getCell('D6')->getValue())->toBe('-'); // no Item Type
+    expect($sheet->getCell('J6')->getValue())->toBe(4.0);
+    expect($sheet->getCell('L6')->getValue())->toBe(0.0); // not a supplies item
+    expect($sheet->getCell('O6')->getValue())->toBe(-4.0); // theoretical = 0 - sales
+    expect($sheet->getCell('F6')->getValue())->toBe(0.0); // zero quantities stay 0, not blank
+    expect($sheet->getCell('P6')->getValue())->toBe(0.0);
+    expect($sheet->getCell('Q6')->getValue())->toBe(4.0); // variance = actual MEC - theoretical
 
     unlink($path);
 });
@@ -178,7 +179,7 @@ it('auto-sizes every column and aligns text left, UOM centre, quantities right',
 
     [$sheet, $path] = writtenSheet($export);
 
-    foreach (range('A', 'P') as $column) {
+    foreach (range('A', 'Q') as $column) {
         $dimension = $sheet->getColumnDimension($column);
 
         // A written sheet resolves auto-size into a real width; nothing is left
@@ -188,10 +189,10 @@ it('auto-sizes every column and aligns text left, UOM centre, quantities right',
     }
 
     expect($sheet->getStyle('A6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_LEFT);
-    expect($sheet->getStyle('C6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_LEFT);
-    expect($sheet->getStyle('D6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_CENTER);
-    expect($sheet->getStyle('I6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_RIGHT);
-    expect($sheet->getStyle('I6')->getNumberFormat()->getFormatCode())->toBe('#,##0.0000');
+    expect($sheet->getStyle('D6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_LEFT);
+    expect($sheet->getStyle('E6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_CENTER);
+    expect($sheet->getStyle('J6')->getAlignment()->getHorizontal())->toBe(Alignment::HORIZONTAL_RIGHT);
+    expect($sheet->getStyle('J6')->getNumberFormat()->getFormatCode())->toBe('#,##0.0000');
 
     unlink($path);
 });

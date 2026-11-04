@@ -164,6 +164,7 @@ const submit = () => {
                         optionLabel="label"
                         optionValue="value"
                         filter
+                        append-to="self"
                         placeholder="Select the store"
                         class="w-full"
                     />
@@ -209,6 +210,7 @@ const submit = () => {
                                 :options="reasonOptions"
                                 optionLabel="label"
                                 optionValue="value"
+                                append-to="self"
                                 placeholder="Select a reason"
                                 class="w-full"
                             />

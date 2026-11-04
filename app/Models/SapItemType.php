@@ -13,9 +13,22 @@ class SapItemType extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable, BelongsToEntity;
 
-    protected $fillable = ['entity_id', 'name', 'is_active'];
+    public const INVENTORIABLE = 'INVENTORIABLE';
 
-    protected $casts = ['is_active' => 'boolean'];
+    public const NON_INVENTORIABLE = 'NON-INVENTORIABLE';
+
+    /** The first is the default: of a new type, and of a report's Inventory Class filter. */
+    public const INVENTORY_CLASSES = [self::INVENTORIABLE, self::NON_INVENTORIABLE];
+
+    protected $fillable = ['entity_id', 'name', 'inventory_class', 'counts_in_totals', 'is_active'];
+
+    protected $casts = ['counts_in_totals' => 'boolean', 'is_active' => 'boolean'];
+
+    /** The list a report's Inventory Class filter asks for; anything else is the default list. */
+    public static function inventoryClassOrDefault(?string $class): string
+    {
+        return in_array($class, self::INVENTORY_CLASSES, true) ? $class : self::INVENTORIABLE;
+    }
 
     public function assignments(): HasMany
     {

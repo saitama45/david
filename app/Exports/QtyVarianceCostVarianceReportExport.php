@@ -35,6 +35,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
             'Store Branch',
             'Item Code',
             'Item Description',
+            'Item Type',
             'UoM',
             'Cost',
             'Actual Inventory',
@@ -43,6 +44,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
             'Actual Cost',
             'Theoretical Cost',
             'Cost Variance',
+            'Counted in Totals',
         ];
     }
 
@@ -53,6 +55,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
             $item['store_name'],
             $item['item_code'],
             $item['item_description'],
+            ($item['item_type'] ?? null) ?: '-',
             $item['uom'],
             // Real numbers, so the sheet can be summed; columnFormats() shows them with four decimals.
             (float) $item['cost'],
@@ -62,19 +65,21 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
             (float) $item['actual_cost'],
             (float) $item['theoretical_cost'],
             (float) $item['cost_variance'],
+            // Filter on Yes and the sums match the totals on the page.
+            ($item['in_totals'] ?? true) ? 'Yes' : 'No',
         ];
     }
 
     /** Cost to Cost Variance: four decimals, as every report prints its numbers. */
     public function columnFormats(): array
     {
-        return array_fill_keys(['F', 'G', 'H', 'I', 'J', 'K', 'L'], ReportNumber::EXCEL);
+        return array_fill_keys(['G', 'H', 'I', 'J', 'K', 'L', 'M'], ReportNumber::EXCEL);
     }
 
     public function styles(Worksheet $sheet)
     {
         // Style the header row
-        $sheet->getStyle('A1:L1')->applyFromArray([
+        $sheet->getStyle('A1:N1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['argb' => 'FFFFFFFF'],
@@ -92,7 +97,7 @@ class QtyVarianceCostVarianceReportExport implements FromCollection, WithHeading
         ]);
 
         // Apply border to all data cells
-        $sheet->getStyle('A1:L' . $sheet->getHighestRow())->applyFromArray([
+        $sheet->getStyle('A1:N' . $sheet->getHighestRow())->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,

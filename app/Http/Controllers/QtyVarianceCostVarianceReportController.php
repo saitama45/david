@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Services\SapItemTypeService;
+use App\Models\SapItemType;
 use App\Models\StoreBranch;
 use App\Models\MonthEndCountItem;
 use App\Models\MonthEndSchedule;
@@ -68,6 +70,7 @@ class QtyVarianceCostVarianceReportController extends Controller
             ])->values(),
             'defaultMecDate' => $defaultMecDate,
             'period' => $this->periodFor($filters['mec_date']),
+            'inventoryClasses' => SapItemType::INVENTORY_CLASSES,
         ]);
     }
 
@@ -88,7 +91,8 @@ class QtyVarianceCostVarianceReportController extends Controller
 
         $varianceData = $this->varianceRows($filters);
 
-        $filename = 'qty_variance_cost_variance_report_' . Carbon::now('Asia/Manila')->format('Ymd_His') . '.xlsx';
+        // The sheet has no heading block, so the name says which Inventory Class list it holds.
+        $filename = 'qty_variance_cost_variance_report_' . strtolower($filters['inventory_class']) . '_' . Carbon::now('Asia/Manila')->format('Ymd_His') . '.xlsx';
 
         return Excel::download(new QtyVarianceCostVarianceReportExport($varianceData->toArray()), $filename);
     }
@@ -195,6 +199,8 @@ class QtyVarianceCostVarianceReportController extends Controller
         return [
             'mec_date' => $mecDate,
             'store_ids' => $storeIdsFilter,
+            'inventory_class' => SapItemType::inventoryClassOrDefault($request->get('inventory_class')),
+            'filter_item_type' => $request->get('filter_item_type', ''),
             'search' => $request->get('search', ''),
             'sort_field' => $request->get('sort_field', ''),
             'sort_direction' => $request->get('sort_direction', 'asc'),
@@ -213,10 +219,17 @@ class QtyVarianceCostVarianceReportController extends Controller
     private function varianceRows(array $filters): Collection
     {
         $variance = app(MonthEndStockVariance::class);
+        $itemTypes = app(SapItemTypeService::class)->byItemCode();
 
         $varianceData = $this->schedules($filters['mec_date'])
             ->flatMap(fn (MonthEndSchedule $schedule) => $variance->rows($schedule, $filters['store_ids']))
-            ->map(fn (array $row) => Arr::except($row, ['branch_id', 'breakdown']));
+            ->filter(fn (array $row) => SapItemTypeService::inReport($itemTypes, $row['item_code'], $filters))
+            ->map(fn (array $row) => Arr::except($row, ['branch_id', 'breakdown'])
+                + [
+                    'item_type' => $itemTypes->get(SapItemTypeService::normalize($row['item_code']))?->name,
+                    // Listed either way; the page's totals and the export's last column read this.
+                    'in_totals' => SapItemTypeService::inTotals($itemTypes, $row['item_code']),
+                ]);
 
         // The rows are computed, so the search and column filters are matched here, not in SQL.
         $contains = fn ($value, $needle) => mb_stripos((string) $value, (string) $needle) !== false;

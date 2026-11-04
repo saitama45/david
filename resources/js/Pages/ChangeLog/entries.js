@@ -15,6 +15,130 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 4, 2026
+    {
+        date: '2026-11-04',
+        module: 'General',
+        type: 'improved',
+        title: 'Forms that opened under the page now open in a pop-up window',
+        summary:
+            'On about thirty pages, a form opened as plain boxes under the page content, where it was easy to miss. These forms now open in a pop-up window in the middle of the screen, with the page dimmed behind it. This covers forms such as Create New Category, the Import windows, Approve Order and Decline Order.',
+        rules: [
+            'What each form asks for and what it saves have not changed.',
+            'Pressing Esc, clicking outside the window or clicking the X closes the window without saving.',
+            'A long form scrolls inside its window on a small screen, so its buttons can always be reached.',
+        ],
+        affects: 'All users.',
+    },
+    {
+        date: '2026-11-04',
+        module: 'DTS Mass Orders',
+        type: 'improved',
+        title: 'Request an exception: the Store and Reason dropdowns can be clicked again',
+        summary:
+            'In the window that requests a business rule exception, the list of the Store and Reason dropdowns opened but could not be clicked with the mouse, and the search box of the Store list lost what was typed. Both dropdowns now work with the mouse, and the search box keeps what is typed.',
+        rules: [
+            'This is the same window in DTS Mass Orders ("Missed the cutoff for a date? Request an exception") and in Adoption Rate Tracking.',
+            'The rules for who may request an exception and who may approve it have not changed.',
+        ],
+        affects: 'Users who request a business rule exception.',
+    },
+    {
+        date: '2026-11-04',
+        module: 'SAP Masterlist',
+        type: 'improved',
+        title: 'Manage Types has a new Count in Report Totals field: Yes or No',
+        summary:
+            'Every item of an item type used to count in the totals of the Qty Variance / Cost Variance Report. Each type in SAP Item Types now says whether it counts. Answering No keeps the items on their list but leaves them out of the totals, so Finance can read the totals without types such as SMALLWARES and CAPEX while the stores still see those items.',
+        steps: [
+            'Open SAP Masterlist and click Manage Types.',
+            'Click Create New Type, or the pencil beside a type.',
+            'Choose Yes or No under Count in Report Totals and click Save.',
+        ],
+        rules: [
+            'Count in Report Totals is required. A new type starts on Yes, and every item type that already existed starts as Yes, so the totals only change once someone answers No.',
+            'It does not depend on the Inventory Class. A type can be INVENTORIABLE and still be left out of the totals.',
+            'It only changes the totals of the Qty Variance / Cost Variance Report. It does not change stock, month end counts or any item on the lists.',
+        ],
+        affects: 'Users who can open Manage Types in SAP Masterlist, and Finance.',
+    },
+    {
+        date: '2026-11-04',
+        module: 'Qty Variance / Cost Variance Report',
+        type: 'improved',
+        title: 'The Qty Variance, Total Actual Cost and Cost Variance totals leave out types marked No under Count in Report Totals',
+        summary:
+            'The three totals at the top of the report used to add up every item listed. They now leave out the items of a type marked No under Count in Report Totals, such as SMALLWARES and CAPEX. Those items stay on the list, marked Not in totals, and a line under the totals says what was left out and how much.',
+        rules: [
+            'An item with no Item Type counts in the totals.',
+            'The line under the totals appears only when the list holds items that were left out. For example: These totals leave out CAPEX (1 row marked Not in totals below): Actual Cost 5,000.0000, Cost Variance -5,000.0000.',
+            'Export to Excel has a new last column, Counted in Totals. Filtering it on Yes gives the same sums as the totals on the page.',
+        ],
+        affects: 'Finance and users of the Qty Variance / Cost Variance Report.',
+    },
+    {
+        date: '2026-11-04',
+        module: 'SAP Masterlist',
+        type: 'improved',
+        title: 'Manage Types has a new Inventory Class field: INVENTORIABLE or NON-INVENTORIABLE',
+        summary:
+            'An item type used to have only a name and a status. Each type in SAP Item Types now also has an Inventory Class, which is either INVENTORIABLE or NON-INVENTORIABLE. It decides which list the items of that type appear on in the Inventory Movement Report and the Qty Variance / Cost Variance Report.',
+        steps: [
+            'Open SAP Masterlist and click Manage Types.',
+            'Click Create New Type, or the pencil beside a type.',
+            'Choose the Inventory Class and click Save. The reports use the new setting the next time they are opened.',
+        ],
+        rules: [
+            'Inventory Class is required and has only two values: INVENTORIABLE and NON-INVENTORIABLE.',
+            'Every item type that already existed starts as INVENTORIABLE, so no item leaves the reports until someone changes its type.',
+            'The setting belongs to the item type of each entity, so each entity decides for its own types.',
+            'It only decides which list an item appears on in the two reports. It does not change stock, month end counts or any other report.',
+        ],
+        affects: 'Users who can open Manage Types in SAP Masterlist.',
+    },
+    {
+        date: '2026-11-04',
+        module: 'Inventory Movement Report',
+        type: 'improved',
+        title: 'Inventory Movement Report has an Inventory Class filter that opens on INVENTORIABLE, and an Item Type column with its own filter',
+        summary:
+            'The report used to list every item that moved in the period. It now lists one Inventory Class at a time and opens on INVENTORIABLE, so items of a type marked NON-INVENTORIABLE are not listed until that class is selected. A new Item Type column shows the type of each item, and the Item Type filter narrows the list when part of the name is typed.',
+        steps: [
+            'Open the Inventory Movement Report. The Inventory Class filter shows INVENTORIABLE.',
+            'To see the other items, choose NON-INVENTORIABLE and click Search.',
+            'To see one type, type part of its name under Item Type, for example CAPEX, and click Search or press Enter.',
+            'Click the Item Type heading to sort the report by type.',
+        ],
+        rules: [
+            'An item with no Item Type is listed under INVENTORIABLE and shows a dash in the Item Type column.',
+            'The Item Type filter only looks inside the Inventory Class selected. To find a type on the other list, select that class first.',
+            'Export PDF and Export Excel hold the list selected on the page, and print the Inventory Class and the Item Type column.',
+            'Reset returns to INVENTORIABLE and clears the Item Type filter.',
+            'The figures of an item do not change. The Current SOH of the Month End Count template still covers every item.',
+        ],
+        affects: 'Users of the Inventory Movement Report.',
+    },
+    {
+        date: '2026-11-04',
+        module: 'Qty Variance / Cost Variance Report',
+        type: 'improved',
+        title: 'Qty Variance / Cost Variance Report has an Inventory Class filter that opens on INVENTORIABLE, and an Item Type column you can filter and sort',
+        summary:
+            'The report used to list every counted item. It now lists one Inventory Class at a time and opens on INVENTORIABLE, so items of a type marked NON-INVENTORIABLE are not listed until that class is selected. A new Item Type column shows the type of each item.',
+        steps: [
+            'Open the Qty Variance / Cost Variance Report. The Inventory Class filter shows INVENTORIABLE.',
+            'To see the other items, choose NON-INVENTORIABLE. The report refreshes by itself.',
+            'To see one type, type part of its name in the box under the Item Type heading, for example CAPEX.',
+            'Click the Item Type heading to sort the report by type.',
+        ],
+        rules: [
+            'An item with no Item Type is listed under INVENTORIABLE and shows a dash in the Item Type column.',
+            'Qty Variance, Total Actual Cost and Cost Variance at the top of the page add up only the items of the list selected.',
+            'Export to Excel holds the Inventory Class and the Item Type filter selected on the page and has an Item Type column. Its file name says which list it holds.',
+            'Reset Filters returns to INVENTORIABLE and clears the Item Type filter.',
+        ],
+        affects: 'Users of the Qty Variance / Cost Variance Report.',
+    },
     // ---------------------------------------------------------------- October 31, 2026
     {
         date: '2026-10-31',

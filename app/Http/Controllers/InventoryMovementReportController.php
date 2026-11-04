@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SAPMasterfile;
+use App\Models\SapItemType;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
 use App\Models\StoreOrderItem;
@@ -21,6 +22,7 @@ use App\Exports\InventoryMovementReportExport;
 use App\Http\Services\InventoryMovementAdjustmentService;
 use App\Http\Services\InventoryMovementDetailService;
 use App\Http\Services\InventoryMovementService;
+use App\Http\Services\SapItemTypeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -33,12 +35,13 @@ class InventoryMovementReportController extends Controller
         ini_set('memory_limit', '1024M');
 
         $user = Auth::user();
-        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'per_page', 'sort_field', 'sort_direction']);
-        
+        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'filter_item_type', 'per_page', 'sort_field', 'sort_direction']);
+
         // Defaults
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
         $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
         $filters['per_page'] = $filters['per_page'] ?? 50;
+        $filters['inventory_class'] = SapItemType::inventoryClassOrDefault($request->input('inventory_class'));
 
         $user->load('store_branches');
         $assignedStoreIds = $user->store_branches->pluck('id');
@@ -75,7 +78,7 @@ class InventoryMovementReportController extends Controller
 
         $this->applySupplierFilter($query, $filters);
 
-        $allSapItems = $query->get();
+        $allSapItems = $this->withinItemTypeFilters($query->get(), $filters);
         $allMovementData = collect($this->getMovementData($allSapItems, $filters));
 
         if (!empty($filters['sort_field'])) {
@@ -107,6 +110,7 @@ class InventoryMovementReportController extends Controller
             'filters' => $filters,
             'branches' => $branches,
             'suppliers' => $suppliers,
+            'inventoryClasses' => SapItemType::INVENTORY_CLASSES,
         ]);
     }
 
@@ -282,10 +286,11 @@ class InventoryMovementReportController extends Controller
         ini_set('memory_limit', '1024M');
 
         $user = Auth::user();
-        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search']);
+        $filters = $request->only(['date_from', 'date_to', 'branch_id', 'supplier_code', 'search', 'filter_item_type']);
 
         $filters['date_from'] = $filters['date_from'] ?? Carbon::today('Asia/Manila')->startOfMonth()->format('Y-m-d');
         $filters['date_to'] = $filters['date_to'] ?? Carbon::today('Asia/Manila')->format('Y-m-d');
+        $filters['inventory_class'] = SapItemType::inventoryClassOrDefault($request->input('inventory_class'));
 
         $assignedSupplierCodes = $this->getSupplierOptions($user)->pluck('value')->toArray();
 
@@ -310,7 +315,7 @@ class InventoryMovementReportController extends Controller
 
         $this->applySupplierFilter($query, $filters);
 
-        $sapItems = $query->get();
+        $sapItems = $this->withinItemTypeFilters($query->get(), $filters);
 
         return [
             'filters' => $filters,
@@ -478,14 +483,27 @@ class InventoryMovementReportController extends Controller
 
     /**
      * The per-item movement rows, from the service the Month End Count template shares,
-     * with the report's own Adjustment and Final Variance added to each.
+     * with the report's own Adjustment, Final Variance and Item Type added to each.
      */
     private function getMovementData($sapItems, $filters)
     {
-        return app(InventoryMovementAdjustmentService::class)->apply(
-            app(InventoryMovementService::class)->movementData($sapItems, $filters),
-            $filters['branch_id'] ?? null,
-            $filters
+        $itemTypes = app(SapItemTypeService::class)->byItemCode();
+
+        return array_map(
+            fn (array $row) => $row + ['item_type' => $itemTypes->get(SapItemTypeService::normalize($row['sap_code']))?->name],
+            app(InventoryMovementAdjustmentService::class)->apply(
+                app(InventoryMovementService::class)->movementData($sapItems, $filters),
+                $filters['branch_id'] ?? null,
+                $filters
+            )
         );
+    }
+
+    /** The SAP rows of the Inventory Class and Item Type asked for, before anything is worked out for them. */
+    private function withinItemTypeFilters($sapItems, array $filters)
+    {
+        $itemTypes = app(SapItemTypeService::class)->byItemCode();
+
+        return $sapItems->filter(fn ($row) => SapItemTypeService::inReport($itemTypes, $row->ItemCode, $filters))->values();
     }
 }

@@ -379,6 +379,21 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   template and the Qty / Cost Variance report, which read `InventoryMovementService` directly, never see
   them. Saving needs `adjust inventory movement variance`; a 0 with a reason takes one back, nothing is
   deleted. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#inventory-movement-report-adjustment).
+- **An Item Type carries an Inventory Class** (`sap_item_types.inventory_class`: INVENTORIABLE or NON-INVENTORIABLE,
+  set on `/sapitems-list/types`), and the Inventory Movement and Qty / Cost Variance reports list one class at a
+  time, INVENTORIABLE by default. The filter lives in those two controllers (`SapItemTypeService::inReport()`), never
+  in `InventoryMovementService`, so the MEC template still reads every item. An item with **no Item Type stays on
+  the INVENTORIABLE list**: most codes have none, and hiding them would empty the report. The class has nothing to do
+  with Supplies Used, which still goes by the type names in `SUPPLIES_ITEM_TYPES`. A type's **Count in Report Totals**
+  (`counts_in_totals`) is separate from its class: No keeps its items listed but out of the Qty / Cost Variance
+  report's totals, which is how Finance reads them without SMALLWARES and CAPEX.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#inventory-class-of-an-item-type).
+- **`Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription` and `DialogFooter` are registered
+  globally in `app.js`**, and over thirty pages rely on it. Without them Vue renders the browser's native `<dialog>`: the
+  form opens inline under the page, with no window, and still works, so nothing fails (this went unnoticed from
+  2025-11 to 2026-11). **A PrimeVue picker inside a Dialog needs `append-to="self"`**: a modal turns pointer events off for
+  the page and traps focus, so a list opened on the body shows but cannot be clicked, and its search box loses what is
+  typed. `tests/Unit/DialogComponentsRegisteredTest.php` guards both.
 - **A report prints every quantity, amount and percentage with four decimals**, whatever the value
   (5 -> 5.0000), the same on the page, in the PDF and in the Excel export. Pages use
   `resources/js/lib/reportNumbers.js`; exports use `App\Support\ReportNumber` (`EXCEL` number formats,

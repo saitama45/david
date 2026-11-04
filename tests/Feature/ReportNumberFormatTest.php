@@ -69,12 +69,26 @@ it('exports Qty Variance / Cost Variance as numbers with four decimals', functio
         'actual_cost' => 0, 'theoretical_cost' => 0, 'cost_variance' => 0,
     ]]));
 
-    expect(reportCells($sheet, reportRow($sheet, 'C', 'RM-1'), ['F', 'G', 'H', 'I', 'J', 'K', 'L']))->toBe([
-        'F' => ['1,800.0000', true], 'G' => ['2.0000', true], 'H' => ['2.5000', true], 'I' => ['-0.5000', true],
-        'J' => ['3,600.0000', true], 'K' => ['4,500.0000', true], 'L' => ['-900.0000', true],
-    ])->and(reportCells($sheet, reportRow($sheet, 'C', 'RM-2'), ['F', 'I', 'L']))->toBe([
-        'F' => ['0.0000', true], 'I' => ['0.0000', true], 'L' => ['0.0000', true],
+    expect(reportCells($sheet, reportRow($sheet, 'C', 'RM-1'), ['G', 'H', 'I', 'J', 'K', 'L', 'M']))->toBe([
+        'G' => ['1,800.0000', true], 'H' => ['2.0000', true], 'I' => ['2.5000', true], 'J' => ['-0.5000', true],
+        'K' => ['3,600.0000', true], 'L' => ['4,500.0000', true], 'M' => ['-900.0000', true],
+    ])->and(reportCells($sheet, reportRow($sheet, 'C', 'RM-2'), ['G', 'J', 'M']))->toBe([
+        'G' => ['0.0000', true], 'J' => ['0.0000', true], 'M' => ['0.0000', true],
     ]);
+});
+
+it('says on the Qty Variance / Cost Variance export which rows count in the totals', function () {
+    $row = ['mec_date' => '2026-09-30', 'store_name' => 'Glorietta 4', 'item_description' => 'Item', 'uom' => 'Pc', 'cost' => 1,
+        'actual_inventory' => 1, 'theoretical_inventory' => 1, 'qty_variance' => 0, 'actual_cost' => 1, 'theoretical_cost' => 1, 'cost_variance' => 0];
+
+    $sheet = reportSheet(new QtyVarianceCostVarianceReportExport([
+        $row + ['item_code' => 'RM-1', 'item_type' => 'FOOD', 'in_totals' => true],
+        $row + ['item_code' => 'EQ-1', 'item_type' => 'CAPEX', 'in_totals' => false],
+    ]));
+
+    expect($sheet->getCell('N1')->getValue())->toBe('Counted in Totals')
+        ->and($sheet->getCell('N'.reportRow($sheet, 'C', 'RM-1'))->getValue())->toBe('Yes')
+        ->and($sheet->getCell('N'.reportRow($sheet, 'C', 'EQ-1'))->getValue())->toBe('No');
 });
 
 it('exports the Delivery Report quantities with four decimals', function () {

@@ -28,6 +28,7 @@ class SapItemTypeController extends Controller
         return Inertia::render('SapItemType/Index', [
             'types' => $types,
             'filters' => request()->only(['search']),
+            'inventoryClasses' => SapItemType::INVENTORY_CLASSES,
         ]);
     }
 
@@ -55,6 +56,8 @@ class SapItemTypeController extends Controller
             'name' => ['required', 'string', 'max:100', Rule::unique('sap_item_types', 'name')
                 ->where('entity_id', app(EntityContext::class)->id())
                 ->ignore($ignoreId)],
+            'inventory_class' => ['required', Rule::in(SapItemType::INVENTORY_CLASSES)],
+            'counts_in_totals' => ['required', 'boolean'],
         ]);
     }
 }

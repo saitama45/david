@@ -25,6 +25,10 @@
     <div class="info">
         <strong>Branch:</strong> {{ $branch ? $branch->name : 'N/A' }} | 
         <strong>Supplier:</strong> {{ $supplier ? $supplier->name . ' (' . $supplier->supplier_code . ')' : 'All Suppliers' }} |
+        <strong>Inventory Class:</strong> {{ $filters['inventory_class'] }} |
+        @if(filled($filters['filter_item_type'] ?? null))
+            <strong>Item Type:</strong> {{ $filters['filter_item_type'] }} |
+        @endif
         <strong>Generated:</strong> {{ $date_generated }} | 
         <strong>By:</strong> {{ $generated_by }}
     </div>
@@ -33,7 +37,7 @@
     <table>
         <thead>
             <tr style="background-color: #f3f4f6; font-size: 8px;">
-                <th colspan="4">ITEM INFO</th>
+                <th colspan="5">ITEM INFO</th>
                 <th colspan="3">PROCUREMENT (DATE RANGE)</th>
                 <th>BEGINNING</th>
                 <th colspan="5">DEDUCTIONS / TRANSFERS</th>
@@ -43,6 +47,7 @@
                 <th class="text-left" width="10%">Supplier</th>
                 <th class="text-left">SAP Code</th>
                 <th class="text-left" width="15%">Item Description</th>
+                <th class="text-left">Item Type</th>
                 <th>UOM</th>
                 <th>Ordered</th>
                 <th>Committed</th>
@@ -67,6 +72,7 @@
                     <td class="text-left">{{ $item['supplier'] ?: '-' }}</td>
                     <td class="text-left">{{ $item['sap_code'] }}</td>
                     <td class="text-left">{{ $item['item_description'] }}</td>
+                    <td class="text-left">{{ $item['item_type'] ?: '-' }}</td>
                     <td>{{ $item['uom'] }}</td>
                     <td class="text-right">{{ \App\Support\ReportNumber::format($item['ordered_qty']) }}</td>
                     <td class="text-right">{{ \App\Support\ReportNumber::format($item['committed_qty']) }}</td>

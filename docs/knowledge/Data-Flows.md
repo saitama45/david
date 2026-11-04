@@ -362,8 +362,37 @@ Variance**: a signed quantity entered against an item's Variance with a required
   `quantity`, `reason`) behind `adjust inventory movement variance`, for a store the user is assigned
   to. `updateOrCreate` replaces the month's row; nothing is deleted - a 0 with a reason takes one back.
   The page posts with axios and overlays the answer on the row instead of reloading the report.
-- **Exports:** Excel columns Q `Adjustment`, R `Final Variance`, S `Adjustment Reason` (fixed width,
+- **Exports:** Excel columns S `Adjustment`, T `Final Variance`, U `Adjustment Reason` (fixed width,
   wrapped, taken back from `ShouldAutoSize` in `AfterSheet`); the PDF prints the reason under the figure.
+
+## Inventory Class of an Item Type
+
+`sap_item_types.inventory_class` (2026-11-04) is `INVENTORIABLE` or `NON-INVENTORIABLE`, set per type on
+`/sapitems-list/types` (`SapItemType::INVENTORY_CLASSES`). It decides which list the Inventory Movement
+and Qty / Cost Variance reports show the type's items on; each report lists one class, INVENTORIABLE
+unless `inventory_class` says otherwise.
+
+- **Where it filters:** only in the two report controllers, through `SapItemTypeService::byItemCode()`
+  (ItemCode => type name + class, for the active entity) and `inReport()`. `InventoryMovementService` and
+  `MonthEndStockVariance` are untouched, so the MEC template's Current SOH still reads every item.
+- **No Item Type = INVENTORIABLE.** Only a type marked otherwise takes an item off that list. Most item
+  codes have no type (583 of 5,547 active codes on local `daviddb`, 2026-11-04), and a whole entity can have
+  none, so requiring one would empty the report. The two lists together are therefore every item.
+- **Item Type column and `filter_item_type`:** a part-of-the-name match, inside the class selected. It is a
+  text filter, not a dropdown: the types are a table, and the pick-list rule keeps those out of dropdowns.
+  The column is the Item Type and not the Supplier Items category on purpose: category is free text per
+  supplier row, differs by entity, and an ItemCode can carry several, while a report row is one ItemCode.
+- **Inventory Class is not Supplies Used.** `InventoryMovementService::SUPPLIES_ITEM_TYPES` still names
+  OPERATING and CLEANING SUPPLIES, whatever their class. A type under another name (JANITORIAL SUPPLIES) gets
+  no Supplies Used, so its usage shows as Variance.
+- **Exports:** both follow the filters. The Inventory Movement PDF and Excel print the class in their heading;
+  the Qty / Cost Variance sheet has no heading block, so its file name carries it.
+- **Count in Report Totals** (`sap_item_types.counts_in_totals`, default yes) is separate from the class. The stores
+  want SMALLWARES and CAPEX on the INVENTORIABLE list, and Finance wants totals without them, so those types are
+  INVENTORIABLE with this set to No. `SapItemTypeService::inTotals()` puts `in_totals` on each Qty / Cost Variance row;
+  the page's three cards skip the false ones, a line under them names what was left out and how much, each such row says
+  Not in totals, and the export's last column (Counted in Totals) lets a filter on Yes match the cards. An item with no
+  Item Type counts. The Inventory Movement Report has no money totals, so it does not read this.
 
 ## Report numbers
 

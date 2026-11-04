@@ -174,7 +174,7 @@ const showAddItemModal = () => {
                     </InputContainer>
                     <InputContainer>
                         <LabelXS>Item</LabelXS>
-                        <Select></Select>
+                        <Select append-to="self"></Select>
                     </InputContainer>
                     <section class="grid grid-cols-2 gap-3">
                         <DivFlexCol>

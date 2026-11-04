@@ -45,6 +45,11 @@ const props = defineProps({
     period: {
         type: Object,
         default: null,
+    },
+    // The Inventory Class lists, the default first.
+    inventoryClasses: {
+        type: Array,
+        required: true,
     }
 });
 
@@ -73,6 +78,7 @@ const storeOptions = computed(() => {
 // The report shows one count, picked by its MEC Scheduled Date - never a free date.
 const mecDate = ref(props.filters.mec_date || props.defaultMecDate);
 const storeIds = ref(props.filters.store_ids || []);
+const inventoryClass = ref(props.filters.inventory_class || props.inventoryClasses[0]);
 const search = ref(props.filters.search || '');
 const perPage = ref(props.filters.per_page || 50);
 
@@ -80,6 +86,7 @@ const perPage = ref(props.filters.per_page || 50);
 const filterStore = ref(props.filters.filter_store || '');
 const filterItemCode = ref(props.filters.filter_item_code || '');
 const filterItemDescription = ref(props.filters.filter_item_description || '');
+const filterItemType = ref(props.filters.filter_item_type || '');
 const filterUom = ref(props.filters.filter_uom || '');
 
 // Sorting
@@ -138,6 +145,7 @@ const updateFilters = () => {
         {
             mec_date: mecDate.value,
             store_ids: storeIds.value,
+            inventory_class: inventoryClass.value,
             search: search.value,
             per_page: perPage.value,
             sort_field: sortField.value,
@@ -145,6 +153,7 @@ const updateFilters = () => {
             filter_store: filterStore.value,
             filter_item_code: filterItemCode.value,
             filter_item_description: filterItemDescription.value,
+            filter_item_type: filterItemType.value,
             filter_uom: filterUom.value,
         },
         {
@@ -168,12 +177,12 @@ const handleSort = (field) => {
 };
 
 // Watch for filter changes and update URL
-watch([mecDate, storeIds, perPage],
+watch([mecDate, storeIds, inventoryClass, perPage],
     throttle(updateFilters, 300)
 );
 
 // Watch for search and column filters with longer throttling
-watch([search, filterStore, filterItemCode, filterItemDescription, filterUom],
+watch([search, filterStore, filterItemCode, filterItemDescription, filterItemType, filterUom],
     throttle(updateFilters, 500)
 );
 
@@ -187,10 +196,12 @@ const activeFiltersCount = computed(() => {
     let count = 0;
     if (mecDate.value) count++;
     if (storeIds.value && storeIds.value.length > 0) count++;
+    if (inventoryClass.value) count++;
     if (search.value) count++;
     if (filterStore.value) count++;
     if (filterItemCode.value) count++;
     if (filterItemDescription.value) count++;
+    if (filterItemType.value) count++;
     if (filterUom.value) count++;
     return count;
 });
@@ -207,11 +218,13 @@ const shouldShowFilters = computed(() => {
 const resetFilters = () => {
     mecDate.value = props.defaultMecDate;
     storeIds.value = props.assignedStoreIds;
+    inventoryClass.value = props.inventoryClasses[0];
     search.value = '';
     perPage.value = 50;
     filterStore.value = '';
     filterItemCode.value = '';
     filterItemDescription.value = '';
+    filterItemType.value = '';
     filterUom.value = '';
     sortField.value = '';
     sortDirection.value = 'asc';
@@ -222,6 +235,8 @@ const exportRoute = computed(() =>
     route('reports.qty-variance-cost-variance-report.export', {
         mec_date: mecDate.value,
         store_ids: storeIds.value,
+        inventory_class: inventoryClass.value,
+        filter_item_type: filterItemType.value,
         search: search.value,
     })
 );
@@ -233,7 +248,8 @@ const formatCurrency = formatReportCurrency;
 // Format number with commas
 const formatNumber = formatReportNumber;
 
-// Calculate totals for the report
+// Calculate totals for the report. A type marked not to count in totals (SAP Item Types) stays
+// on the list but is left out of these; leftOutOfTotals says what, so the page still reconciles.
 const reportTotals = computed(() => {
     const totals = {
         actualInventory: 0,
@@ -244,7 +260,7 @@ const reportTotals = computed(() => {
         costVariance: 0
     };
 
-    props.varianceData.forEach(item => {
+    props.varianceData.filter(item => item.in_totals !== false).forEach(item => {
         totals.actualInventory += item.actual_inventory || 0;
         totals.theoreticalInventory += item.theoretical_inventory || 0;
         totals.qtyVariance += item.qty_variance || 0;
@@ -254,6 +270,17 @@ const reportTotals = computed(() => {
     });
 
     return totals;
+});
+
+const leftOutOfTotals = computed(() => {
+    const rows = props.varianceData.filter(item => item.in_totals === false);
+
+    return {
+        rows: rows.length,
+        types: [...new Set(rows.map(item => item.item_type))].sort().join(', '),
+        actualCost: rows.reduce((sum, item) => sum + (item.actual_cost || 0), 0),
+        costVariance: rows.reduce((sum, item) => sum + (item.cost_variance || 0), 0),
+    };
 });
 
 // Helper function to get variance styling
@@ -344,7 +371,7 @@ const getVarianceIcon = (variance) => {
                     </div>
 
                     <!-- Store Filter -->
-                    <div class="space-y-2">
+                    <div class="space-y-2 lg:col-span-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             <Building2 class="w-4 h-4" />
                             Stores
@@ -360,8 +387,21 @@ const getVarianceIcon = (variance) => {
                         />
                     </div>
 
+                    <!-- Inventory Class (two columns wide so NON-INVENTORIABLE is not cut off) -->
+                    <div class="space-y-2 lg:col-span-2">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <Filter class="w-4 h-4" />
+                            Inventory Class
+                        </label>
+                        <Select
+                            v-model="inventoryClass"
+                            :options="inventoryClasses"
+                            class="w-full"
+                        />
+                    </div>
+
                     <!-- Per Page -->
-                    <div class="space-y-2">
+                    <div class="space-y-2 lg:col-span-2">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             <Package class="w-4 h-4" />
                             Per Page
@@ -384,6 +424,9 @@ const getVarianceIcon = (variance) => {
                         <div v-if="period" class="mt-1 text-xs text-gray-500">
                             Stock movements from {{ period.from }} to {{ period.to }}. The Inventory Movement Report shows the same quantities for these dates.
                         </div>
+                        <div class="mt-1 text-xs text-gray-500">
+                            The Inventory Class is set per Item Type in SAP Item Types. An item with no Item Type is listed under INVENTORIABLE.
+                        </div>
                     </div>
                     <div class="flex items-center gap-3">
                         <Button
@@ -400,7 +443,7 @@ const getVarianceIcon = (variance) => {
         </div>
 
         <!-- Report Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" :class="leftOutOfTotals.rows ? 'mb-2' : 'mb-6'">
             <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <div class="flex items-center justify-between">
                     <div>
@@ -433,6 +476,10 @@ const getVarianceIcon = (variance) => {
                 </div>
             </div>
         </div>
+        <p v-if="leftOutOfTotals.rows" class="mb-6 text-sm text-gray-600">
+            These totals leave out {{ leftOutOfTotals.types }} ({{ leftOutOfTotals.rows }} {{ leftOutOfTotals.rows === 1 ? 'row' : 'rows' }} marked Not in totals below):
+            Actual Cost {{ formatCurrency(leftOutOfTotals.actualCost) }}, Cost Variance {{ formatCurrency(leftOutOfTotals.costVariance) }}.
+        </p>
 
         <!-- Enhanced Data Table -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible relative">
@@ -483,6 +530,17 @@ const getVarianceIcon = (variance) => {
                                         <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
                                     </div>
                                     <Input v-model="filterItemDescription" @click.stop placeholder="Filter Description..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
+                                </div>
+                            </th>
+                            <th @click="handleSort('item_type')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between gap-1">
+                                        <span>Item Type</span>
+                                        <ArrowUp v-if="sortField === 'item_type' && sortDirection === 'asc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowDown v-else-if="sortField === 'item_type' && sortDirection === 'desc'" class="w-3 h-3 text-blue-600" />
+                                        <ArrowUpDown v-else class="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                                    </div>
+                                    <Input v-model="filterItemType" @click.stop placeholder="Filter Type..." class="h-7 text-[10px] font-normal normal-case border-gray-200 focus:ring-1 focus:ring-blue-100" />
                                 </div>
                             </th>
                             <th @click="handleSort('uom')" class="px-4 py-3 text-left font-medium border-r border-gray-100 cursor-pointer hover:bg-gray-100 group transition-colors">
@@ -623,7 +681,7 @@ const getVarianceIcon = (variance) => {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         <tr v-if="!paginatedData.data || paginatedData.data.length === 0" class="hover:bg-gray-50">
-                            <td colspan="12" class="text-center py-12 text-gray-500">
+                            <td colspan="13" class="text-center py-12 text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <ChartColumnBig class="w-12 h-12 text-gray-300 mb-3" />
                                     <span class="text-lg font-medium">No data available</span>
@@ -647,6 +705,10 @@ const getVarianceIcon = (variance) => {
                                 <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.store_name">{{ item.store_name || 'N/A' }}</td>
                                 <td class="px-4 py-4 text-sm font-mono text-gray-900">{{ item.item_code || 'N/A' }}</td>
                                 <td class="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" :title="item.item_description">{{ item.item_description || 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm text-gray-600">
+                                    {{ item.item_type || '-' }}
+                                    <div v-if="item.in_totals === false" class="mt-1 text-[10px] text-amber-700 whitespace-nowrap">Not in totals</div>
+                                </td>
                                 <td class="px-4 py-4 text-sm text-gray-600">
                                     {{ item.uom || 'N/A' }}
                                     <div
@@ -676,7 +738,7 @@ const getVarianceIcon = (variance) => {
                                 </td>
                             </tr>
                             <tr v-if="isBreakdownExpanded(item.id)" class="bg-slate-50">
-                                <td colspan="12" class="px-6 py-4">
+                                <td colspan="13" class="px-6 py-4">
                                     <div v-if="breakdownLoading[item.id]" class="flex items-center gap-2 text-sm text-gray-600">
                                         <Loader2 class="h-4 w-4 animate-spin text-blue-500" />
                                         Loading source details...
@@ -743,6 +805,10 @@ const getVarianceIcon = (variance) => {
                         <!-- Description -->
                         <div class="mb-3">
                             <p class="text-sm text-gray-900 line-clamp-2">{{ item.item_description || 'N/A' }}</p>
+                            <p class="text-xs text-gray-500">
+                                {{ item.item_type || 'No Item Type' }}
+                                <span v-if="item.in_totals === false" class="text-amber-700">· Not in totals</span>
+                            </p>
                         </div>
 
                         <!-- Variance Breakdown -->
