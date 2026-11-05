@@ -9,6 +9,7 @@ use App\Models\StoreOrderItem;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log; // Added for logging in extracted method
 use App\Models\DeliveryReceipt; // Added missing use statement
@@ -444,10 +445,15 @@ class OrderReceivingService extends StoreOrderService
             $missing[] = 'a delivery receipt';
         }
 
-        // A CPO order's proof is the vendor's invoice / receipt, which the store uploads on the
-        // Inbound Orders page in place of the image (CPO Orders does not take it).
+        // A CPO order's proof is its vendor and the vendor's invoice / receipt, which the store
+        // completes on the Inbound Orders page (CPO Orders may leave the vendor blank and does not
+        // take the invoice). The TIN is optional. An image it already has counts as the receipt.
         if ($order->isCpo()) {
-            if ($order->cpoAttachments()->count() === 0) {
+            if (blank($order->cpo_vendor_name) || blank($order->cpo_vendor_address)) {
+                $missing[] = 'the vendor details';
+            }
+
+            if ($order->invoiceFiles()->isEmpty()) {
                 $missing[] = 'the invoice / receipt';
             }
         } elseif ($order->image_attachments()->count() === 0) {
@@ -458,7 +464,7 @@ class OrderReceivingService extends StoreOrderService
             return null;
         }
 
-        return 'Add '.implode(' and ', $missing).' to this order before recording received quantities.';
+        return 'Add '.Arr::join($missing, ', ', ' and ').' to this order before recording received quantities.';
     }
 
     /**

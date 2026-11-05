@@ -139,8 +139,15 @@ template flow with CPO fixed and three additions:
   required, TIN optional) is picked with `CpoVendorPicker` (server search, 3 characters, exact name
   below that) and added / edited inline over JSON (`cpo-orders.vendors.*`). The order keeps a copy in
   `store_orders.cpo_vendor_id / _name / _tin / _address`, so a vendor edit never rewrites a placed order.
-  CPO orders placed in Mass Orders before 2026-10-17 have no vendor; the pages show the template's
-  `suppliers.name` (CPO) instead, as Mass Orders did. No data was backfilled.
+  **Optional at creation since 2026-11-05**: a blank vendor is normal, and the store enters it on
+  `/orders-receiving/show` in the Vendor Details card (`OrderReceivingController::updateCpoVendor()`, route
+  `orders-receiving.update-cpo-vendor`, `receive orders` + admin or store assignment, CPO orders only; not locked
+  by Final Receive All or the Delivery Date). `CpoOrderService::saveVendorDetails()` stores what was typed on the
+  order; a name not in `cpo_vendors` is added there, and an existing vendor's own TIN / address are left alone, so
+  a store cannot rewrite the list. `CpoVendorPicker` with `allow-new` is the free-text name field, searching
+  `orders-receiving.cpo-vendors` because store users do not reach `cpo-orders.vendors.search`. Pages show
+  "Not entered yet" with no vendor, including CPO orders placed in Mass Orders before 2026-10-17. No data was
+  backfilled.
 - **Cost from the receipt.** The template adds a `Cost` column (`MassOrderTemplateExport` writes it when
   `Cost` is among the static headers). Every row with a store quantity needs Item Code (in
   `SupplierItems::forSupplierCode('CPO')`), a Unit that is a catalogue or SAP unit of it, and Cost > 0;
@@ -154,22 +161,27 @@ template flow with CPO fixed and three additions:
   `cpo_order_attachments`). Not locked by Final Receive All or the Delivery Date, like images. The files
   open through `cpo-orders.attachments.show` (`view cpo orders`, `view mass order approval` or
   `view approved order`, plus admin or store assignment). CPO Orders and Mass Orders Approval show
-  "Not uploaded yet" until then, so approvers decide a new CPO order without it.
+  "Not uploaded yet" until then, so approvers decide a new CPO order without it or its vendor.
+  `StoreOrder::invoiceFiles()` is what every page, the receiving check and the file limit read: these files
+  plus any `image_attachments` row of the order. Before this box existed a CPO order's receipt was uploaded as an
+  image, so that image is shown inside the box and counts (2026-11-05). A CPO order no longer offers Upload Image.
 
 Every CPO order is created `pending`. `Supplier::forMassOrderApproval()` / `needsMassOrderApproval()`
 always include CPO (approval list, counts, notification, My Actions), and Ordering Template Approval
 refuses to switch CPO off. Approval itself is unchanged: CPO approval commits and opens the receiving
-rows. Duplicate guard: one non-rejected order per store, date and vendor. There is no CPO edit page;
+rows. Duplicate guard: one non-rejected order per store, date and vendor, a blank vendor counting as one, which
+catches the same file uploaded twice; entering a vendor in Inbound Orders runs no such check. There is no CPO edit page;
 a wrong order is rejected and placed again. The order page reuses `MassOrders/Show` through
 `MassOrderService::orderDetails()` with a `cpo` prop.
 
 **Receiving: delivery evidence and Zero All.** Recording a quantity on `/orders-receiving/show`
 (receive, edit, Add Unlisted Item) needs a delivery receipt and an image
-(`OrderReceivingService::deliveryEvidenceProblem()`). On a CPO order (`StoreOrder::isCpo()`) the
-vendor's invoice / receipt (`cpo_order_attachments`) replaces the image: an image no longer counts there,
-so a CPO order placed in Mass Orders before CPO Orders existed needs the invoice too. The page swaps the
-Image Attachments card for a required "Upload Invoice / Receipt" card (the old card stays only if the
-order already has images) and shows a red notice while nothing is uploaded (`cpoInvoice` prop). Zero All (`PUT /orders-receiving/zero-all/{id}`,
+(`OrderReceivingService::deliveryEvidenceProblem()`). On a CPO order (`StoreOrder::isCpo()`) the vendor's
+name and address, and its invoice / receipt (`StoreOrder::invoiceFiles()`), replace the image, so a CPO order
+placed in Mass Orders before CPO Orders existed needs the vendor too. The page swaps the Image Attachments card
+for a required "Upload Invoice / Receipt" card, adds a Vendor Details card above it, and shows a red notice of
+what is missing (`cpoInvoice` prop); `cpoHoldsReceiving` drops the red on a finalized order or one with
+nothing received, where nothing is being held back. Zero All (`PUT /orders-receiving/zero-all/{id}`,
 `zeroUnconfirmedReceipts()`) is the exception, for a delivery that did not arrive: under a row lock it
 sets every `pending` / `received` row to quantity 0, remarks `Unserved`, status `received`, stamped
 with the receiver and the Manila time, and leaves `approved` rows alone. It posts nothing and does not

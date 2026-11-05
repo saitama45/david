@@ -19,9 +19,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * CPO Orders: a store's purchase from an outside vendor, placed through the mass order
- * template (one column per store) with the vendor. The vendor's invoice / receipt is not
- * taken here: the store uploads it in Inbound Orders, and receiving needs it
- * (OrderReceivingService::deliveryEvidenceProblem).
+ * template (one column per store). The vendor may be left blank, and its invoice / receipt is
+ * not taken here: the store enters the first and uploads the second in Inbound Orders, and
+ * receiving needs both (OrderReceivingService::deliveryEvidenceProblem).
  *
  * Unlike a Mass Orders upload, the cost of each line is typed in from the receipt, every
  * order waits in Mass Orders Approval, and approving it commits it for receiving
@@ -74,7 +74,7 @@ class CpoOrderService
      * @throws ValidationException when the file is not a filled CPO template, a line misses
      *                             its item, unit or cost, or no store in it may order
      */
-    public function processUpload(Collection $rows, string $orderDate, CpoVendor $vendor, User $user): array
+    public function processUpload(Collection $rows, string $orderDate, ?CpoVendor $vendor, User $user): array
     {
         $orderDate = Carbon::parse($orderDate)->toDateString();
 
@@ -155,17 +155,20 @@ class CpoOrderService
             foreach ($linesByStore as $header => $lines) {
                 $store = $usable[$header];
 
-                // One purchase per store, date and vendor; a rejected one may be placed again.
+                // One purchase per store, date and vendor, or with no vendor yet, which catches the
+                // same file uploaded twice; a rejected one may be placed again.
                 $existing = StoreOrder::where('store_branch_id', $store->id)
                     ->where('supplier_id', $supplier->id)
                     ->where('variant', 'mass regular')
-                    ->where('cpo_vendor_id', $vendor->id)
+                    ->where('cpo_vendor_id', $vendor?->id)
                     ->whereDate('order_date', $orderDate)
                     ->where('order_status', '!=', OrderStatus::REJECTED->value)
                     ->value('order_number');
 
                 if ($existing) {
-                    $skipped[$store->brand_code] = "A CPO order from {$vendor->name} for this date already exists ({$existing}).";
+                    $skipped[$store->brand_code] = $vendor
+                        ? "A CPO order from {$vendor->name} for this date already exists ({$existing})."
+                        : "A CPO order with no vendor yet for this date already exists ({$existing}).";
                     continue;
                 }
 
@@ -178,10 +181,10 @@ class CpoOrderService
                     'order_status' => OrderStatus::PENDING->value,
                     'order_request_status' => OrderRequestStatus::PENDING->value,
                     'variant' => 'mass regular',
-                    'cpo_vendor_id' => $vendor->id,
-                    'cpo_vendor_name' => $vendor->name,
-                    'cpo_vendor_tin' => $vendor->tin,
-                    'cpo_vendor_address' => $vendor->address,
+                    'cpo_vendor_id' => $vendor?->id,
+                    'cpo_vendor_name' => $vendor?->name,
+                    'cpo_vendor_tin' => $vendor?->tin,
+                    'cpo_vendor_address' => $vendor?->address,
                 ]);
 
                 foreach ($lines as $line) {
@@ -201,7 +204,7 @@ class CpoOrderService
         });
 
         $message = $created
-            ? "Successfully created {$created} CPO order(s). They are now waiting in Mass Orders Approval. The store uploads the invoice / receipt in Inbound Orders when it receives the order."
+            ? "Successfully created {$created} CPO order(s). They are now waiting in Mass Orders Approval. The store completes the vendor details and uploads the invoice / receipt in Inbound Orders when it receives the order."
             : 'No CPO order was created.';
 
         if ($skipped) {
@@ -209,6 +212,37 @@ class CpoOrderService
         }
 
         return $this->result($created > 0, $message, $skipped, $created);
+    }
+
+    /**
+     * The vendor details of a CPO order, entered by the store in Inbound Orders. The order keeps
+     * what was entered. A name not on the vendor list yet is added to it, to be picked next time;
+     * a vendor already on the list keeps its own details, which only CPO Orders' Edit changes.
+     *
+     * @param  array{vendor_name: string, vendor_tin?: ?string, vendor_address: string}  $details
+     */
+    public function saveVendorDetails(StoreOrder $order, array $details, User $user): void
+    {
+        $name = trim($details['vendor_name']);
+        $tin = trim((string) ($details['vendor_tin'] ?? '')) ?: null;
+        $address = trim($details['vendor_address']);
+
+        DB::transaction(function () use ($order, $name, $tin, $address, $user) {
+            $vendor = CpoVendor::where('name', $name)->first() ?? CpoVendor::create([
+                'name' => $name,
+                'tin' => $tin,
+                'address' => $address,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+
+            $order->update([
+                'cpo_vendor_id' => $vendor->id,
+                'cpo_vendor_name' => $vendor->name,
+                'cpo_vendor_tin' => $tin,
+                'cpo_vendor_address' => $address,
+            ]);
+        });
     }
 
     /**

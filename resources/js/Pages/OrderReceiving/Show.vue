@@ -11,6 +11,7 @@ import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
 import { useBackButton } from "@/composables/useBackButton";
 import { useAuth } from "@/composables/useAuth";
 import { compressImageFile } from "@/lib/imageCompression";
+import CpoVendorPicker from "@/components/CpoVendorPicker.vue";
 import {
     Dialog,
     DialogContent,
@@ -264,8 +265,51 @@ const submitImageUpload = () => {
 };
 
 
+// The office may place a CPO order with no vendor, so the store enters it here: Vendor Name and
+// Address are required to receive, TIN # is not. Picking a vendor from the list fills its details,
+// which stay editable for this order (OrderReceivingService::deliveryEvidenceProblem).
+const vendorMissing = computed(() => !!props.cpoInvoice && !(props.order.cpo_vendor_name && props.order.cpo_vendor_address));
+
+const vendorForm = useForm({
+    vendor_name: props.order.cpo_vendor_name ?? "",
+    vendor_tin: props.order.cpo_vendor_tin ?? "",
+    vendor_address: props.order.cpo_vendor_address ?? "",
+});
+
+const fillVendorDetails = (vendor) => {
+    vendorForm.vendor_tin = vendor.tin ?? "";
+    vendorForm.vendor_address = vendor.address ?? "";
+    vendorForm.clearErrors();
+};
+
+const saveVendorDetails = () => {
+    vendorForm.put(route("orders-receiving.update-cpo-vendor", props.order.id), {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            // What was saved: a name on the vendor list takes the list's spelling.
+            vendorForm.vendor_name = page.props.order.cpo_vendor_name ?? "";
+            vendorForm.vendor_tin = page.props.order.cpo_vendor_tin ?? "";
+            vendorForm.vendor_address = page.props.order.cpo_vendor_address ?? "";
+            toast.add({
+                severity: "success",
+                summary: "Success",
+                detail: "Vendor details saved.",
+                life: 3000,
+            });
+        },
+    });
+};
+
 // A CPO order is placed by the office without the vendor's invoice / receipt: the store uploads
 // it here, in place of the image, and receiving needs it (OrderReceivingService::deliveryEvidenceProblem).
+const invoiceMissing = computed(() => !!props.cpoInvoice && props.cpoInvoice.files.length === 0);
+
+// What the notice at the top of the page tells the store to do on a CPO order.
+const cpoToDo = computed(() => [
+    vendorMissing.value ? "enter the Vendor Name and Address" : null,
+    invoiceMissing.value ? "upload the vendor's invoice or receipt" : null,
+].filter(Boolean).join(" and "));
+
 const isInvoiceUploadModalVisible = ref(false);
 const invoiceForm = useForm({
     file: null,
@@ -634,22 +678,28 @@ const variance = computed(() => {
 });
 
 // A delivery receipt and an image are required before any quantity may be recorded, not
-// only before Confirm Receive; on a CPO order the vendor's invoice / receipt takes the image's
-// place. The server enforces the same rule on every receiving endpoint
+// only before Confirm Receive; on a CPO order the vendor details and the vendor's invoice /
+// receipt take the image's place. The server enforces the same rule on every receiving endpoint
 // (OrderReceivingService::deliveryEvidenceProblem).
 const missingEvidence = computed(() => {
     const missing = [];
     if (props.order.delivery_receipts.length === 0) missing.push("a delivery receipt");
     if (props.cpoInvoice) {
-        if (props.cpoInvoice.files.length === 0) missing.push("the invoice / receipt");
+        if (vendorMissing.value) missing.push("the vendor details");
+        if (invoiceMissing.value) missing.push("the invoice / receipt");
     } else if (props.images.length === 0) {
         missing.push("an image attachment");
     }
     return missing;
 });
 
-// What Confirm / Final Receive All ask for besides the delivery receipt.
-const proofName = computed(() => (props.cpoInvoice ? "the invoice / receipt" : "image"));
+// What Confirm / Final Receive All ask for, and what Zero All does not.
+const evidenceRequired = computed(() => (props.cpoInvoice
+    ? "A delivery receipt, the vendor details and the invoice / receipt"
+    : "A delivery receipt and image"));
+const zeroAllAsksNothing = computed(() => (props.cpoInvoice
+    ? "No delivery receipt, vendor details or invoice / receipt is needed."
+    : "No delivery receipt or image is needed."));
 
 // Confirm Receive All accepts the recorded quantities but posts nothing and does not end
 // receiving: an item found afterwards can still be added and corrected. Only Final Receive All
@@ -685,7 +735,7 @@ const canRecordReceipt = computed(
 const evidenceHint = computed(() =>
     missingEvidence.value.length === 0
         ? ""
-        : `Add ${missingEvidence.value.join(" and ")} before recording received quantities.`
+        : `Add ${new Intl.ListFormat("en-GB").format(missingEvidence.value)} before recording received quantities.`
 );
 
 // Every receipt of the order is zero (Zero All, or each line saved with 0): nothing was
@@ -699,6 +749,10 @@ const nothingReceived = computed(
 
 // Whether the delivery receipt and image rule lets Confirm Receive All / Final Receive All run.
 const canConfirmReceive = computed(() => missingEvidence.value.length === 0 || nothingReceived.value);
+
+// A CPO order still waiting for its vendor or invoice holds receiving back; one already finalized
+// or with nothing received does not, so it is not flagged in red.
+const cpoHoldsReceiving = computed(() => !isFinalized.value && !nothingReceived.value);
 
 // Rows that are not in stock on hand yet: only Final Receive All posts them ('approved').
 const hasUnconfirmedRows = computed(() =>
@@ -944,7 +998,7 @@ const promptConfirmReceive = () => {
         toast.add({
             severity: "error",
             summary: "Unable to Confirm",
-            detail: `A delivery receipt and ${proofName.value} are required before confirming.`,
+            detail: `${evidenceRequired.value} are required before confirming.`,
             life: 5000,
         });
         return;
@@ -1019,7 +1073,7 @@ const promptZeroAll = () => {
         message:
             `${pending} item(s) not yet confirmed will be set to 0 received and marked "Unserved". `
             + (recorded > 0 ? `${recorded} of them already have a received quantity, which will be replaced by 0. ` : "")
-            + "Use this when the delivery did not arrive. No delivery receipt or image is needed. "
+            + `Use this when the delivery did not arrive. ${zeroAllAsksNothing.value} `
             + "Afterwards click Final Receive All to finish.",
         icon: "pi pi-exclamation-triangle",
         rejectProps: {
@@ -1066,7 +1120,7 @@ const promptFinalReceive = () => {
         toast.add({
             severity: "error",
             summary: "Unable to Finalize",
-            detail: `A delivery receipt and ${proofName.value} are required before finalizing.`,
+            detail: `${evidenceRequired.value} are required before finalizing.`,
             life: 5000,
         });
         return;
@@ -1101,25 +1155,24 @@ const promptFinalReceive = () => {
 <template>
     <Layout heading="Order Details">
         <div class="space-y-6">
-            <!-- A CPO order arrives here without the vendor's invoice / receipt: the store
-                 uploads it, and nothing can be received until it does. -->
+            <!-- A CPO order can arrive here with no vendor, and without the vendor's invoice /
+                 receipt: the store completes them, and nothing can be received until it does. -->
             <div
-                v-if="cpoInvoice && cpoInvoice.files.length === 0"
+                v-if="cpoHoldsReceiving && (vendorMissing || invoiceMissing)"
                 role="alert"
                 class="flex flex-col gap-3 rounded-xl border-2 border-red-300 bg-red-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
                 <div class="flex items-start gap-4">
                     <Receipt class="mt-0.5 size-8 shrink-0 text-red-600" />
                     <div class="space-y-1">
-                        <p class="text-base font-bold text-red-900">Upload the invoice / receipt of this CPO order</p>
+                        <p class="text-base font-bold text-red-900">Complete this CPO order before receiving it</p>
                         <p class="text-sm text-red-900">
-                            This order was bought from {{ order.cpo_vendor_name || "an outside vendor" }} and placed without the vendor's invoice or receipt.
-                            Upload it here: items cannot be received, confirmed or finalized until it is uploaded.
+                            The store must {{ cpoToDo }}, on this page. Items cannot be received, confirmed or finalized until then.
                         </p>
                     </div>
                 </div>
                 <Button
-                    v-if="hasReceivePermission"
+                    v-if="hasReceivePermission && invoiceMissing"
                     class="shrink-0 bg-red-600 text-white hover:bg-red-700"
                     @click="openInvoiceUploadModal"
                 >
@@ -1278,6 +1331,57 @@ const promptFinalReceive = () => {
                 </div>
             </Card>
 
+            <!-- Vendor of a CPO order: Vendor Name and Address required, TIN # optional -->
+            <Card
+                v-if="cpoInvoice"
+                class="bg-white shadow-sm border-2 rounded-xl overflow-hidden"
+                :class="cpoHoldsReceiving && vendorMissing ? 'border-red-300' : 'border-gray-200'"
+            >
+                <form @submit.prevent="saveVendorDetails">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center gap-3 bg-gray-50/50">
+                        <div>
+                            <CardTitle class="text-lg font-semibold text-gray-800">Vendor Details</CardTitle>
+                            <p class="mt-1 text-xs font-semibold" :class="cpoHoldsReceiving && vendorMissing ? 'text-red-600' : 'text-gray-500'">
+                                Vendor Name and Address are required on a CPO order before anything can be received.
+                            </p>
+                        </div>
+                        <Button
+                            v-if="hasReceivePermission"
+                            type="submit"
+                            size="sm"
+                            class="shrink-0"
+                            :disabled="!vendorForm.isDirty || vendorForm.processing"
+                        >
+                            {{ vendorForm.processing ? "Saving..." : "Save Vendor Details" }}
+                        </Button>
+                    </div>
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <InputContainer>
+                            <Label class="text-xs font-medium uppercase text-gray-500">Vendor Name <span class="text-red-500">*</span></Label>
+                            <CpoVendorPicker
+                                v-model="vendorForm.vendor_name"
+                                allow-new
+                                search-route="orders-receiving.cpo-vendors"
+                                :disabled="!hasReceivePermission"
+                                :invalid="!!vendorForm.errors.vendor_name"
+                                @select="fillVendorDetails"
+                            />
+                            <FormError>{{ vendorForm.errors.vendor_name }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label class="text-xs font-medium uppercase text-gray-500">TIN # <span class="normal-case text-gray-400">(optional)</span></Label>
+                            <Input v-model="vendorForm.vendor_tin" :disabled="!hasReceivePermission" maxlength="50" />
+                            <FormError>{{ vendorForm.errors.vendor_tin }}</FormError>
+                        </InputContainer>
+                        <InputContainer>
+                            <Label class="text-xs font-medium uppercase text-gray-500">Address <span class="text-red-500">*</span></Label>
+                            <Input v-model="vendorForm.vendor_address" :disabled="!hasReceivePermission" maxlength="500" />
+                            <FormError>{{ vendorForm.errors.vendor_address }}</FormError>
+                        </InputContainer>
+                    </div>
+                </form>
+            </Card>
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Delivery Receipts Table -->
                 <TableContainer>
@@ -1350,11 +1454,12 @@ const promptFinalReceive = () => {
                     </MobileTableContainer>
                 </TableContainer>
 
-                <!-- Invoice / Receipt of a CPO order: required, in place of the image -->
+                <!-- Invoice / Receipt of a CPO order: required, and its only upload box. An image
+                     uploaded before this box existed is shown here. -->
                 <Card
                     v-if="cpoInvoice"
                     class="bg-white shadow-sm border-2 rounded-xl overflow-hidden"
-                    :class="cpoInvoice.files.length ? 'border-gray-200' : 'border-red-300'"
+                    :class="cpoHoldsReceiving && invoiceMissing ? 'border-red-300' : 'border-gray-200'"
                 >
                     <div class="p-4 border-b border-gray-100 flex justify-between items-center gap-3 bg-gray-50/50">
                         <div>
@@ -1362,7 +1467,7 @@ const promptFinalReceive = () => {
                                 Upload Invoice / Receipt <span class="text-red-500 text-sm">*</span>
                                 <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ cpoInvoice.files.length }}</span>
                             </CardTitle>
-                            <p class="mt-1 text-xs font-semibold text-red-600">Required on a CPO order before anything can be received.</p>
+                            <p class="mt-1 text-xs font-semibold" :class="cpoHoldsReceiving && invoiceMissing ? 'text-red-600' : 'text-gray-500'">Required on a CPO order before anything can be received.</p>
                         </div>
                         <Button
                             v-if="hasReceivePermission"
@@ -1399,8 +1504,12 @@ const promptFinalReceive = () => {
                                 </template>
                             </a>
                         </div>
-                        <div v-else class="text-center py-8 bg-red-50 rounded-lg border border-dashed border-red-300">
-                            <div class="flex flex-col items-center justify-center text-red-600">
+                        <div
+                            v-else
+                            class="text-center py-8 rounded-lg border border-dashed"
+                            :class="cpoHoldsReceiving ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300'"
+                        >
+                            <div class="flex flex-col items-center justify-center" :class="cpoHoldsReceiving ? 'text-red-600' : 'text-gray-400'">
                                 <Receipt class="size-10 mb-2" />
                                 <span class="text-sm font-medium">No invoice / receipt uploaded yet</span>
                                 <span class="mt-1 text-xs">JPG, PNG or PDF, up to {{ cpoInvoice.maxFiles }} files of {{ cpoInvoice.maxMb }} MB each.</span>
@@ -1409,14 +1518,14 @@ const promptFinalReceive = () => {
                     </div>
                 </Card>
 
-                <!-- Image Attachments: a CPO order shows them only if it already has some -->
-                <Card v-if="!cpoInvoice || images.length > 0" class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
+                <!-- Image Attachments: every ordering template but CPO -->
+                <Card v-if="!cpoInvoice" class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
                     <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <CardTitle class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                            Image Attachments <span v-if="!cpoInvoice" class="text-red-500 text-sm">*</span>
+                            Image Attachments <span class="text-red-500 text-sm">*</span>
                             <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs">{{ images.length }}</span>
                         </CardTitle>
-                        <Button v-if="!cpoInvoice" size="sm" variant="outline" @click="openImageUploadModal">
+                        <Button size="sm" variant="outline" @click="openImageUploadModal">
                              Upload Image
                         </Button>
                     </div>
@@ -1494,7 +1603,7 @@ const promptFinalReceive = () => {
                                 :disabled="zeroAllForm.processing"
                                 variant="outline"
                                 class="gap-2 border-2 border-rose-300 bg-rose-50 text-rose-700 font-semibold shadow-sm hover:bg-rose-100 hover:border-rose-400 hover:text-rose-800 transition-all"
-                                title="The delivery did not arrive: set every item not yet confirmed to 0 and mark it Unserved. No delivery receipt or image is needed."
+                                :title="`The delivery did not arrive: set every item not yet confirmed to 0 and mark it Unserved. ${zeroAllAsksNothing}`"
                             >
                                 <Loader2 v-if="zeroAllForm.processing" class="size-4 animate-spin" />
                                 <PackageX v-else class="size-4" />
@@ -1515,7 +1624,7 @@ const promptFinalReceive = () => {
                             @click="promptConfirmReceive"
                             :disabled="!canConfirmReceive"
                             :variant="!canConfirmReceive ? 'secondary' : 'default'"
-                            :title="!canConfirmReceive ? `A delivery receipt and ${proofName} are required before confirming.` : 'Confirm the received quantity of every item. Nothing is added to stock on hand yet, and the list stays open for changes.'"
+                            :title="!canConfirmReceive ? `${evidenceRequired} are required before confirming.` : 'Confirm the received quantity of every item. Nothing is added to stock on hand yet, and the list stays open for changes.'"
                         >
                             Confirm Receive All
                         </Button>
@@ -1528,7 +1637,7 @@ const promptFinalReceive = () => {
                                     ? 'bg-emerald-600 text-white ring-emerald-300 hover:bg-emerald-700'
                                     : 'bg-gray-200 text-gray-500 ring-gray-200',
                             ]"
-                            :title="!canConfirmReceive ? `A delivery receipt and ${proofName} are required before finalizing.` : 'Final step: add the received quantities to stock on hand (SOH) and lock this delivery so its items can no longer be changed'"
+                            :title="!canConfirmReceive ? `${evidenceRequired} are required before finalizing.` : 'Final step: add the received quantities to stock on hand (SOH) and lock this delivery so its items can no longer be changed'"
                         >
                             <Loader2 v-if="finalReceiveForm.processing" class="size-4 animate-spin" />
                             <Lock v-else class="size-4" />
@@ -1556,7 +1665,7 @@ const promptFinalReceive = () => {
                         </p>
                         <p class="text-sm text-amber-800">
                             Zero All, Add Unlisted Item, Confirm Receive All, Final Receive All and the edit buttons will appear here on {{ receivingNotDue.date }}.
-                            The delivery receipt and {{ cpoInvoice ? "the invoice / receipt" : "the image" }} can already be added.
+                            {{ cpoInvoice ? "The delivery receipt, the vendor details and the invoice / receipt" : "The delivery receipt and the image" }} can already be added.
                         </p>
                     </div>
                 </div>

@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
 
 class MassOrdersController extends Controller
 {
-    /** CPO is ordered through CPO Orders, which also takes the vendor and its invoice. */
+    /** CPO is ordered through CPO Orders, with its own vendor and typed cost per line. */
     private const CPO_ELSEWHERE = 'CPO is ordered through CPO Orders now.';
 
     protected $massOrderService;

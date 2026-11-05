@@ -2,8 +2,10 @@
 
 use App\Enum\OrderStatus;
 use App\Http\Controllers\OrderReceivingController;
+use App\Http\Services\CpoOrderService;
 use App\Http\Services\OrderReceivingService;
 use App\Models\CpoOrderAttachment;
+use App\Models\CpoVendor;
 use App\Models\DeliveryReceipt;
 use App\Models\ImageAttachment;
 use App\Models\OrderedItemReceiveDate;
@@ -18,7 +20,9 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
@@ -283,9 +287,9 @@ it('refuses Final Receive All without a delivery receipt or image', function () 
         ->and(OrderedItemReceiveDate::find($receipt->id)->status)->toBe('received');
 });
 
-it('asks a CPO order for the invoice / receipt in place of the image, uploaded by the store in Inbound Orders', function () {
+it('asks a CPO order for the vendor details and the invoice / receipt in place of the image', function () {
     Storage::fake(CpoOrderAttachment::DISK);
-    [$user, $order, $branch] = receivingFixture(); // it has an image
+    [$user, $order, $branch] = receivingFixture(withImage: false);
     $user->store_branches()->attach($branch->id);
     $this->actingAs($user);
 
@@ -295,17 +299,21 @@ it('asks a CPO order for the invoice / receipt in place of the image, uploaded b
         Request::create('/', 'POST', [], [], ['file' => UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf')]),
         $order
     );
+    $saveVendor = fn (StoreOrder $order) => $controller->updateCpoVendor(
+        Request::create('/', 'PUT', ['vendor_name' => 'Corner Market', 'vendor_address' => 'Quezon City']),
+        $order,
+        app(CpoOrderService::class)
+    );
 
-    // Only a CPO order takes an invoice / receipt here.
-    expect(fn () => $attach($order))->toThrow(HttpException::class);
+    // Only a CPO order takes them here.
+    expect(fn () => $attach($order))->toThrow(HttpException::class)
+        ->and(fn () => $saveVendor($order))->toThrow(HttpException::class);
 
     Supplier::whereKey($order->supplier_id)->update(['supplier_code' => Supplier::CPO]);
     $order = $order->fresh();
 
-    // The image does not count on a CPO order: the vendor's invoice / receipt does.
-    expect($service->deliveryEvidenceProblem($order))->toBe('Add the invoice / receipt to this order before recording received quantities.');
-    $controller->finalReceive($order->id);
-    expect($order->fresh()->receiving_finalized_at)->toBeNull();
+    expect($service->deliveryEvidenceProblem($order))
+        ->toBe('Add the vendor details and the invoice / receipt to this order before recording received quantities.');
 
     $attach($order);
 
@@ -313,10 +321,133 @@ it('asks a CPO order for the invoice / receipt in place of the image, uploaded b
     Storage::disk(CpoOrderAttachment::DISK)->assertExists($file->file_path);
     expect($file->original_name)->toBe('invoice.pdf')
         ->and((int) $file->uploaded_by)->toBe($user->id)
-        ->and($service->deliveryEvidenceProblem($order))->toBeNull();
+        ->and($service->deliveryEvidenceProblem($order))
+        ->toBe('Add the vendor details to this order before recording received quantities.');
+
+    // The invoice alone does not open receiving.
+    $controller->finalReceive($order->id);
+    expect($order->fresh()->receiving_finalized_at)->toBeNull();
+
+    $saveVendor($order);
+    expect($service->deliveryEvidenceProblem($order->fresh()))->toBeNull();
 
     $controller->finalReceive($order->id);
     expect($order->fresh()->receiving_finalized_at)->not->toBeNull();
+});
+
+it('shows an image a CPO order already has as its invoice / receipt, counts it, and keeps it in the file limit', function () {
+    Storage::fake(CpoOrderAttachment::DISK);
+    [$user, $order, $branch] = receivingFixture(); // it has an image
+    Supplier::whereKey($order->supplier_id)->update(['supplier_code' => Supplier::CPO]);
+    $user->store_branches()->attach($branch->id);
+    $this->actingAs($user);
+    $order = $order->fresh();
+
+    $files = $order->invoiceFiles();
+    expect($files)->toHaveCount(1)
+        ->and($files[0]['original_name'])->toBe('unl.png')
+        ->and($files[0]['url'])->toContain('order_attachments/unl.png');
+
+    // Only the vendor is still missing.
+    expect(app(OrderReceivingService::class)->deliveryEvidenceProblem($order))
+        ->toBe('Add the vendor details to this order before recording received quantities.');
+
+    $upload = fn () => app(OrderReceivingController::class)->attachInvoice(
+        Request::create('/', 'POST', [], [], ['file' => UploadedFile::fake()->create('invoice.pdf', 10, 'application/pdf')]),
+        $order
+    );
+
+    foreach (range(1, CpoOrderAttachment::MAX_FILES) as $ignored) {
+        $upload();
+    }
+
+    // The image and four uploads make the limit of five; the fifth upload is refused.
+    expect($order->invoiceFiles())->toHaveCount(CpoOrderAttachment::MAX_FILES)
+        ->and($order->cpoAttachments()->count())->toBe(CpoOrderAttachment::MAX_FILES - 1);
+});
+
+it('names every missing proof of a CPO order, and Zero All still waives them', function () {
+    [$user, $order, , $receipt] = receivingFixture();
+    Supplier::whereKey($order->supplier_id)->update(['supplier_code' => Supplier::CPO]);
+    $this->actingAs($user);
+    $service = app(OrderReceivingService::class);
+
+    // A CPO order with nothing on it yet.
+    $bare = StoreOrder::create($order->only(['encoder_id', 'supplier_id', 'store_branch_id', 'order_date', 'order_status', 'variant']) + ['order_number' => 'UNL-BARE-'.uniqid()]);
+    expect($service->deliveryEvidenceProblem($bare))
+        ->toBe('Add a delivery receipt, the vendor details and the invoice / receipt to this order before recording received quantities.');
+
+    // Nothing received: nothing to prove.
+    $receipt->update(['quantity_received' => 0, 'remarks' => 'Unserved']);
+    expect($service->postingEvidenceProblem($order->fresh()))->toBeNull();
+});
+
+it('saves the vendor details of a CPO order: Vendor Name and Address required, TIN # optional, a new name joins the vendor list', function () {
+    [$user, $order, $branch] = receivingFixture();
+    Supplier::whereKey($order->supplier_id)->update(['supplier_code' => Supplier::CPO]);
+    $user->store_branches()->attach($branch->id);
+    $this->actingAs($user);
+    $order = $order->fresh();
+
+    $save = fn (array $details) => app(OrderReceivingController::class)
+        ->updateCpoVendor(Request::create('/', 'PUT', $details), $order, app(CpoOrderService::class));
+
+    try {
+        $save(['vendor_tin' => '123']);
+        $this->fail('The save should have been refused.');
+    } catch (ValidationException $e) {
+        expect($e->errors()['vendor_name'][0])->toBe('The Vendor Name is required.')
+            ->and($e->errors()['vendor_address'][0])->toBe('The Address is required.')
+            ->and($e->errors())->not->toHaveKey('vendor_tin');
+    }
+
+    // A new name, with no TIN: on the order and on the vendor list.
+    $save(['vendor_name' => ' Palengke Stall 4 ', 'vendor_address' => ' Market Rd ']);
+
+    $added = CpoVendor::sole();
+    expect($added->name)->toBe('Palengke Stall 4')
+        ->and($added->address)->toBe('Market Rd')
+        ->and($added->tin)->toBeNull()
+        ->and((int) $added->created_by)->toBe($user->id);
+
+    $saved = $order->fresh();
+    expect((int) $saved->cpo_vendor_id)->toBe($added->id)
+        ->and($saved->cpo_vendor_name)->toBe('Palengke Stall 4')
+        ->and($saved->cpo_vendor_address)->toBe('Market Rd')
+        ->and($saved->cpo_vendor_tin)->toBeNull();
+
+    // A name already on the list: the order keeps what was typed, the list keeps its own details.
+    $listed = CpoVendor::create(['name' => 'Corner Market', 'tin' => '123-456', 'address' => 'Quezon City']);
+    $save(['vendor_name' => 'CORNER MARKET', 'vendor_tin' => '999', 'vendor_address' => 'Cubao']);
+
+    $saved = $order->fresh();
+    expect(CpoVendor::count())->toBe(2)
+        ->and((int) $saved->cpo_vendor_id)->toBe($listed->id)
+        ->and($saved->cpo_vendor_name)->toBe('Corner Market')
+        ->and($saved->cpo_vendor_tin)->toBe('999')
+        ->and($saved->cpo_vendor_address)->toBe('Cubao')
+        ->and($listed->fresh()->tin)->toBe('123-456')
+        ->and($listed->fresh()->address)->toBe('Quezon City');
+
+    // A store the user is not assigned to.
+    $user->store_branches()->detach($branch->id);
+    expect(fn () => $save(['vendor_name' => 'Corner Market', 'vendor_address' => 'Cubao']))->toThrow(HttpException::class);
+});
+
+it('lists vendors for a CPO order from three characters, behind the receive orders permission', function () {
+    [$user] = receivingFixture();
+    $this->actingAs($user);
+    CpoVendor::create(['name' => 'Corner Market', 'tin' => '123-456', 'address' => 'Quezon City']);
+    CpoVendor::create(['name' => 'JB', 'address' => 'Pasig']);
+
+    $search = fn ($q) => collect(app(OrderReceivingController::class)->cpoVendors(Request::create('/', 'GET', ['q' => $q]))->getData(true))->pluck('name')->all();
+
+    expect($search(''))->toBe([])
+        ->and($search('Co'))->toBe([])
+        ->and($search('JB'))->toBe(['JB'])
+        ->and($search('orn'))->toBe(['Corner Market'])
+        ->and(Route::getRoutes()->getByName('orders-receiving.cpo-vendors')->gatherMiddleware())->toContain('permission:receive orders')
+        ->and(Route::getRoutes()->getByName('orders-receiving.update-cpo-vendor')->gatherMiddleware())->toContain('permission:receive orders');
 });
 
 it('refuses every receiving action before the Delivery Date and allows them from that day on', function () {

@@ -9,6 +9,11 @@ const confirm = useConfirm(); // Instantiate useConfirm
 
 const props = defineProps({
     order: Object,
+    // A CPO order's invoice / receipt, once the store has uploaded it while receiving.
+    invoiceFiles: {
+        type: Array,
+        default: () => [],
+    },
     // Why this order can no longer be approved or rejected (already committed, received or
     // rejected), or null while it can. The server refuses both actions on the same rule.
     decisionProblem: {
@@ -172,22 +177,22 @@ const rejectOrder = () => {
                 </CardContent>
             </Card>
 
-            <!-- A CPO order: the vendor and, once the store has uploaded it while receiving, its invoice / receipt. -->
+            <!-- A CPO order: the vendor and its invoice / receipt, once the store has completed them while receiving. -->
             <Card v-if="isCpoOrder">
                 <CardHeader>
                     <CardTitle>Vendor and Invoice / Receipt</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <p><strong>Vendor Name:</strong> {{ order.cpo_vendor_name || order.supplier?.name || 'N/A' }}</p>
+                        <p><strong>Vendor Name:</strong> {{ order.cpo_vendor_name || 'Not entered yet' }}</p>
                         <p><strong>TIN #:</strong> {{ order.cpo_vendor_tin || 'None' }}</p>
-                        <p><strong>Address:</strong> {{ order.cpo_vendor_address || 'N/A' }}</p>
+                        <p><strong>Address:</strong> {{ order.cpo_vendor_address || 'Not entered yet' }}</p>
                     </div>
                     <div>
                         <p class="font-semibold mb-1">Invoice / Receipt</p>
-                        <div v-if="order.cpo_attachments?.length" class="flex flex-wrap gap-2">
+                        <div v-if="invoiceFiles.length" class="flex flex-wrap gap-2">
                             <a
-                                v-for="file in order.cpo_attachments"
+                                v-for="file in invoiceFiles"
                                 :key="file.id"
                                 :href="file.url"
                                 target="_blank"

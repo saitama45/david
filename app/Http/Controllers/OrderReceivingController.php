@@ -10,8 +10,10 @@ use App\Http\Requests\OrderReceiving\AddUnlistedReceivedItemRequest;
 use App\Http\Requests\OrderReceiving\ReceiveOrderRequest;
 use App\Http\Requests\OrderReceiving\UpdateDeliveryReceiptNumberRequest;
 use App\Http\Requests\OrderReceiving\UpdateReceiveDateHistoryRequest;
+use App\Http\Services\CpoOrderService;
 use App\Http\Services\OrderReceivingService;
 use App\Models\CpoOrderAttachment;
+use App\Models\CpoVendor;
 use App\Models\DeliveryReceipt;
 use App\Models\OrderedItemReceiveDate;
 use App\Models\ProductInventoryStock;
@@ -95,9 +97,10 @@ class OrderReceivingController extends Controller
             'orderedItems' => $orderedItems,
             'receiveDatesHistory' => $receiveDatesHistory,
             'images' => $images,
-            // A CPO order: the vendor's invoice / receipt replaces the image, and receiving needs it.
+            // A CPO order has no Image Attachments: an image it already has is shown as its
+            // invoice / receipt, which receiving needs.
             'cpoInvoice' => $order->isCpo() ? [
-                'files' => $order->cpoAttachments()->get(),
+                'files' => $order->invoiceFiles(),
                 'maxFiles' => CpoOrderAttachment::MAX_FILES,
                 'maxMb' => CpoOrderAttachment::MAX_KB / 1024,
             ] : null,
@@ -303,9 +306,7 @@ class OrderReceivingController extends Controller
      */
     public function attachInvoice(Request $request, StoreOrder $order)
     {
-        abort_unless($order->isCpo(), 404);
-        $access = User::rolesAndAssignedBranches();
-        abort_unless($access['isAdmin'] || in_array($order->store_branch_id, $access['assignedBranches']), 403);
+        $this->abortUnlessCpoOfUsersStore($order);
 
         $request->validate([
             'file' => 'required|file|mimes:jpg,jpeg,png,pdf|max:'.CpoOrderAttachment::MAX_KB,
@@ -315,7 +316,7 @@ class OrderReceivingController extends Controller
             'file.max' => 'The invoice or receipt file must be '.(CpoOrderAttachment::MAX_KB / 1024).' MB or smaller.',
         ]);
 
-        if ($order->cpoAttachments()->count() >= CpoOrderAttachment::MAX_FILES) {
+        if ($order->invoiceFiles()->count() >= CpoOrderAttachment::MAX_FILES) {
             return back()->withErrors(['file' => 'An order takes at most '.CpoOrderAttachment::MAX_FILES.' invoice / receipt files.']);
         }
 
@@ -329,6 +330,43 @@ class OrderReceivingController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Invoice / receipt uploaded.');
+    }
+
+    /**
+     * Save a CPO order's vendor details. CPO Orders may leave them blank, so the store enters them
+     * here: Vendor Name and Address are required to receive the order, TIN # is optional
+     * (OrderReceivingService::deliveryEvidenceProblem). Like images, Final Receive All does not lock them.
+     */
+    public function updateCpoVendor(Request $request, StoreOrder $order, CpoOrderService $cpoOrders)
+    {
+        $this->abortUnlessCpoOfUsersStore($order);
+
+        $details = $request->validate([
+            'vendor_name' => 'required|string|max:255',
+            'vendor_tin' => 'nullable|string|max:50',
+            'vendor_address' => 'required|string|max:500',
+        ], [
+            'vendor_name.required' => 'The Vendor Name is required.',
+            'vendor_address.required' => 'The Address is required.',
+        ]);
+
+        $cpoOrders->saveVendorDetails($order, $details, Auth::user());
+
+        return redirect()->back()->with('success', 'Vendor details saved.');
+    }
+
+    /** Vendors for the Vendor Name field of a CPO order: receiving users do not reach CPO Orders' own search. */
+    public function cpoVendors(Request $request)
+    {
+        return response()->json(CpoVendor::optionsFor((string) $request->input('q', '')));
+    }
+
+    /** Only a CPO order takes vendor details and an invoice / receipt, from a user who may work on its store. */
+    private function abortUnlessCpoOfUsersStore(StoreOrder $order): void
+    {
+        abort_unless($order->isCpo(), 404);
+        $access = User::rolesAndAssignedBranches();
+        abort_unless($access['isAdmin'] || in_array($order->store_branch_id, $access['assignedBranches']), 403);
     }
 
 

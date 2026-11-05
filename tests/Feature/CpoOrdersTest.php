@@ -135,17 +135,33 @@ it('refuses the whole upload when a line with a quantity has no cost or an unkno
     expect(StoreOrder::count())->toBe(0);
 });
 
-it('requires the vendor but not the invoice or receipt', function () {
-    [$user] = cpoFixture();
+it('places an order with no vendor yet, once per store and date, and needs no invoice or receipt', function () {
+    [$user, , , $vendor] = cpoFixture();
     $this->actingAs($user);
+    $file = fn () => ['mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']])];
 
-    try {
-        uploadCpoOrder(['order_date' => '2026-10-19'], ['mass_order_file' => cpoOrderFile([['CPO', '', '', 'BREAD-01', '', '', 'PCK', 5, 1, '']])]);
-        $this->fail('The upload should have been refused.');
-    } catch (ValidationException $e) {
-        expect($e->errors())->toHaveKey('cpo_vendor_id')
-            ->and($e->errors())->not->toHaveKey('attachments');
-    }
+    uploadCpoOrder(['order_date' => '2026-10-19'], $file());
+
+    $order = StoreOrder::sole();
+    expect(session('created_count'))->toBe(1)
+        ->and($order->order_status)->toBe(OrderStatus::PENDING->value)
+        ->and($order->cpo_vendor_id)->toBeNull()
+        ->and($order->cpo_vendor_name)->toBeNull()
+        ->and($order->cpo_vendor_tin)->toBeNull()
+        ->and($order->cpo_vendor_address)->toBeNull();
+
+    // The same file uploaded twice is still caught.
+    uploadCpoOrder(['order_date' => '2026-10-19'], $file());
+    expect(StoreOrder::count())->toBe(1)
+        ->and(session('skipped_stores')[0]['reason'])->toContain('with no vendor yet');
+
+    // A named vendor is a purchase of its own.
+    uploadCpoOrder(['order_date' => '2026-10-19', 'cpo_vendor_id' => $vendor->id], $file());
+    expect(StoreOrder::count())->toBe(2);
+
+    // A vendor that is not on the list is refused, not taken as blank.
+    expect(fn () => uploadCpoOrder(['order_date' => '2026-10-20', 'cpo_vendor_id' => 999999], $file()))
+        ->toThrow(ValidationException::class);
 });
 
 it('skips a store that already has an open order from the vendor that day, but not after a rejection', function () {

@@ -160,6 +160,29 @@ class StoreOrder extends Model implements Auditable
         return $this->hasMany(CpoOrderAttachment::class);
     }
 
+    /**
+     * Everything that shows a CPO order's invoice / receipt: the files uploaded as such, and any
+     * image it got under Image Attachments, the only upload receiving offered it before.
+     */
+    public function invoiceFiles(): \Illuminate\Support\Collection
+    {
+        $files = $this->cpoAttachments()->get()->map(fn (CpoOrderAttachment $file) => [
+            'id' => "file-{$file->id}",
+            'url' => $file->url,
+            'original_name' => $file->original_name,
+            'mime_type' => $file->mime_type,
+        ]);
+
+        $images = $this->image_attachments()->get()->map(fn (ImageAttachment $image) => [
+            'id' => "image-{$image->id}",
+            'url' => $image->image_url,
+            'original_name' => basename((string) $image->file_path),
+            'mime_type' => $image->mime_type,
+        ]);
+
+        return collect($files)->concat($images)->values();
+    }
+
     /** Whether this is a CPO order: receiving it needs the vendor's invoice / receipt. */
     public function isCpo(): bool
     {

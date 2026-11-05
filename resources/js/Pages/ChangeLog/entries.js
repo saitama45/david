@@ -15,6 +15,61 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 5, 2026
+    {
+        date: '2026-11-05',
+        module: 'Inbound Orders',
+        type: 'improved',
+        title: 'CPO orders have a required "Vendor Details" section in Inbound Orders, with Vendor Name, TIN # and Address',
+        summary:
+            'The vendor of a CPO order had to be picked by the person placing the order in CPO Orders, although the store is the one that bought from it. The store now enters it in Inbound Orders. Vendor Name and Address are required before the order can be received, and TIN # is optional.',
+        steps: [
+            'The store opens the CPO order in Inbound Orders. While something is missing, a red notice at the top says what the store still has to do.',
+            'In Vendor Details, type the Vendor Name. From 3 characters, vendors already on the list appear, and picking one fills its TIN # and Address.',
+            'Enter the Address, and the TIN # if there is one, then click Save Vendor Details.',
+        ],
+        rules: [
+            'On a CPO order, nothing can be received, confirmed with Confirm Receive All or finalized with Final Receive All until the Vendor Name, the Address, the invoice or receipt and a delivery receipt are all in place.',
+            'A Vendor Name that is not on the list yet is added to it when saved, so it can be picked next time in CPO Orders and in Inbound Orders.',
+            'A different TIN # or Address entered for a vendor already on the list applies to this order only. The vendor list keeps its own details, which only Edit in CPO Orders changes.',
+            'A vendor picked when the order was placed appears already filled in, and the store can correct it.',
+            'Only a user with the permission to receive orders, assigned to the order\'s store, can save the details. Other users who can open the order see them without being able to change them.',
+            'The details can be saved before the Delivery Date and after Final Receive All.',
+            'Zero All still needs none of this, for a purchase that did not arrive.',
+        ],
+        affects: 'Store users who receive CPO orders.',
+    },
+    {
+        date: '2026-11-05',
+        module: 'Inbound Orders',
+        type: 'improved',
+        title: 'A CPO order has only the "Upload Invoice / Receipt" section, with no separate Image Attachments',
+        summary:
+            'A CPO order that already had an image showed two sections, Image Attachments and Upload Invoice / Receipt, and still asked for the invoice although that image was often the receipt itself. A CPO order now has only Upload Invoice / Receipt.',
+        rules: [
+            'An image uploaded earlier under Image Attachments now appears inside Upload Invoice / Receipt and counts as the invoice or receipt, so it does not have to be uploaded again.',
+            'That image counts toward the limit of 5 files per order, and also shows as a file in CPO Orders and Mass Orders Approval.',
+            'The red notice no longer appears on a CPO order already finalized with Final Receive All, or on one where nothing was received.',
+            'Orders of every other ordering template keep the required Image Attachments section as before.',
+        ],
+        affects: 'Store users who receive CPO orders, and users who check them in CPO Orders.',
+    },
+    {
+        date: '2026-11-05',
+        module: 'CPO Orders',
+        type: 'improved',
+        title: 'Create New CPO Order no longer requires the Vendor Name and Address',
+        summary:
+            'Create New CPO Order required a vendor before the Excel file could be uploaded, but the person placing the order may not know it yet. Vendor Name and Address are now optional there, and the store enters them in Inbound Orders when it receives the order.',
+        rules: [
+            'A vendor can still be picked, added with Add New or changed with Edit, and its details then go onto the order. A vendor added with Add New still needs an Address for the vendor list.',
+            'One CPO order with no vendor yet can be placed per store and Delivery Date, so the same file uploaded twice is caught and the store is listed as skipped. Picking a vendor places a separate order for that date.',
+            'CPO Orders and Mass Orders Approval show "Not entered yet" for the Vendor Name and Address until the store has entered them. Orders placed before CPO Orders existed show this too, in place of "CPO".',
+            'Mass Orders Approval can approve a CPO order before its vendor is entered.',
+            'A CPO order cannot be received in Inbound Orders until its Vendor Name and Address are entered there.',
+        ],
+        affects: 'Users who place CPO orders, and approvers in Mass Orders Approval.',
+    },
     // ---------------------------------------------------------------- November 4, 2026
     {
         date: '2026-11-04',

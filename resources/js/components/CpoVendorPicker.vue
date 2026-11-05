@@ -7,12 +7,16 @@ import { MIN_SEARCH_CHARS, SEARCH_DELAY_MS } from '@/lib/searchRules';
 // Picks a CPO Orders vendor by searching on the server. The list lives in the
 // database and grows, so it is an autocomplete: matches show from MIN_SEARCH_CHARS characters.
 const props = defineProps({
-    modelValue: { type: Object, default: null },
+    // The chosen vendor; with allowNew, the text of the Vendor Name.
+    modelValue: { type: [Object, String], default: null },
     disabled: { type: Boolean, default: false },
     invalid: { type: Boolean, default: false },
+    searchRoute: { type: String, default: 'cpo-orders.vendors.search' },
+    // A name may also be typed that is not on the list. A vendor chosen from it is sent by "select".
+    allowNew: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'select']);
 
 const suggestions = ref([]);
 const typed = ref('');
@@ -22,7 +26,14 @@ let latestRequest = 0;
 const selected = computed({
     get: () => props.modelValue,
     set: (value) => {
-        if (value && typeof value === 'object') {
+        if (props.allowNew) {
+            if (value && typeof value === 'object') {
+                emit('update:modelValue', value.name);
+                emit('select', value);
+            } else {
+                emit('update:modelValue', value ?? '');
+            }
+        } else if (value && typeof value === 'object') {
             emit('update:modelValue', value);
         } else if (!value) {
             emit('update:modelValue', null);
@@ -30,7 +41,7 @@ const selected = computed({
     },
 });
 
-const tooShort = computed(() => !props.modelValue && typed.value.trim().length > 0 && typed.value.trim().length < MIN_SEARCH_CHARS);
+const tooShort = computed(() => (props.allowNew || !props.modelValue) && typed.value.trim().length > 0 && typed.value.trim().length < MIN_SEARCH_CHARS);
 
 const search = async ({ query }) => {
     typed.value = query ?? '';
@@ -44,7 +55,7 @@ const search = async ({ query }) => {
 
     searching.value = true;
     try {
-        const { data } = await axios.get(route('cpo-orders.vendors.search'), { params: { q: term } });
+        const { data } = await axios.get(route(props.searchRoute), { params: { q: term } });
         // A slower answer to an earlier keystroke must not replace a newer one.
         if (request === latestRequest) {
             suggestions.value = data;
@@ -62,7 +73,7 @@ const search = async ({ query }) => {
 
 const emptyMessage = computed(() => (typed.value.trim().length < MIN_SEARCH_CHARS
     ? `Type at least ${MIN_SEARCH_CHARS} characters to see matches.`
-    : 'No vendor matches. Use Add New to add it.'));
+    : (props.allowNew ? 'Not on the vendor list yet. Saving adds it.' : 'No vendor matches. Use Add New to add it.')));
 </script>
 
 <template>
@@ -76,10 +87,10 @@ const emptyMessage = computed(() => (typed.value.trim().length < MIN_SEARCH_CHAR
             :loading="searching"
             :disabled="disabled"
             :invalid="invalid"
-            forceSelection
+            :forceSelection="!allowNew"
             showEmptyMessage
             :emptySearchMessage="emptyMessage"
-            :placeholder="`Type at least ${MIN_SEARCH_CHARS} characters to search vendors`"
+            :placeholder="allowNew ? 'Type the vendor name' : `Type at least ${MIN_SEARCH_CHARS} characters to search vendors`"
             fluid
             @complete="search"
             @clear="typed = ''"

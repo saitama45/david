@@ -286,7 +286,7 @@ const formatQuantity = (value) => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <span class="text-xs text-gray-400 block">Vendor Name</span>
-                            <span class="font-medium text-gray-900">{{ cpo.vendor_name || order.supplier?.name || 'N/A' }}</span>
+                            <span class="font-medium text-gray-900">{{ cpo.vendor_name || 'Not entered yet' }}</span>
                         </div>
                         <div>
                             <span class="text-xs text-gray-400 block">TIN #</span>
@@ -294,7 +294,7 @@ const formatQuantity = (value) => {
                         </div>
                         <div>
                             <span class="text-xs text-gray-400 block">Address</span>
-                            <span class="font-medium text-gray-900">{{ cpo.vendor_address || 'N/A' }}</span>
+                            <span class="font-medium text-gray-900">{{ cpo.vendor_address || 'Not entered yet' }}</span>
                         </div>
                     </div>
 

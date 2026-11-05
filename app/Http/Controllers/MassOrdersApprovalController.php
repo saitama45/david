@@ -95,13 +95,14 @@ class MassOrdersApprovalController extends Controller
     public function show($id)
     {
         // A CPO order also carries its vendor and the invoice / receipt to check against.
-        $order = StoreOrder::with('storeOrderItems.supplierItem', 'supplier', 'store_branch', 'cpoAttachments')->findOrFail($id);
+        $order = StoreOrder::with('storeOrderItems.supplierItem', 'supplier', 'store_branch')->findOrFail($id);
         $user = Auth::user();
         $level = $this->approvalLevels->decisionLevel($order);
         $isFinal = $this->approvalLevels->isFinalLevel($order, $level);
 
         return Inertia::render('MassOrdersApproval/Show', [
             'order' => $order,
+            'invoiceFiles' => $order->isCpo() ? $order->invoiceFiles() : [],
             // Why Approve and Reject are not offered on this order, or null while they are.
             // The page hides both on the same rule approve() and reject() enforce.
             'decisionProblem' => $this->decisionProblem($order),

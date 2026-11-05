@@ -81,7 +81,7 @@ const minDate = computed(() => {
     return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
 });
 
-const canUpload = computed(() => form.order_date && form.cpo_vendor_id && form.mass_order_file);
+const canUpload = computed(() => form.order_date && form.mass_order_file);
 
 const submitUpload = () => {
     form.post(route("cpo-orders.upload"), {
@@ -187,12 +187,15 @@ const formatDisplayDateTime = (dateString) => {
 
 const showOrder = (orderNumber) => router.get(route("cpo-orders.show", orderNumber));
 
-// An order placed in Mass Orders before CPO Orders existed recorded no vendor; it shows its
-// ordering template (CPO), as Mass Orders did.
-const vendorName = (order) => order.cpo_vendor_name || order.supplier?.name || "N/A";
+// The vendor may be left blank here: the store enters it in Inbound Orders when it receives the
+// order. An order placed in Mass Orders before CPO Orders existed has none either.
+const vendorName = (order) => order.cpo_vendor_name || "Not entered yet";
 
 // The store uploads the invoice / receipt in Inbound Orders when it receives the order.
-const invoiceLabel = (order) => order.cpo_attachments_count > 0 ? `${order.cpo_attachments_count} file(s)` : "Not uploaded yet";
+const invoiceLabel = (order) => {
+    const files = order.cpo_attachments_count + order.image_attachments_count;
+    return files > 0 ? `${files} file(s)` : "Not uploaded yet";
+};
 </script>
 
 <template>
@@ -255,7 +258,7 @@ const invoiceLabel = (order) => order.cpo_attachments_count > 0 ? `${order.cpo_a
                         </div>
 
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Name <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Name <span class="text-xs text-gray-400">(optional)</span></label>
                             <div class="flex flex-col sm:flex-row gap-2">
                                 <div class="flex-1 min-w-0">
                                     <CpoVendorPicker v-model="vendor" :invalid="!!form.errors.cpo_vendor_id" />
@@ -269,6 +272,7 @@ const invoiceLabel = (order) => order.cpo_attachments_count > 0 ? `${order.cpo_a
                                     </Button>
                                 </div>
                             </div>
+                            <p class="mt-1 text-xs text-gray-500">Leave it blank if the vendor is not known yet: the store enters it in Inbound Orders when it receives the order.</p>
                             <p v-if="form.errors.cpo_vendor_id" class="mt-1 text-sm text-red-600">{{ form.errors.cpo_vendor_id }}</p>
                         </div>
 
@@ -278,7 +282,7 @@ const invoiceLabel = (order) => order.cpo_attachments_count > 0 ? `${order.cpo_a
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Address <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Address <span class="text-xs text-gray-400">(optional)</span></label>
                             <input type="text" :value="vendor?.address ?? ''" disabled placeholder="Filled from the vendor" class="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm" />
                         </div>
                     </div>
@@ -328,8 +332,8 @@ const invoiceLabel = (order) => order.cpo_attachments_count > 0 ? `${order.cpo_a
                             </div>
 
                             <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                                The invoice / receipt is not uploaded here. The store uploads it in <strong>Inbound Orders</strong> when it
-                                receives the order, and the order cannot be received without it.
+                                The invoice / receipt is not uploaded here. The store uploads it and completes the vendor details in
+                                <strong>Inbound Orders</strong> when it receives the order, and the order cannot be received without them.
                             </p>
 
                             <div class="flex justify-end">

@@ -545,6 +545,9 @@ Route::middleware('auth')
                 Route::post('/orders-receiving/{order}/attach-image', 'attachImage')->name('attach-image');
                 // A CPO order's invoice / receipt, uploaded by the store in place of the image
                 Route::post('/orders-receiving/{order}/attach-invoice', 'attachInvoice')->name('attach-invoice');
+                // A CPO order's vendor details, entered by the store
+                Route::put('/orders-receiving/{order}/cpo-vendor', 'updateCpoVendor')->name('update-cpo-vendor');
+                Route::get('/orders-receiving/cpo-vendors', 'cpoVendors')->name('cpo-vendors');
 
                 Route::middleware('permission:export approved orders')->get('/orders-receiving/export', 'export')->name('export'); // Corrected permission
 

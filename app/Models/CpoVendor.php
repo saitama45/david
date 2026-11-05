@@ -9,7 +9,7 @@ use OwenIt\Auditing\Contracts\Auditable;
 
 /**
  * An outside vendor a store buys from through CPO Orders. Added and edited from the CPO
- * Orders form itself; never deleted.
+ * Orders form, and added when a store enters a new name in Inbound Orders; never deleted.
  */
 class CpoVendor extends Model implements Auditable
 {
@@ -53,6 +53,16 @@ class CpoVendor extends Model implements Auditable
             ->where(fn ($q) => $q->where('name', 'like', "%{$literal}%")->orWhere('tin', 'like', "%{$literal}%"))
             ->orderByRaw('CASE WHEN [name] LIKE ? THEN 0 ELSE 1 END', ["{$literal}%"])
             ->orderBy('name');
+    }
+
+    /** What a vendor picker lists for the typed text: nothing until something is typed. */
+    public static function optionsFor(string $term): array
+    {
+        $term = trim($term);
+
+        return $term === ''
+            ? []
+            : self::search($term)->limit(self::SEARCH_LIMIT)->get()->map->toOption()->values()->all();
     }
 
     public function toOption(): array

@@ -24,9 +24,9 @@ use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
 /**
- * CPO Orders: purchases from outside vendors, placed through the mass order template with
- * the vendor, then approved in Mass Orders Approval. The store uploads the vendor's invoice /
- * receipt in Inbound Orders when it receives the order.
+ * CPO Orders: purchases from outside vendors, placed through the mass order template, then
+ * approved in Mass Orders Approval. The vendor may be left blank here: the store enters it and
+ * uploads its invoice / receipt in Inbound Orders when it receives the order.
  */
 class CpoOrdersController extends Controller
 {
@@ -45,7 +45,7 @@ class CpoOrdersController extends Controller
         $query = StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
             ->where('variant', 'mass regular')
             ->whereHas('supplier', fn ($q) => $q->where('supplier_code', Supplier::CPO))
-            ->withCount('cpoAttachments');
+            ->withCount(['cpoAttachments', 'image_attachments']);
 
         if (! $access['isAdmin']) {
             $query->whereIn('store_branch_id', $access['assignedBranches']);
@@ -94,7 +94,7 @@ class CpoOrdersController extends Controller
                 'vendor_name' => $order->cpo_vendor_name,
                 'vendor_tin' => $order->cpo_vendor_tin,
                 'vendor_address' => $order->cpo_vendor_address,
-                'attachments' => $order->cpoAttachments()->get(),
+                'attachments' => $order->invoiceFiles(),
             ],
         ]);
     }
@@ -120,16 +120,14 @@ class CpoOrdersController extends Controller
 
         $request->validate([
             'order_date' => 'required|date',
-            'cpo_vendor_id' => ['required', 'integer', Rule::exists('cpo_vendors', 'id')],
+            'cpo_vendor_id' => ['nullable', 'integer', Rule::exists('cpo_vendors', 'id')],
             'mass_order_file' => 'required|file|mimes:xlsx,xls',
-        ], [
-            'cpo_vendor_id.required' => 'Select the vendor the store bought from.',
         ]);
 
         // Looked up through the entity scope, so another entity's vendor is not found.
-        $vendor = CpoVendor::find($request->integer('cpo_vendor_id'));
-        if (! $vendor) {
-            throw ValidationException::withMessages(['cpo_vendor_id' => 'Select the vendor the store bought from.']);
+        $vendor = $request->filled('cpo_vendor_id') ? CpoVendor::find($request->integer('cpo_vendor_id')) : null;
+        if ($request->filled('cpo_vendor_id') && ! $vendor) {
+            throw ValidationException::withMessages(['cpo_vendor_id' => 'Select a vendor from the list, or leave it blank.']);
         }
 
         $rows = Excel::toCollection(new MassOrderImport, $request->file('mass_order_file'))->first() ?? collect();
@@ -153,15 +151,8 @@ class CpoOrdersController extends Controller
     public function vendors(Request $request)
     {
         abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
-        $term = trim((string) $request->input('q', ''));
 
-        if ($term === '') {
-            return response()->json([]);
-        }
-
-        return response()->json(
-            CpoVendor::search($term)->limit(CpoVendor::SEARCH_LIMIT)->get()->map->toOption()->values()
-        );
+        return response()->json(CpoVendor::optionsFor((string) $request->input('q', '')));
     }
 
     public function storeVendor(Request $request)
