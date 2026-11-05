@@ -18,6 +18,31 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 5, 2026
     {
         date: '2026-11-05',
+        module: 'Ordering Template Approval',
+        type: 'new',
+        title: 'New "CS Commit Required" switch keeps a template\'s new orders out of Inbound Orders until CS commits them',
+        summary:
+            'Inbound Orders listed every approved order, whether CS had committed it or not, and no setting could change that. Ordering Template Approval now has a CS Commit Required switch for each template. While it is on, a new order of that template is not listed in Inbound Orders and cannot be received until CS commits it in CS Mass Commits. The switch is off for every template until someone turns it on, so nothing changes by itself.',
+        steps: [
+            'Open Ordering Template Approval and turn on CS Commit Required for the template. The page shows the date and time from which it applies.',
+            'The order is placed and, if the template needs approval, approved in Mass Orders Approval as usual.',
+            'CS commits the order in CS Mass Commits, and the order then appears in Inbound Orders.',
+            'The store receives it as usual, with Confirm Receive All and Final Receive All.',
+        ],
+        rules: [
+            'The switch applies only to orders placed after it was turned on. Older orders are listed and received without a commit, as before.',
+            'An order is listed as soon as CS commits at least one of its items. It does not wait for all of them.',
+            'Only a template that CS commits can have the switch on. CPO, AO, EO, ALOC and DROPS have no CS commit, so their switch stays off with the note "Not applicable: this template has no CS commit."',
+            'Turning the switch off releases the orders still waiting, and they appear in Inbound Orders right away.',
+            'An order waiting for CS commit can still be opened by a direct link. The page says "This order is waiting for CS commit" and offers no Zero All, Add Unlisted Item, Confirm Receive All, Final Receive All or edit buttons, and the system refuses those actions too.',
+            'The delivery receipt and the image can already be added while the order waits.',
+            'In the Month End Count, an order waiting for CS commit still holds back the store\'s count. It is shown apart from orders not yet received, for example "2 orders waiting for CS commit", without a link because the store has nothing to open.',
+            'In Mass Orders, the items of a waiting order show as TO COMMIT.',
+        ],
+        affects: 'Office users who manage Ordering Template Approval, CS users who commit orders, and store users who receive orders of a template with the switch on.',
+    },
+    {
+        date: '2026-11-05',
         module: 'Inbound Orders',
         type: 'improved',
         title: 'CPO orders have a required "Vendor Details" section in Inbound Orders, with Vendor Name, TIN # and Address',

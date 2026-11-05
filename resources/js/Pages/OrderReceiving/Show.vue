@@ -199,6 +199,11 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    // The template's CS Commit Required holds this order back until CS commits it.
+    waitingForCsCommit: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 // A receipt cannot be dated inside the closed period: the first day that can be picked.
@@ -728,8 +733,12 @@ const notYetDueWhen = computed(() => {
     return days === 1 ? "tomorrow" : `in ${days} days`;
 });
 
+// Either way the page offers no receiving action and says why. The server refuses the same
+// actions (OrderReceivingService::receivingNotCommittedProblem).
+const receivingHeld = computed(() => notYetDue.value || props.waitingForCsCommit);
+
 const canRecordReceipt = computed(
-    () => !isFinalized.value && !notYetDue.value && missingEvidence.value.length === 0
+    () => !isFinalized.value && !receivingHeld.value && missingEvidence.value.length === 0
 );
 
 const evidenceHint = computed(() =>
@@ -1579,7 +1588,7 @@ const promptFinalReceive = () => {
                                 <Lock class="size-3.5" />
                                 {{ finalizedHint }}
                             </p>
-                            <p v-else-if="!notYetDue && !canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
+                            <p v-else-if="!receivingHeld && !canRecordReceipt" class="mt-1 text-xs font-medium text-red-600">
                                 🔒 {{ evidenceHint }}
                             </p>
                             <!-- Recorded or confirmed is not in stock: only Final Receive All posts -->
@@ -1594,7 +1603,7 @@ const promptFinalReceive = () => {
                         <!-- Everything here goes away once Final Receive All has locked the list.
                              Add Unlisted Item is offered even when the supplier has nothing left
                              to add: the dialog says so. -->
-                        <div v-if="!isFinalized && !notYetDue && hasReceivePermission" class="flex items-center gap-3">
+                        <div v-if="!isFinalized && !receivingHeld && hasReceivePermission" class="flex items-center gap-3">
                             <!-- First, and never waiting for a delivery receipt or an image: it is
                                  for the delivery that did not arrive. -->
                             <Button
@@ -1646,10 +1655,30 @@ const promptFinalReceive = () => {
                         </div>
                     </div>
                 </div>
+                <!-- Until CS commits it nothing can be received: said first, because the Delivery
+                     Date notice below promises the buttons on a date this could outlast. -->
+                <div
+                    v-if="waitingForCsCommit"
+                    role="alert"
+                    class="flex items-start gap-4 border-b-2 border-amber-300 bg-amber-50 px-5 py-4"
+                >
+                    <CalendarClock class="mt-0.5 size-8 shrink-0 text-amber-600" />
+                    <div class="space-y-1">
+                        <p class="text-base font-bold text-amber-900">
+                            This order is waiting for CS commit
+                        </p>
+                        <p class="text-sm text-amber-900">
+                            Its template needs CS to commit the order before the store can receive it. It will appear in Inbound Orders once CS commits it in CS Mass Commits.
+                        </p>
+                        <p class="text-sm text-amber-800">
+                            {{ cpoInvoice ? "The delivery receipt, the vendor details and the invoice / receipt" : "The delivery receipt and the image" }} can already be added.
+                        </p>
+                    </div>
+                </div>
                 <!-- Before the Delivery Date nothing can be received: said in full, in place of
                      the buttons, so nobody looks for them. -->
                 <div
-                    v-if="notYetDue"
+                    v-else-if="notYetDue"
                     role="alert"
                     class="flex items-start gap-4 border-b-2 border-amber-300 bg-amber-50 px-5 py-4"
                 >
@@ -1745,7 +1774,7 @@ const promptFinalReceive = () => {
                                             title="View Details"
                                         />
                                         <EditButton
-                                            v-if="!isFinalized && !notYetDue && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
+                                            v-if="!isFinalized && !receivingHeld && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
                                             :disabled="!canRecordReceipt"
                                             :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
                                             @click="canRecordReceipt && openEditModalForm(history.id)"
@@ -1770,7 +1799,7 @@ const promptFinalReceive = () => {
                                 />
                                 <EditButton
                                     class="size-8"
-                                    v-if="!isFinalized && !notYetDue && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
+                                    v-if="!isFinalized && !receivingHeld && hasReceivePermission && (history.status === 'pending' || history.status === 'received')"
                                     :disabled="!canRecordReceipt"
                                     :class="!canRecordReceipt ? 'opacity-40 cursor-not-allowed' : ''"
                                     @click="canRecordReceipt && openEditModalForm(history.id)"

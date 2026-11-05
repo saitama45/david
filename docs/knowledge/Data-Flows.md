@@ -130,6 +130,31 @@ Orders at the ordered quantity (they still have no CS commit: `pendingCommitKeys
 has `pending` mass orders, because `forMassOrderApproval()` would drop them from the approval list and
 nothing else would ever decide them.
 
+**CS Commit Required** (2026-11-05). Inbound Orders treats `approved` as ready to receive
+(`OrderReceivingService::COMMITTED_STATUSES`, the "auto-commit" since 2026-09-18), and until this switch
+nothing could change that. `suppliers.cs_commit_required_from` (Ordering Template Approval) is null while
+off, and otherwise the moment it was turned on. `StoreOrder::csCommitWait()` is the one definition: a
+`mass regular` order still `approved` whose `created_at` is at or after that moment waits. CS's first
+committed line moves it to `partial_committed` and releases it, so a partially committed order is listed.
+
+- **Never read the template's switch on its own.** Use `waitsForCsCommit()` / `scopeWaitingForCsCommit()` /
+  `scopeNotWaitingForCsCommit()`. Older orders, and orders placed while it was off, are still received
+  without a commit. The moment moves only when the switch really changes, because the page sends it with
+  every save (changing the levels must not release anything).
+- **The status lists stay as they are.** The Inventory Movement Report reads `RECEIVING_STATUSES`, so the
+  rule sits on top: `applyCommonFilters()` (list, tab counts, export), `receivingNotCommittedProblem()` in
+  `receivingClosedProblem()` and `addUnlistedItem()`, and `ensureReceivingPlaceholders()` (the rows open at
+  CS's commit, at its quantity). The order page opens by direct link with a notice and no receiving actions;
+  delivery receipts and images can be added, as before the Delivery Date.
+- **Month End Count** still blocks on a waiting order (the user's decision), as `orders_waiting_for_cs_commit`
+  with no link, split out of `orders_not_yet_received` because the store cannot find the order.
+- **Only templates CS commits can have it** (`Supplier::hasCsCommit()`): not `UNRESTRICTED_TEMPLATES`
+  or DROPS, which nothing would ever release. The controller refuses them.
+- **Left as they were:** the Adoption Rate commit indicator stays Yes, the Inventory Movement Report's
+  Committed column still counts a waiting order, and the bell and My Actions offer a receive task only
+  from `committed` (true before this switch too, so an `approved` or `partial_committed` order in Inbound
+  Orders has no bell count or receive task).
+
 **CPO Orders** (`/cpo-orders`, 2026-10-17). CPO left Mass Orders: `MassOrdersController` drops it from
 the template list and the listing, and refuses it in upload / template / available dates / edit /
 update (no order moves to or from CPO there). `CpoOrdersController` + `CpoOrderService` run the same

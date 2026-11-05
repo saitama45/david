@@ -23,12 +23,14 @@ class Supplier extends Model implements Auditable
         'remarks',
         'is_forapproval_massorders',
         'mass_order_approval_levels',
+        'cs_commit_required_from',
     ];
 
     protected $casts = [
         'is_forapproval_massorders' => 'boolean',
         'mass_order_approval_levels' => 'integer',
         'is_active' => 'boolean',
+        'cs_commit_required_from' => 'datetime',
     ];
 
     /** The ordering template of CPO Orders: purchases from outside vendors, always approved. */
@@ -49,6 +51,21 @@ class Supplier extends Model implements Auditable
      * whose typed costs are checked there (CPO Orders places every order pending).
      */
     public const ALWAYS_FOR_APPROVAL = [self::CPO];
+
+    /** Placed already committed (MassOrderService), so it has no CS commit. */
+    public const COMMITTED_WHEN_PLACED = 'DROPS';
+
+    /**
+     * Whether CS commits this template's orders, so Ordering Template Approval can make Inbound
+     * Orders wait for that commit (StoreOrder::waitsForCsCommit()). The unrestricted templates
+     * are committed by their approval and DROPS when placed: nothing would ever release them.
+     */
+    public static function hasCsCommit(?string $supplierCode): bool
+    {
+        $code = strtoupper(trim((string) $supplierCode));
+
+        return $code !== self::COMMITTED_WHEN_PLACED && ! self::isUnrestrictedTemplate($code);
+    }
 
     public static function isUnrestrictedTemplate(?string $supplierCode): bool
     {

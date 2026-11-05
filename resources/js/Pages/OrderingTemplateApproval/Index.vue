@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import {
   Table,
@@ -31,6 +31,11 @@ const props = defineProps({
 
 const suppliers = ref(props.suppliers.map((supplier) => ({ ...supplier })));
 
+// A save returns the list again; CS Commit Required's "on since" comes from the server.
+watch(() => props.suppliers, (fresh) => {
+  suppliers.value = fresh.map((supplier) => ({ ...supplier }));
+});
+
 const levelOptions = computed(() =>
   Array.from({ length: props.maxLevels }, (_, index) => ({
     label: index === 0 ? '1 level' : `${index + 1} levels`,
@@ -61,6 +66,7 @@ const updateSupplier = (supplier, field, value) => {
   router.post(route('ordering-template-approval.update', { supplier: supplier.id }), {
     is_forapproval_massorders: supplier.is_forapproval_massorders,
     mass_order_approval_levels: supplier.mass_order_approval_levels,
+    cs_commit_required: supplier.cs_commit_required,
   }, {
     preserveState: true,
     preserveScroll: true,
@@ -97,6 +103,12 @@ const updateSupplier = (supplier, field, value) => {
                         yet; an order already approved at a level keeps the levels it started with. Approval cannot be switched off
                         while the template still has orders waiting in Mass Orders Approval.
                     </p>
+                    <p class="text-sm text-gray-600">
+                        Turn on CS Commit Required for a template to keep its new orders out of Inbound Orders until CS commits them
+                        in CS Mass Commits. An order is listed as soon as CS commits at least one of its items. It applies only to
+                        orders placed after it is turned on; older orders can be received as before. Turning it off releases the
+                        orders still waiting. While off, orders can be received without a commit.
+                    </p>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -104,6 +116,7 @@ const updateSupplier = (supplier, field, value) => {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Is For Approval (Mass Orders)</TableHead>
                                 <TableHead>Approval Levels</TableHead>
+                                <TableHead>CS Commit Required</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -135,6 +148,19 @@ const updateSupplier = (supplier, field, value) => {
                                         class="mt-1 text-xs text-amber-700"
                                     >
                                         No role can approve Level {{ levelsWithoutApprover(supplier).join(', Level ') }} yet.
+                                    </p>
+                                </TableCell>
+                                <TableCell>
+                                    <ToggleSwitch
+                                        :model-value="supplier.cs_commit_required"
+                                        :disabled="!supplier.has_cs_commit"
+                                        @update:model-value="(value) => updateSupplier(supplier, 'cs_commit_required', value)"
+                                    />
+                                    <p v-if="!supplier.has_cs_commit" class="mt-1 text-xs text-gray-500">
+                                        Not applicable: this template has no CS commit.
+                                    </p>
+                                    <p v-else-if="supplier.cs_commit_required_since" class="mt-1 text-xs text-gray-500">
+                                        For orders placed since {{ supplier.cs_commit_required_since }}.
                                     </p>
                                 </TableCell>
                             </TableRow>

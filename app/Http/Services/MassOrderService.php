@@ -223,8 +223,12 @@ class MassOrderService
         ])->where('order_number', $orderNumber)->firstOrFail();
 
         // Statuses in which an order is past commitment and awaiting delivery. Shared with
-        // the receiving module so both pages agree on what "committed" means.
-        $receivableStatuses = "'".implode("','", \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES)."'";
+        // the receiving module so both pages agree on what "committed" means. An order its
+        // template's CS Commit Required holds back stays TO COMMIT while it is `approved`.
+        $receivableStatuses = "'".implode("','", array_diff(
+            \App\Http\Services\OrderReceivingService::RECEIVING_STATUSES,
+            $order->waitsForCsCommit() ? [OrderStatus::APPROVED->value] : [],
+        ))."'";
 
         // Optimized receiving history query mimicking the provided SQL logic
         $receiveDatesHistory = DB::table('store_order_items as soi')

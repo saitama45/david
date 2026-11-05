@@ -110,6 +110,9 @@ class OrderReceivingController extends Controller
                 'at' => $order->receiving_finalized_at->format('M j, Y g:i A'),
                 'by' => $order->receivingFinalizedBy?->full_name,
             ] : null,
+            // The template's CS Commit Required holds this order back until CS commits it: the
+            // page hides every receiving action and says what it is waiting for.
+            'waitingForCsCommit' => $order->waitsForCsCommit(),
             // Set while the Delivery Date is still ahead: nothing can be received before it,
             // so the page hides every receiving action and says when receiving opens.
             'receivingNotDue' => ($opensOn = $this->orderReceivingService->receivingOpensOn($order)) ? [
@@ -162,12 +165,14 @@ class OrderReceivingController extends Controller
 
     /**
      * Why nothing may be recorded, zeroed, confirmed or posted on this delivery right now, or
-     * null when it may: it is locked by Final Receive All, or its Delivery Date is still
-     * ahead. Every item-list action checks it; delivery receipts and images do not.
+     * null when it may: it is locked by Final Receive All, it is waiting for CS commit, or its
+     * Delivery Date is still ahead. Every item-list action checks it; delivery receipts and
+     * images do not.
      */
     private function receivingClosedProblem(StoreOrder $order): ?string
     {
         return $this->orderReceivingService->receivingLockedProblem($order)
+            ?? $this->orderReceivingService->receivingNotCommittedProblem($order)
             ?? $this->orderReceivingService->receivingNotDueProblem($order);
     }
 

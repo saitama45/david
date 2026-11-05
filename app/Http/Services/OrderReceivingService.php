@@ -25,7 +25,10 @@ class OrderReceivingService extends StoreOrderService
     /**
      * Statuses that make an order "ready to receive". Orders are treated as auto-committed
      * from approval onwards, so an approved or partially committed order must not be hidden
-     * from the listing just because some of its items are not committed yet.
+     * from the listing just because some of its items are not committed yet. The exception is
+     * a template with CS Commit Required on (StoreOrder::waitsForCsCommit()), which
+     * applyCommonFilters() and receivingNotCommittedProblem() hold back on top of these lists.
+     * The reports read them too, so the rule does not belong in them.
      */
     public const COMMITTED_STATUSES = [
         OrderStatus::APPROVED->value,
@@ -153,6 +156,10 @@ class OrderReceivingService extends StoreOrderService
      */
     public function applyCommonFilters($query, array $params)
     {
+        // Not a choice of the user's: an order waiting for CS commit is in no list, tab count or
+        // export of Inbound Orders, whichever status filter follows.
+        $query->notWaitingForCsCommit();
+
         $user = User::rolesAndAssignedBranches();
 
         // Branch restriction for non-admin users
@@ -621,6 +628,19 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
+     * Why this order cannot be received yet because CS has not committed it, or null when it
+     * can. Every Inbound Orders action that records, zeroes, confirms or posts a quantity checks
+     * it, since the order page still opens by direct link; like before the Delivery Date, the
+     * delivery receipt and the image can be added ahead of it.
+     */
+    public function receivingNotCommittedProblem(StoreOrder $order): ?string
+    {
+        return $order->waitsForCsCommit()
+            ? 'This order is waiting for CS commit. It can be received once CS commits it in CS Mass Commits.'
+            : null;
+    }
+
+    /**
      * @throws Exception when the order was finalized with Final Receive All.
      */
     public function assertReceivingNotFinalized(StoreOrder $order): void
@@ -678,7 +698,8 @@ class OrderReceivingService extends StoreOrderService
      */
     public function ensureReceivingPlaceholders(StoreOrder $order): int
     {
-        if (! in_array($order->order_status, self::RECEIVING_STATUSES, true)) {
+        // CS's commit opens the rows of an order waiting for it, at the quantity CS commits.
+        if (! in_array($order->order_status, self::RECEIVING_STATUSES, true) || $order->waitsForCsCommit()) {
             return 0;
         }
 
@@ -739,7 +760,7 @@ class OrderReceivingService extends StoreOrderService
         // is also what closes the list.
         $this->assertReceivingNotFinalized($order);
 
-        if ($problem = $this->receivingNotDueProblem($order)) {
+        if ($problem = $this->receivingNotCommittedProblem($order) ?? $this->receivingNotDueProblem($order)) {
             throw new \Exception($problem);
         }
 

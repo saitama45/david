@@ -188,8 +188,8 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   row's date (live = from the Monday of its go-live week, `GoLiveStoresService::goLiveDates()`, the
   Go-Live tab's own definition) from all five datasets, so those rows reach no rate, no Overall section
   and no Success Rate transaction count. Only My Actions passes `include_not_live` to keep them.
-  Committing is no longer a prerequisite of receiving, so `commitStatus()` returns `Yes` (`NA` only for
-  DROPS / CPO / PUL-O finished goods); sales post automatically from the POS replica (`pos:sync-sales`),
+  Committing is no longer a prerequisite of receiving (CS Commit Required does not change this indicator),
+  so `commitStatus()` returns `Yes` (`NA` only for DROPS / CPO / PUL-O finished goods); sales post automatically from the POS replica (`pos:sync-sales`),
   so a live store's sales day is `Yes`, upload or not. Both must stay `Yes`, not `NA`: the Success Rate
   tab counts Yes/No rows as transactions. A new dataset must call `liveRows()` too.
 - **A new permission is invisible in the role editor until it is listed in
@@ -245,11 +245,19 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   can be turned off; only `Supplier::ALWAYS_FOR_APPROVAL` = CPO is locked on) the order waits `pending` and
   Mass Orders Approval's last level commits it with its receiving rows; off, it is placed `approved` and goes
   straight to Inbound Orders at its ordered quantity. Add a template there, never another `=== 'CPO'` check.
-- **Receiving never needs a commit, so the last approval sets the committed quantity.** Inbound Orders lists
-  `approved` orders and receives at `quantity_commited` (placed = ordered quantity). Mass Orders Approval's
-  last level copies each line's approved quantity into it (and into unfilled `pending` receiving rows); a CS
-  commit can only come after, since it moves the order past `approved`. Switching a template's approval off
-  is refused while it has `pending` mass orders, which would otherwise vanish from the approval list.
+- **Receiving needs no commit unless the template's CS Commit Required is on, so the last approval sets the
+  committed quantity.** Inbound Orders lists `approved` orders and receives at `quantity_commited` (placed =
+  ordered quantity). Mass Orders Approval's last level copies each line's approved quantity into it (and into
+  unfilled `pending` receiving rows); a CS commit can only come after, since it moves the order past `approved`.
+  Switching a template's approval off is refused while it has `pending` mass orders, which would otherwise
+  vanish from the approval list.
+- **CS Commit Required (Ordering Template Approval) holds back only `approved` mass orders placed since it was
+  turned on** (`suppliers.cs_commit_required_from`); CS's first committed line releases the order, so
+  `partial_committed` is listed. Ask `StoreOrder::waitsForCsCommit()` / its scopes, never the switch alone, and
+  leave `RECEIVING_STATUSES` as it is: reports read it. A new receiving action goes through
+  `receivingClosedProblem()`; a new Inbound Orders list or export goes through `applyCommonFilters()`. A waiting
+  order still blocks the Month End Count, with no link. CPO, AO, EO, ALOC and DROPS cannot have the switch.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **Ordering cutoffs are enforced on the server** through `OrderingCutoffService` (mass orders, DTS).
   Never re-derive cutoff maths in a controller or Vue page. A blocked action may only pass with an
   approved one-time grant from `RuleExceptionService`, consumed **inside** the action's transaction.

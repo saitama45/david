@@ -1719,7 +1719,9 @@ class AdoptionRateTrackingService
      * Committing is no longer a prerequisite of receiving - an approved order is
      * received straight from Inbound Receiving, which stamps the commit itself -
      * so a commit can no longer be late. Every order that would have needed one
-     * counts as on time; the commit dates stay on the row for reference only.
+     * counts as on time, including a template with CS Commit Required on (this
+     * indicator was left as it is when that switch was added); the commit dates
+     * stay on the row for reference only.
      * The row keeps a Yes (rather than NA) so it still counts as a transaction
      * on the Success Rate tab.
      */

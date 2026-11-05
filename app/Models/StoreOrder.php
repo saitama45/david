@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enum\OrderStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToEntity;
@@ -187,6 +189,43 @@ class StoreOrder extends Model implements Auditable
     public function isCpo(): bool
     {
         return strcasecmp((string) $this->supplier?->supplier_code, Supplier::CPO) === 0;
+    }
+
+    /**
+     * What makes a store_orders row wait for CS commit, as an EXISTS subquery on its template:
+     * a mass order still `approved`, placed since the template's CS Commit Required switch was
+     * turned on (Ordering Template Approval). CS's first committed line moves the order to
+     * `partial_committed` and releases it. Everything else, older orders included, is received
+     * as before, without a commit.
+     */
+    public static function csCommitWait(): \Closure
+    {
+        return fn ($suppliers) => $suppliers->selectRaw('1')->from('suppliers')
+            ->whereColumn('suppliers.id', 'store_orders.supplier_id')
+            ->whereNotNull('suppliers.cs_commit_required_from')
+            ->whereColumn('store_orders.created_at', '>=', 'suppliers.cs_commit_required_from')
+            ->where('store_orders.order_status', OrderStatus::APPROVED->value)
+            ->where('store_orders.variant', 'mass regular');
+    }
+
+    public function scopeWaitingForCsCommit(Builder $query): Builder
+    {
+        return $query->whereExists(self::csCommitWait());
+    }
+
+    public function scopeNotWaitingForCsCommit(Builder $query): Builder
+    {
+        return $query->whereNotExists(self::csCommitWait());
+    }
+
+    /**
+     * Read from the database, since a page may have loaded the supplier without the switch's
+     * column. Inbound Orders neither lists nor receives such an order.
+     */
+    public function waitsForCsCommit(): bool
+    {
+        return $this->order_status === OrderStatus::APPROVED->value
+            && static::withoutGlobalScopes()->whereKey($this->getKey())->waitingForCsCommit()->exists();
     }
 
     // Interco-specific methods

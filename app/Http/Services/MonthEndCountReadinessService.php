@@ -3,6 +3,7 @@
 namespace App\Http\Services;
 
 use App\Models\MonthEndSchedule;
+use App\Models\StoreOrder;
 use App\Services\MonthEndStockVariance;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,9 @@ class MonthEndCountReadinessService
      *
      * Committing is not a step the store waits on - an approved order is received straight
      * from Inbound Receiving (OrderReceivingService::COMMITTED_STATUSES) - so an approved
-     * or partially committed order is simply one that has not been received yet.
+     * or partially committed order is simply one that has not been received yet. The exception
+     * is an order its template's CS Commit Required holds back: blockers() counts those apart,
+     * as waiting for CS commit, since the store cannot find or receive them.
      */
     private const ORDER_STAGES = [
         'pending' => ['awaiting approval', 'mass-orders-approval.index'],
@@ -189,15 +192,30 @@ class MonthEndCountReadinessService
             ->groupBy('store_branch_id', 'order_status')
             ->get();
 
+        // All `approved`, but not "not yet received": Inbound Orders does not offer them until CS
+        // commits them, so there is nothing for the store to open. It still holds the count.
+        $waitingForCsCommit = DB::table('store_orders')
+            ->whereNull('interco_number')
+            ->whereIn('store_branch_id', $branchIds)
+            ->whereBetween('order_date', [$from, $through])
+            ->whereExists(StoreOrder::csCommitWait())
+            ->select('store_branch_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('store_branch_id')
+            ->pluck('total', 'store_branch_id');
+
         $byStage = [];
         foreach ($orders as $row) {
             [$stage, $route] = self::ORDER_STAGES[$row->order_status];
-            $byStage[(int) $row->store_branch_id][$stage] = [($byStage[(int) $row->store_branch_id][$stage][0] ?? 0) + (int) $row->total, $route];
+            $total = (int) $row->total - ($row->order_status === 'approved' ? (int) ($waitingForCsCommit[$row->store_branch_id] ?? 0) : 0);
+            $byStage[(int) $row->store_branch_id][$stage] = [($byStage[(int) $row->store_branch_id][$stage][0] ?? 0) + $total, $route];
         }
         foreach ($byStage as $branchId => $stages) {
             foreach ($stages as $stage => [$count, $route]) {
                 $add($branchId, 'orders_'.str_replace(' ', '_', $stage), $count, $plural($count, 'order', 'orders').' '.$stage, $route);
             }
+        }
+        foreach ($waitingForCsCommit as $branchId => $count) {
+            $add((int) $branchId, 'orders_waiting_for_cs_commit', (int) $count, $plural((int) $count, 'order', 'orders').' waiting for CS commit', null);
         }
 
         // A RECEIVED order with items recorded but not posted: the store confirmed the delivery

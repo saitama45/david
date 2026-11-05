@@ -179,7 +179,7 @@ class WorkflowGuidanceService
             'scope' => 'Selected report period and filters; each applicable row/category has equal weight. Existing adoption totals retain their original weighting. Only go-live stores are included, from their go-live week.',
             'limitation' => match ($tab) {
                 'wastage_upload_timeliness' => 'Wastage currently uses the record creation time for both occurrence and upload. Missing wastage and true upload delays cannot be inferred from these records.',
-                'commit_order_timeliness' => 'Committing is no longer required before receiving, so every order counts as committed on time. Commit dates are shown for reference only.',
+                'commit_order_timeliness' => 'Receiving waits for a commit only on a template with CS Commit Required on, and every order counts as committed on time, including those. Commit dates are shown for reference only.',
                 'sales_upload_timeliness' => 'Sales of go-live stores post automatically from the POS, so every sales day counts as uploaded on time. Upload dates are shown for reference only.',
                 default => null,
             },
