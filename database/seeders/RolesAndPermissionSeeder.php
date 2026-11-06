@@ -87,6 +87,7 @@ class RolesAndPermissionSeeder extends Seeder
             "edit bom",
             "edit branch",
             "edit control commits",
+            "edit cpo orders",
             "edit cs dts mass commit",
             "edit cs mass commits",
             "edit dsp delivery schedules",

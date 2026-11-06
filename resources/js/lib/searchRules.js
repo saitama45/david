@@ -6,3 +6,6 @@ export const MIN_SEARCH_CHARS = 3;
 
 // Wait this long after the last keystroke before searching.
 export const SEARCH_DELAY_MS = 300;
+
+// The most matches a picker lists at a time; typing more narrows them.
+export const SEARCH_LIMIT = 8;

@@ -267,3 +267,231 @@ it('lets a user without the CPO template assigned see CPO Orders but not place a
 
     expect(StoreOrder::count())->toBe(0);
 });
+
+/** A CPO order of the store: 2 PCK of BREAD-01 at 10. */
+function placedCpoOrder(User $user, StoreBranch $store, Supplier $cpo, ?CpoVendor $vendor = null, string $status = 'pending', string $date = '2026-10-19'): StoreOrder
+{
+    $order = StoreOrder::create([
+        'encoder_id' => $user->id, 'supplier_id' => $cpo->id, 'store_branch_id' => $store->id,
+        'order_number' => $store->branch_code.'-'.str_pad((string) (StoreOrder::count() + 1), 5, '0', STR_PAD_LEFT),
+        'order_date' => $date, 'order_status' => $status, 'variant' => 'mass regular',
+        'cpo_vendor_id' => $vendor?->id, 'cpo_vendor_name' => $vendor?->name,
+        'cpo_vendor_tin' => $vendor?->tin, 'cpo_vendor_address' => $vendor?->address,
+    ]);
+    $order->store_order_items()->create([
+        'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity_ordered' => 2, 'quantity_approved' => 2,
+        'quantity_commited' => 2, 'cost_per_quantity' => 10, 'total_cost' => 20,
+    ]);
+
+    return $order->refresh();
+}
+
+function editCpoOrder(StoreOrder $order, array $payload)
+{
+    $request = Request::create("/cpo-orders/update/{$order->order_number}", 'PUT', $payload);
+
+    return app(CpoOrdersController::class)->update($request, $order->order_number);
+}
+
+/** The errors an edit is refused with, keyed by field. */
+function cpoEditErrors(StoreOrder $order, array $payload): array
+{
+    try {
+        editCpoOrder($order, $payload);
+    } catch (ValidationException $e) {
+        return collect($e->errors())->map(fn ($messages) => $messages[0])->all();
+    }
+
+    test()->fail('The edit should have been refused.');
+}
+
+function ensaymada(): void
+{
+    SupplierItems::create([
+        'ItemCode' => 'BREAD-02', 'item_name' => 'Ensaymada', 'SupplierCode' => 'GSI-B', 'uom' => 'PC',
+        'category' => '', 'brand' => '', 'classification' => '', 'packaging_config' => '', 'config' => 0,
+        'cost' => 15, 'is_active' => true,
+    ]);
+}
+
+it('edits a pending CPO order: store, date, vendor, and its lines with their typed cost', function () {
+    [$user, $storeA, $storeB, $vendor, $cpo] = cpoFixture();
+    ensaymada();
+    $this->actingAs($user);
+    $order = placedCpoOrder($user, $storeA, $cpo);
+    $line = $order->store_order_items()->sole();
+
+    editCpoOrder($order, [
+        'order_date' => '2026-10-21',
+        'store_branch_id' => $storeB->id,
+        'cpo_vendor_id' => $vendor->id,
+        'lines' => [
+            ['id' => $line->id, 'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity' => 5, 'cost' => 12.5],
+            ['id' => null, 'item_code' => 'BREAD-02', 'uom' => 'PC', 'quantity' => 3, 'cost' => 8],
+        ],
+    ]);
+
+    $order->refresh();
+    $items = $order->store_order_items()->orderBy('id')->get();
+
+    expect(session('message'))->toBe('CPO order CPO-B-00001 was updated.')
+        ->and($order->order_status)->toBe(OrderStatus::PENDING->value)
+        ->and((int) $order->store_branch_id)->toBe($storeB->id)
+        // Moved to another store: that store's next order number, as in Mass Orders.
+        ->and($order->order_number)->toBe('CPO-B-00001')
+        ->and($order->order_date)->toStartWith('2026-10-21')
+        ->and((int) $order->cpo_vendor_id)->toBe($vendor->id)
+        ->and($order->cpo_vendor_address)->toBe('Quezon City')
+        ->and($items)->toHaveCount(2)
+        ->and((int) $items[0]->id)->toBe($line->id)
+        ->and((float) $items[0]->quantity_ordered)->toBe(5.0)
+        // Approval and receiving start again from what is ordered.
+        ->and((float) $items[0]->quantity_approved)->toBe(5.0)
+        ->and((float) $items[0]->quantity_commited)->toBe(5.0)
+        ->and((float) $items[0]->cost_per_quantity)->toBe(12.5)
+        ->and((float) $items[0]->total_cost)->toBe(62.5)
+        ->and($items[1]->item_code)->toBe('BREAD-02')
+        ->and((float) $items[1]->total_cost)->toBe(24.0);
+
+    // A line left out is taken off the order.
+    editCpoOrder($order, [
+        'order_date' => '2026-10-21', 'store_branch_id' => $storeB->id, 'cpo_vendor_id' => $vendor->id,
+        'lines' => [['id' => $items[1]->id, 'item_code' => 'BREAD-02', 'uom' => 'PC', 'quantity' => 3, 'cost' => 8]],
+    ]);
+
+    expect($order->store_order_items()->pluck('item_code')->all())->toBe(['BREAD-02']);
+});
+
+it('refuses to edit a CPO order once its last approval committed it, or once receiving started', function () {
+    [$user, $storeA, , , $cpo] = cpoFixture();
+    $this->actingAs($user);
+    $payload = fn ($order) => [
+        'order_date' => '2026-10-19', 'store_branch_id' => $storeA->id,
+        'lines' => [['id' => $order->store_order_items()->value('id'), 'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity' => 1, 'cost' => 10]],
+    ];
+
+    $committed = placedCpoOrder($user, $storeA, $cpo, status: OrderStatus::COMMITTED->value);
+    expect(cpoEditErrors($committed, $payload($committed))['error'])->toBe('This order is already committed and can no longer be edited.');
+
+    $redirect = app(CpoOrdersController::class)->edit($committed->order_number);
+    expect($redirect->getTargetUrl())->toBe(route('cpo-orders.index'))
+        ->and(session('errors')->first('error'))->toBe('This order is already committed and can no longer be edited.');
+
+    $receiving = placedCpoOrder($user, $storeA, $cpo, date: '2026-10-20');
+    $receiving->store_order_items()->update(['quantity_received' => 1]);
+    expect(cpoEditErrors($receiving, $payload($receiving))['error'])->toContain('Receiving has started');
+
+    expect((float) $committed->store_order_items()->value('quantity_ordered'))->toBe(2.0);
+});
+
+it('checks edited lines as an upload checks its rows', function () {
+    [$user, $storeA, , , $cpo] = cpoFixture();
+    $this->actingAs($user);
+    $order = placedCpoOrder($user, $storeA, $cpo);
+
+    $errors = cpoEditErrors($order, [
+        'order_date' => '2026-10-19', 'store_branch_id' => $storeA->id,
+        'lines' => [
+            ['id' => null, 'item_code' => 'NOPE-99', 'uom' => 'PCK', 'quantity' => 1, 'cost' => 5],
+            ['id' => null, 'item_code' => 'BREAD-01', 'uom' => 'BOX', 'quantity' => 1, 'cost' => 5],
+            ['id' => null, 'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity' => 1, 'cost' => 5],
+            ['id' => null, 'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity' => 2, 'cost' => 5],
+        ],
+    ]);
+
+    expect($errors['lines.0.item_code'])->toBe("'NOPE-99' is not in the CPO list of items.")
+        ->and($errors['lines.1.uom'])->toBe("'BOX' is not a unit of this item.")
+        ->and($errors['lines.3.uom'])->toBe('This item and unit are already on line 3.');
+
+    // A cost of 0 is refused before anything else.
+    expect(cpoEditErrors($order, [
+        'order_date' => '2026-10-19', 'store_branch_id' => $storeA->id,
+        'lines' => [['id' => null, 'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity' => 1, 'cost' => 0]],
+    ])['lines.0.cost'])->toBe('The cost must be greater than 0.');
+
+    expect($order->store_order_items()->count())->toBe(1);
+});
+
+it('refuses a store not set up for CPO, a closed date and a second order from the vendor, and keeps the placed vendor details', function () {
+    [$user, $storeA, , $vendor, $cpo] = cpoFixture();
+    $this->actingAs($user);
+    $order = placedCpoOrder($user, $storeA, $cpo, $vendor);
+    $lines = [['id' => $order->store_order_items()->value('id'), 'item_code' => 'BREAD-01', 'uom' => 'PCK', 'quantity' => 4, 'cost' => 10]];
+
+    $noCpo = StoreBranch::create(['branch_code' => 'NOCPO', 'brand_code' => 'NOCPO', 'name' => 'No CPO', 'store_status' => 'active', 'is_active' => true]);
+    $user->store_branches()->attach($noCpo->id);
+    expect(cpoEditErrors($order, ['order_date' => '2026-10-19', 'store_branch_id' => $noCpo->id, 'cpo_vendor_id' => $vendor->id, 'lines' => $lines])['store_branch_id'])
+        ->toBe('Choose one of your stores that is set up to order CPO.');
+
+    placedCpoOrder($user, $storeA, $cpo, $vendor, date: '2026-10-22');
+    expect(cpoEditErrors($order, ['order_date' => '2026-10-22', 'store_branch_id' => $storeA->id, 'cpo_vendor_id' => $vendor->id, 'lines' => $lines])['error'])
+        ->toContain('A CPO order from Corner Market for this store and date already exists');
+
+    // The vendor's list details changed since: the order keeps what it was placed with.
+    $vendor->update(['address' => 'Makati']);
+    editCpoOrder($order, ['order_date' => '2026-10-19', 'store_branch_id' => $storeA->id, 'cpo_vendor_id' => $vendor->id, 'lines' => $lines]);
+    expect($order->refresh()->cpo_vendor_address)->toBe('Quezon City')
+        ->and((float) $order->store_order_items()->value('quantity_ordered'))->toBe(4.0);
+
+    // A date the store's final approved month end count closed is refused; the date it has is kept.
+    $this->partialMock(\App\Http\Services\MonthEndClosedPeriodService::class, fn ($mock) => $mock
+        ->shouldReceive('problem')->andReturnUsing(fn ($storeId, $date) => $date <= '2026-10-31' ? 'Closed.' : null));
+
+    expect(cpoEditErrors($order, ['order_date' => '2026-10-20', 'store_branch_id' => $storeA->id, 'cpo_vendor_id' => $vendor->id, 'lines' => $lines])['order_date'])
+        ->toBe('Closed.');
+    editCpoOrder($order, ['order_date' => '2026-10-19', 'store_branch_id' => $storeA->id, 'cpo_vendor_id' => null, 'lines' => $lines]);
+    expect($order->refresh()->cpo_vendor_id)->toBeNull()
+        ->and($order->cpo_vendor_address)->toBeNull();
+});
+
+it('closes the edit at the CPO edit cutoff when one is set', function () {
+    [$user, $storeA, , , $cpo] = cpoFixture();
+    $this->actingAs($user);
+    // Placed on a Monday 9 AM; the CPO cutoff is Wednesday 2 PM.
+    \App\Models\OrdersCutoff::create(['ordering_template' => 'CPO', 'cutoff_1_day' => 3, 'cutoff_1_time' => '14:00', 'days_covered_1' => 'MONDAY']);
+    $order = placedCpoOrder($user, $storeA, $cpo);
+    $order->forceFill(['created_at' => '2026-10-19 09:00:00'])->save();
+
+    $service = app(\App\Http\Services\CpoOrderService::class);
+
+    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-21 13:59', 'Asia/Manila'));
+    expect($service->editProblem($order->refresh()))->toBeNull();
+
+    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-21 14:00', 'Asia/Manila'));
+    expect($service->editProblem($order))->toBe('The edit cutoff for this order passed on Oct 21, 2026 2:00 PM.');
+
+    \Illuminate\Support\Carbon::setTestNow();
+});
+
+it('shows the edit button only where the edit would be taken, and searches CPO items from three characters', function () {
+    [$user, $storeA, , , $cpo] = cpoFixture();
+    ensaymada();
+    \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'edit cpo orders', 'guard_name' => 'web']);
+    $user->givePermissionTo('edit cpo orders');
+    $this->actingAs($user)->withoutVite(); // the Edit page is not in the built manifest until the next build
+    $controller = app(CpoOrdersController::class);
+
+    $pending = placedCpoOrder($user, $storeA, $cpo);
+    $committed = placedCpoOrder($user, $storeA, $cpo, status: OrderStatus::COMMITTED->value, date: '2026-10-20');
+
+    $editable = fn () => collect($controller->index(Request::create('/cpo-orders'))->toResponse(Request::create('/'))
+        ->getOriginalContent()->getData()['page']['props']['orders']['data'])
+        ->mapWithKeys(fn ($order) => [$order['order_number'] => $order['editable']])->all();
+
+    expect($editable())->toEqualCanonicalizing([$committed->order_number => false, $pending->order_number => true]);
+
+    $props = $controller->edit($pending->order_number)->toResponse(Request::create('/'))->getOriginalContent()->getData()['page']['props'];
+    expect($props['lines'][0]['units'])->toContain('PCK')
+        ->and($props['lines'][0]['item_name'])->toBe('Pandesal')
+        ->and(collect($props['stores'])->pluck('brand_code')->all())->toBe(['CPO-A', 'CPO-B']);
+
+    $search = fn ($q) => collect($controller->items(Request::create('/cpo-orders/items', 'GET', ['q' => $q]))->getData(true));
+    expect($search('Pa')->all())->toBe([])
+        ->and($search('pandesal')->pluck('item_code')->all())->toBe(['BREAD-01'])
+        ->and($search('BREAD')->pluck('item_code')->sort()->values()->all())->toBe(['BREAD-01', 'BREAD-02'])
+        ->and($search('ensay')->first()['units'])->toBe(['PC']);
+
+    // Without the CPO template assigned, no order shows the button.
+    $user->suppliers()->detach('CPO');
+    expect($editable())->toEqualCanonicalizing([$committed->order_number => false, $pending->order_number => false]);
+});

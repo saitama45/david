@@ -12,6 +12,7 @@ use App\Models\CpoVendor;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
+use App\Models\SupplierItems;
 use App\Models\User;
 use App\Support\EntityContext;
 use Carbon\Carbon;
@@ -45,7 +46,8 @@ class CpoOrdersController extends Controller
         $query = StoreOrder::with(['supplier', 'store_branch', 'delivery_receipts'])
             ->where('variant', 'mass regular')
             ->whereHas('supplier', fn ($q) => $q->where('supplier_code', Supplier::CPO))
-            ->withCount(['cpoAttachments', 'image_attachments']);
+            ->withCount(['cpoAttachments', 'image_attachments'])
+            ->tap(fn ($q) => CpoOrderService::withReceivingRecords($q));
 
         if (! $access['isAdmin']) {
             $query->whereIn('store_branch_id', $access['assignedBranches']);
@@ -70,9 +72,17 @@ class CpoOrdersController extends Controller
         }
 
         $cpoStores = $this->cpoOrders->scheduledStores(Auth::user());
+        $orders = $query->latest()->paginate(15)->withQueryString();
+
+        // The edit button shows only where the server would take the edit.
+        $canEdit = Auth::user()->can('edit cpo orders') && $this->assignedCpo();
+        $orders->getCollection()->each(fn ($order) => $order->setAttribute(
+            'editable',
+            $canEdit && $this->cpoOrders->editProblem($order) === null
+        ));
 
         return Inertia::render('CpoOrders/Index', [
-            'orders' => $query->latest()->paginate(15)->withQueryString(),
+            'orders' => $orders,
             'branches' => StoreBranch::options(),
             'filters' => $request->only(['search', 'from', 'to', 'branchId', 'filterQuery']),
             'currentDate' => Carbon::now('Asia/Manila')->toDateString(),
@@ -97,6 +107,116 @@ class CpoOrdersController extends Controller
                 'attachments' => $order->invoiceFiles(),
             ],
         ]);
+    }
+
+    /** Edit a CPO order that is still waiting for its last approval, as Mass Orders edits one. */
+    public function edit(string $orderNumber)
+    {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
+        $order = $this->findCpoOrder($orderNumber);
+
+        if ($problem = $this->cpoOrders->editProblem($order)) {
+            return redirect()->route('cpo-orders.index')->withErrors(['error' => $problem]);
+        }
+
+        $items = $order->store_order_items()->orderBy('id')->get();
+        $names = SupplierItems::whereIn('ItemCode', $items->pluck('item_code')->filter()->unique()->values()->all() ?: ['__none__'])
+            ->pluck('item_name', 'ItemCode');
+        $units = $this->cpoOrders->unitsByItem($items->pluck('item_code')->filter()->unique()->values());
+
+        // The order's own store stays listed even if it is no longer set up for CPO.
+        $stores = $this->cpoOrders->scheduledStores(Auth::user())
+            ->push($order->store_branch)
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->map(fn ($store) => ['id' => (int) $store->id, 'name' => $store->name, 'brand_code' => $store->brand_code])
+            ->values();
+
+        $deadline = $this->cpoOrders->editDeadline($order);
+
+        return Inertia::render('CpoOrders/Edit', [
+            'order' => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'order_date' => Carbon::parse($order->order_date)->toDateString(),
+                'order_status' => $order->order_status,
+                'store_branch_id' => (int) $order->store_branch_id,
+                // The vendor details the order was placed with; kept while the vendor is not changed.
+                'vendor' => $order->cpo_vendor_id ? [
+                    'id' => (int) $order->cpo_vendor_id,
+                    'name' => $order->cpo_vendor_name,
+                    'tin' => $order->cpo_vendor_tin,
+                    'address' => $order->cpo_vendor_address,
+                ] : null,
+            ],
+            // The same vendor as the list has it now, for the picker and its Edit.
+            'vendorOption' => $order->cpo_vendor_id ? CpoVendor::find($order->cpo_vendor_id)?->toOption() : null,
+            'lines' => $items->map(fn ($item) => [
+                'id' => $item->id,
+                'item_code' => $item->item_code,
+                'item_name' => $names[$item->item_code] ?? $item->item_description,
+                'uom' => $item->uom,
+                // A unit no longer listed for the item is still offered, so the line shows as it is.
+                'units' => collect($units[$item->item_code] ?? [])->push(strtoupper((string) $item->uom))->filter()->unique()->values(),
+                'quantity' => (float) $item->quantity_ordered,
+                'cost' => (float) $item->cost_per_quantity,
+            ])->values(),
+            'stores' => $stores,
+            // Last closed date per store (final approved month end count); cast so none is {}.
+            'closedThrough' => (object) $this->closedPeriods->closedThrough($stores->pluck('id')),
+            'editDeadline' => $deadline?->format('M j, Y g:i A'),
+        ]);
+    }
+
+    public function update(Request $request, string $orderNumber)
+    {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
+        $order = $this->findCpoOrder($orderNumber);
+
+        $data = $request->validate([
+            'order_date' => ['required', 'date'],
+            'store_branch_id' => ['required', 'integer'],
+            'cpo_vendor_id' => ['nullable', 'integer'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.id' => ['nullable', 'integer'],
+            'lines.*.item_code' => ['required', 'string'],
+            'lines.*.uom' => ['required', 'string'],
+            'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.cost' => ['required', 'numeric', 'gt:0'],
+        ], [
+            'lines.required' => 'The order needs at least one item.',
+            'lines.min' => 'The order needs at least one item.',
+            'lines.*.item_code.required' => 'Choose the item.',
+            'lines.*.uom.required' => 'Choose the unit.',
+            'lines.*.quantity.required' => 'The quantity is required.',
+            'lines.*.quantity.numeric' => 'The quantity must be a number.',
+            'lines.*.quantity.gt' => 'The quantity must be greater than 0.',
+            'lines.*.cost.required' => 'The cost is required.',
+            'lines.*.cost.numeric' => 'The cost must be a number.',
+            'lines.*.cost.gt' => 'The cost must be greater than 0.',
+        ]);
+
+        // Looked up through the entity scope, so another entity's vendor is not found.
+        $vendor = isset($data['cpo_vendor_id']) ? CpoVendor::find((int) $data['cpo_vendor_id']) : null;
+        if (isset($data['cpo_vendor_id']) && ! $vendor) {
+            throw ValidationException::withMessages(['cpo_vendor_id' => 'Select a vendor from the list, or leave it blank.']);
+        }
+
+        $order = $this->cpoOrders->update($order, $data, $vendor, Auth::user());
+
+        return redirect()->route('cpo-orders.index')->with([
+            'success' => true,
+            'message' => "CPO order {$order->order_number} was updated.",
+        ]);
+    }
+
+    /** CPO list items for the Edit page's picker: nothing below MIN_SEARCH_CHARS but an exact code or name. */
+    public function items(Request $request)
+    {
+        abort_unless($this->assignedCpo(), 403, self::NOT_ASSIGNED);
+
+        return response()->json($this->cpoOrders->itemOptions((string) $request->input('q', '')));
     }
 
     public function downloadTemplate(Request $request)

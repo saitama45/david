@@ -237,7 +237,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   both **in place of** the image (`StoreOrder::isCpo()`). A CPO order has only the invoice box, no Image Attachments:
   read its files with `StoreOrder::invoiceFiles()`, never `cpoAttachments` alone, since an image from before counts
   as the receipt. A blank vendor is normal, so read a CPO order's vendor with a fallback.
-  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
+  **A CPO order is edited in CPO Orders** (`edit cpo orders` + the CPO template, since 2026-11-06), under Mass Orders'
+  rules kept in `CpoOrderService::editProblem()`: the list's pencil (`editable`) and the update both ask it. Never edit
+  CPO through `StoreOrderService::updateOrder()`, which matches lines by item code alone (a CPO order may carry one
+  item in two units). Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#approval-flow).
 - **AO, EO and ALOC order the way CPO did in Mass Orders** (`Supplier::UNRESTRICTED_TEMPLATES`): any date
   but a closed one (`massOrderDateBlock()` null), stores with the template on **any** schedule day
   (`MassOrdersController::deliversOn()`), the commissary catalogue (`SupplierItems::catalogueCodesFor()`),

@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Models\SupplierItems;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -35,10 +36,276 @@ class CpoOrderService
     /** The most row problems listed back after a refused upload. */
     private const MAX_LISTED_PROBLEMS = 15;
 
+    /** The most items the Edit page's item picker lists at a time. */
+    public const ITEM_SEARCH_LIMIT = 8;
+
     public function __construct(
         private StoreOrderService $storeOrders,
         private MonthEndClosedPeriodService $closedPeriods,
+        private OrderingCutoffService $cutoffs,
     ) {}
+
+    /**
+     * Counts, as `receiving_records`, the lines receiving has started on: a quantity banked, or a
+     * receiving row filled in or confirmed. An untouched placeholder row does not count. The same
+     * test Mass Orders uses to stop an edit.
+     */
+    public static function withReceivingRecords(Builder $query): Builder
+    {
+        return $query->withCount(['store_order_items as receiving_records' => fn ($q) => $q
+            ->where(fn ($i) => $i
+                ->where('quantity_received', '>', 0)
+                ->orWhereHas('ordered_item_receive_dates', fn ($r) => $r
+                    ->where(fn ($d) => $d->whereNotNull('received_date')
+                        ->orWhereIn('status', ['approved', 'received']))))]);
+    }
+
+    /**
+     * Why a CPO order can no longer be edited, or null while it can. Mass Orders' rules: only
+     * while it is pending or approved (a CPO order is committed by its last approval, so until
+     * then), never once receiving has started, and not after the template's edit cutoff.
+     */
+    public function editProblem(StoreOrder $order): ?string
+    {
+        if (! in_array($order->order_status, $this->cutoffs->massOrderEditableStatuses(Supplier::CPO), true)) {
+            return "This order is already {$order->order_status} and can no longer be edited.";
+        }
+
+        // A list page counts it for every order at once (withReceivingRecords); otherwise read it here.
+        $receiving = array_key_exists('receiving_records', $order->getAttributes())
+            ? $order->receiving_records
+            : self::withReceivingRecords(StoreOrder::whereKey($order->getKey()))->first()?->receiving_records;
+
+        if ((int) $receiving > 0) {
+            return 'Receiving has started on this order, so it can no longer be edited.';
+        }
+
+        $deadline = $this->editDeadline($order);
+        if ($deadline && $this->cutoffs->now()->gte($deadline)) {
+            return 'The edit cutoff for this order passed on '.$deadline->format('M j, Y g:i A').'.';
+        }
+
+        return null;
+    }
+
+    /** The first CPO cutoff after the order was placed, or null when no CPO cutoff is set. */
+    public function editDeadline(StoreOrder $order): ?Carbon
+    {
+        return $this->cutoffs->massOrderEditDeadline(Supplier::CPO, $order->created_at);
+    }
+
+    /**
+     * Items of the CPO catalogue whose code or name contains the term, best first, each with the
+     * units it may be bought in. A term shorter than MIN_SEARCH_CHARS only finds an exact code or name.
+     *
+     * @return list<array{item_code: string, item_name: string, units: list<string>}>
+     */
+    public function itemOptions(string $term): array
+    {
+        $term = trim($term);
+
+        if ($term === '') {
+            return [];
+        }
+
+        $query = SupplierItems::whereIn('SupplierCode', SupplierItems::catalogueCodesFor(Supplier::CPO))
+            ->where('is_active', true);
+
+        if (mb_strlen($term) < CpoVendor::MIN_SEARCH_CHARS) {
+            $query->where(fn ($q) => $q->where('ItemCode', $term)->orWhere('item_name', $term));
+        } else {
+            // SQL Server LIKE has no escape character by default; brackets make a wildcard literal.
+            $literal = str_replace(['[', '%', '_'], ['[[]', '[%]', '[_]'], $term);
+            $query->where(fn ($q) => $q->where('ItemCode', 'like', "%{$literal}%")->orWhere('item_name', 'like', "%{$literal}%"))
+                ->orderByRaw('CASE WHEN [ItemCode] LIKE ? OR [item_name] LIKE ? THEN 0 ELSE 1 END', ["{$literal}%", "{$literal}%"]);
+        }
+
+        // An item sits in several catalogues: read a few more rows than shown, then one per item.
+        $items = $query->orderBy('item_name')
+            ->limit(self::ITEM_SEARCH_LIMIT * 5)
+            ->get(['ItemCode', 'item_name'])
+            ->unique('ItemCode')
+            ->take(self::ITEM_SEARCH_LIMIT)
+            ->values();
+
+        $units = $this->unitsByItem($items->pluck('ItemCode'));
+
+        return $items->map(fn ($item) => [
+            'item_code' => $item->ItemCode,
+            'item_name' => $item->item_name,
+            'units' => $units[$item->ItemCode] ?? [],
+        ])->all();
+    }
+
+    /**
+     * Change a CPO order that may still be edited: its store, delivery date, vendor and lines, each
+     * line with its typed cost. The same rules as placing it, and as editing a mass order.
+     *
+     * @param  array{order_date: string, store_branch_id: int|string, lines: list<array{id?: ?int, item_code: string, uom: string, quantity: numeric, cost: numeric}>}  $data
+     *
+     * @throws ValidationException when the order can no longer be edited, or a change breaks a rule
+     */
+    public function update(StoreOrder $order, array $data, ?CpoVendor $vendor, User $user): StoreOrder
+    {
+        if ($problem = $this->editProblem($order)) {
+            throw ValidationException::withMessages(['error' => $problem]);
+        }
+
+        $date = Carbon::parse($data['order_date'])->toDateString();
+        $storeId = (int) $data['store_branch_id'];
+        $storeChanged = $storeId !== (int) $order->store_branch_id;
+        $dateChanged = $date !== Carbon::parse($order->order_date)->toDateString();
+        $vendorChanged = $vendor?->id !== ($order->cpo_vendor_id === null ? null : (int) $order->cpo_vendor_id);
+
+        // A new store must be one the user may place a CPO order for.
+        if ($storeChanged && ! $this->scheduledStores($user)->contains('id', $storeId)) {
+            throw ValidationException::withMessages(['store_branch_id' => 'Choose one of your stores that is set up to order CPO.']);
+        }
+
+        // The order keeps a date it already has, but cannot be moved into a period its store
+        // closed with a final approved month end count.
+        if (($storeChanged || $dateChanged) && ($closed = $this->closedPeriods->problem($storeId, $date))) {
+            throw ValidationException::withMessages(['order_date' => $closed]);
+        }
+
+        $lines = $this->editedLines($order, $data['lines']);
+
+        // One purchase per store, date and vendor (or no vendor yet), as when it was placed.
+        if ($storeChanged || $dateChanged || $vendorChanged) {
+            $existing = StoreOrder::where('store_branch_id', $storeId)
+                ->where('supplier_id', $order->supplier_id)
+                ->where('variant', 'mass regular')
+                ->where('cpo_vendor_id', $vendor?->id)
+                ->whereDate('order_date', $date)
+                ->where('order_status', '!=', OrderStatus::REJECTED->value)
+                ->whereKeyNot($order->getKey())
+                ->value('order_number');
+
+            if ($existing) {
+                throw ValidationException::withMessages(['error' => $vendor
+                    ? "A CPO order from {$vendor->name} for this store and date already exists ({$existing})."
+                    : "A CPO order with no vendor yet for this store and date already exists ({$existing})."]);
+            }
+        }
+
+        return DB::transaction(function () use ($order, $date, $storeId, $storeChanged, $vendor, $vendorChanged, $lines) {
+            // Checked again under the lock, so an approval at the same moment cannot slip in.
+            $order = StoreOrder::lockForUpdate()->findOrFail($order->getKey());
+            if ($problem = $this->editProblem($order)) {
+                throw ValidationException::withMessages(['error' => $problem]);
+            }
+
+            $changes = ['store_branch_id' => $storeId, 'order_date' => $date];
+
+            // An order moved to another store takes that store's next order number, as in Mass Orders.
+            if ($storeChanged) {
+                $changes['order_number'] = $this->storeOrders->getOrderNumber($storeId);
+            }
+
+            // A vendor left as it was keeps the details the order was placed with.
+            if ($vendorChanged) {
+                $changes += [
+                    'cpo_vendor_id' => $vendor?->id,
+                    'cpo_vendor_name' => $vendor?->name,
+                    'cpo_vendor_tin' => $vendor?->tin,
+                    'cpo_vendor_address' => $vendor?->address,
+                ];
+            }
+
+            $order->update($changes);
+
+            // Lines taken off the order. One by one, so each removal is audited.
+            $kept = collect($lines)->pluck('id')->filter()->all();
+            $order->store_order_items()->whereNotIn('id', $kept ?: [0])->get()->each->delete();
+
+            foreach ($lines as $line) {
+                // Approval and receiving read the approved and committed quantities: an edited
+                // line restarts from what is ordered, as a new order does.
+                $values = [
+                    'item_code' => $line['item_code'],
+                    'uom' => $line['uom'],
+                    'quantity_ordered' => $line['quantity'],
+                    'quantity_approved' => $line['quantity'],
+                    'quantity_commited' => $line['quantity'],
+                    'cost_per_quantity' => $line['cost'],
+                    'total_cost' => $line['total_cost'],
+                ];
+
+                if ($line['id']) {
+                    $order->store_order_items()->whereKey($line['id'])->first()?->update($values);
+                } else {
+                    $order->store_order_items()->create($values);
+                }
+            }
+
+            return $order->refresh();
+        });
+    }
+
+    /**
+     * The edited lines, checked as an upload checks its rows: an item of the CPO list, one of its
+     * units, a quantity and a cost above 0, and each item and unit once. Quantities and costs are
+     * kept to 4 decimals and sent as fixed-point text.
+     *
+     * @throws ValidationException listing each line's problem under `lines.N.field`
+     */
+    private function editedLines(StoreOrder $order, array $lines): array
+    {
+        $ownIds = $order->store_order_items()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $units = $this->unitsByItem(collect($lines)->pluck('item_code')->map(fn ($code) => trim((string) $code))->filter()->unique()->values());
+
+        $clean = [];
+        $problems = [];
+        $seen = [];
+
+        foreach (array_values($lines) as $i => $line) {
+            $itemCode = trim((string) ($line['item_code'] ?? ''));
+            $uom = trim((string) ($line['uom'] ?? ''));
+            $quantity = round((float) ($line['quantity'] ?? 0), 4);
+            $cost = round((float) ($line['cost'] ?? 0), 4);
+            $id = isset($line['id']) && $line['id'] !== null && $line['id'] !== '' ? (int) $line['id'] : null;
+
+            if ($id !== null && ! in_array($id, $ownIds, true)) {
+                $problems["lines.{$i}.item_code"] = 'This line is not on the order any more. Reload the page.';
+            }
+
+            if (! isset($units[$itemCode])) {
+                $problems["lines.{$i}.item_code"] = "'{$itemCode}' is not in the CPO list of items.";
+            } elseif (! in_array(strtoupper($uom), $units[$itemCode], true)) {
+                $problems["lines.{$i}.uom"] = "'{$uom}' is not a unit of this item.";
+            }
+
+            $key = strtoupper($itemCode.'|'.$uom);
+            if (isset($seen[$key])) {
+                $problems["lines.{$i}.uom"] = 'This item and unit are already on line '.($seen[$key] + 1).'.';
+            }
+            $seen[$key] ??= $i;
+
+            if ($quantity <= 0) {
+                $problems["lines.{$i}.quantity"] = 'The quantity must be greater than 0.';
+            }
+            if ($cost <= 0) {
+                $problems["lines.{$i}.cost"] = 'The cost must be greater than 0.';
+            }
+
+            $clean[] = [
+                'id' => $id,
+                'item_code' => $itemCode,
+                'uom' => $uom,
+                'quantity' => number_format($quantity, 4, '.', ''),
+                'cost' => number_format($cost, 4, '.', ''),
+                'total_cost' => number_format(round($quantity * $cost, 4), 4, '.', ''),
+            ];
+        }
+
+        if ($problems) {
+            throw ValidationException::withMessages(
+                ['error' => 'Nothing was saved. Correct the lines marked below.'] + $problems
+            );
+        }
+
+        return $clean;
+    }
 
     /** The items a CPO order can carry: the catalogues CPO consolidates. */
     public function catalogue(): Collection
@@ -330,7 +597,7 @@ class CpoOrderService
      *
      * @return array<string, list<string>>
      */
-    private function unitsByItem(Collection $itemCodes): array
+    public function unitsByItem(Collection $itemCodes): array
     {
         if ($itemCodes->isEmpty()) {
             return [];

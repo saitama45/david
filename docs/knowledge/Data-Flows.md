@@ -195,9 +195,24 @@ Every CPO order is created `pending`. `Supplier::forMassOrderApproval()` / `need
 always include CPO (approval list, counts, notification, My Actions), and Ordering Template Approval
 refuses to switch CPO off. Approval itself is unchanged: CPO approval commits and opens the receiving
 rows. Duplicate guard: one non-rejected order per store, date and vendor, a blank vendor counting as one, which
-catches the same file uploaded twice; entering a vendor in Inbound Orders runs no such check. There is no CPO edit page;
-a wrong order is rejected and placed again. The order page reuses `MassOrders/Show` through
-`MassOrderService::orderDetails()` with a `cpo` prop.
+catches the same file uploaded twice; entering a vendor in Inbound Orders runs no such check. The order page reuses
+`MassOrders/Show` through `MassOrderService::orderDetails()` with a `cpo` prop.
+
+**Editing a CPO order** (2026-11-06, `cpo-orders.edit` / `update` / `items.search`, permission `edit cpo orders`
+plus the CPO template assigned, page `CpoOrders/Edit`). Mass Orders' edit rules, kept in
+`CpoOrderService::editProblem()`: status in `massOrderEditableStatuses('CPO')` (pending / approved, so until the last
+approval commits it), no receiving started (`withReceivingRecords()`, the same count Mass Orders uses), and before
+`massOrderEditDeadline('CPO', created_at)` (no CPO cutoff row exists, so no deadline today; no rule-exception path,
+since `mass_order.edit_after_cutoff` needs `edit mass orders`). The list sends `editable` per order from the same
+method, so the pencil never shows for an edit the server refuses; the update re-checks it under a row lock.
+`CpoOrderService::update()`: a new store must be one of `scheduledStores()` and takes a new order number; a changed
+store or date is checked with `MonthEndClosedPeriodService::problem()`; lines are checked as upload rows (catalogue
+item, catalogue or SAP unit, qty and cost > 0 at 4 dp, item + unit once; errors under `lines.N.field`); the
+per-vendor duplicate guard runs when store, date or vendor change (excluding the order itself). Lines are matched by
+id: kept ones updated, new ones created, missing ones deleted one by one (audited); `quantity_approved` and
+`quantity_commited` restart at the new quantity, and `approved_level` is left alone, as in Mass Orders. An unchanged
+vendor keeps the order's `cpo_vendor_*` copy. The item picker searches `itemOptions()` (catalogue code or name, 3
+characters, exact below, 8 per page).
 
 **Receiving: delivery evidence and Zero All.** Recording a quantity on `/orders-receiving/show`
 (receive, edit, Add Unlisted Item) needs a delivery receipt and an image

@@ -586,9 +586,17 @@ Route::middleware('auth')
             Route::middleware('permission:create cpo orders')->group(function () {
                 Route::get('/download-template', 'downloadTemplate')->name('download-template');
                 Route::post('/upload', 'upload')->name('upload');
+            });
+            // The vendor picker and its Add New / Edit serve both Create and Edit.
+            Route::middleware('permission:create cpo orders|edit cpo orders')->group(function () {
                 Route::get('/vendors', 'vendors')->name('vendors.search');
                 Route::post('/vendors', 'storeVendor')->name('vendors.store');
                 Route::put('/vendors/{vendor}', 'updateVendor')->name('vendors.update');
+            });
+            Route::middleware('permission:edit cpo orders')->group(function () {
+                Route::get('/edit/{orderNumber}', 'edit')->name('edit');
+                Route::put('/update/{orderNumber}', 'update')->name('update');
+                Route::get('/items', 'items')->name('items.search');
             });
             // Also opened from Inbound Orders, where the store uploads it.
             Route::middleware('permission:view cpo orders|view mass order approval|view approved order')

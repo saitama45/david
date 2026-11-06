@@ -4,13 +4,12 @@ import Dialog from "primevue/dialog";
 import Select from "primevue/select";
 import Button from "primevue/button";
 import { ref, watch, computed } from "vue";
-import axios from "axios";
 import { Download, Upload, Eye, Plus, Pencil } from "lucide-vue-next";
 import { throttle } from "lodash";
 import { useAuth } from "@/composables/useAuth";
 import { useSelectOptions } from "@/composables/useSelectOptions";
-import { useToast } from "@/composables/useToast";
 import CpoVendorPicker from "@/components/CpoVendorPicker.vue";
+import CpoVendorDialog from "@/components/CpoVendorDialog.vue";
 
 const props = defineProps({
     orders: { type: Object, required: true },
@@ -25,7 +24,6 @@ const props = defineProps({
 });
 
 const { hasAccess } = useAuth();
-const { toast } = useToast();
 const { options: branchesOptions } = useSelectOptions(props.branches);
 
 // --- Flash notification ---
@@ -99,37 +97,8 @@ const rowProblems = computed(() => Object.entries(form.errors)
 
 // --- Vendor add / edit: no delete ---
 const vendorDialog = ref({ open: false, editing: false });
-const vendorForm = ref({ name: "", tin: "", address: "" });
-const vendorErrors = ref({});
-const savingVendor = ref(false);
-
 const openVendorDialog = (editing) => {
-    vendorErrors.value = {};
-    vendorForm.value = editing && vendor.value
-        ? { name: vendor.value.name, tin: vendor.value.tin ?? "", address: vendor.value.address }
-        : { name: "", tin: "", address: "" };
     vendorDialog.value = { open: true, editing: editing && !!vendor.value };
-};
-
-const saveVendor = async () => {
-    savingVendor.value = true;
-    vendorErrors.value = {};
-    try {
-        const { data } = vendorDialog.value.editing
-            ? await axios.put(route("cpo-orders.vendors.update", vendor.value.id), vendorForm.value)
-            : await axios.post(route("cpo-orders.vendors.store"), vendorForm.value);
-        vendor.value = data;
-        toast.add({ severity: "success", summary: "Vendor saved", detail: data.name, life: 3000 });
-        vendorDialog.value.open = false;
-    } catch (error) {
-        if (error.response?.status === 422) {
-            vendorErrors.value = Object.fromEntries(Object.entries(error.response.data.errors || {}).map(([key, list]) => [key, list[0]]));
-        } else {
-            toast.add({ severity: "error", summary: "Error", detail: "The vendor could not be saved.", life: 5000 });
-        }
-    } finally {
-        savingVendor.value = false;
-    }
 };
 
 // --- Table and filters ---
@@ -187,6 +156,12 @@ const formatDisplayDateTime = (dateString) => {
 
 const showOrder = (orderNumber) => router.get(route("cpo-orders.show", orderNumber));
 
+// `editable` is decided by the server: Edit permission, the CPO template, and the order still open to edits.
+const editOrder = (orderNumber) => router.get(route("cpo-orders.edit", orderNumber));
+
+// Why an edit was refused (the order changed since the list was loaded).
+const pageError = computed(() => usePage().props.errors?.error);
+
 // The vendor may be left blank here: the store enters it in Inbound Orders when it receives the
 // order. An order placed in Mass Orders before CPO Orders existed has none either.
 const vendorName = (order) => order.cpo_vendor_name || "Not entered yet";
@@ -210,6 +185,8 @@ const invoiceLabel = (order) => {
         <p v-if="hasAccess('create cpo orders') && !cpoAssigned" class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             The CPO ordering template is not assigned to you, so you can see CPO orders but not place one. Ask your administrator to assign it in Users.
         </p>
+
+        <p v-if="pageError" class="mb-4 rounded-md bg-red-100 p-4 text-red-800">{{ pageError }}</p>
 
         <div v-if="flash.message && flashMessageVisible" class="mb-4 p-4 rounded-md" :class="{
             'bg-green-100 text-green-800': notificationType === 'success',
@@ -348,32 +325,11 @@ const invoiceLabel = (order) => {
             </div>
         </Dialog>
 
-        <Dialog v-model:visible="vendorDialog.open" modal :header="vendorDialog.editing ? 'Edit Vendor' : 'Add New Vendor'" :style="{ width: '32rem', maxWidth: '95vw' }">
-            <form class="space-y-4" @submit.prevent="saveVendor">
-                <div>
-                    <label for="vendor_name" class="block text-sm font-medium text-gray-700 mb-1">Vendor Name <span class="text-red-500">*</span></label>
-                    <input id="vendor_name" v-model="vendorForm.name" type="text" maxlength="255" class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
-                    <p v-if="vendorErrors.name" class="mt-1 text-sm text-red-600">{{ vendorErrors.name }}</p>
-                </div>
-                <div>
-                    <label for="vendor_tin" class="block text-sm font-medium text-gray-700 mb-1">TIN # <span class="text-xs text-gray-400">(optional)</span></label>
-                    <input id="vendor_tin" v-model="vendorForm.tin" type="text" maxlength="50" class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
-                    <p v-if="vendorErrors.tin" class="mt-1 text-sm text-red-600">{{ vendorErrors.tin }}</p>
-                </div>
-                <div>
-                    <label for="vendor_address" class="block text-sm font-medium text-gray-700 mb-1">Address <span class="text-red-500">*</span></label>
-                    <textarea id="vendor_address" v-model="vendorForm.address" rows="3" maxlength="500" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"></textarea>
-                    <p v-if="vendorErrors.address" class="mt-1 text-sm text-red-600">{{ vendorErrors.address }}</p>
-                </div>
-                <p v-if="vendorDialog.editing" class="text-xs text-gray-500">
-                    The change applies to CPO orders placed from now on. Orders already placed keep the details they were placed with.
-                </p>
-                <div class="flex justify-end gap-2">
-                    <Button type="button" severity="secondary" outlined @click="vendorDialog.open = false">Cancel</Button>
-                    <Button type="submit" :disabled="savingVendor">Save Vendor</Button>
-                </div>
-            </form>
-        </Dialog>
+        <CpoVendorDialog
+            v-model:visible="vendorDialog.open"
+            :vendor="vendorDialog.editing ? vendor : null"
+            @saved="vendor = $event"
+        />
 
         <FilterTab>
             <FilterTabButton label="All" filter="all" :currentFilter="filterQuery" @click="filterQuery = 'all'" />
@@ -446,9 +402,14 @@ const invoiceLabel = (order) => {
                                 <Badge :class="statusBadgeColor(order.order_status)" class="font-bold">{{ statusLabel(order.order_status) }}</Badge>
                             </TD>
                             <TD>
-                                <button @click="showOrder(order.order_number)" title="View">
-                                    <Eye class="size-5" />
-                                </button>
+                                <DivFlexCenter class="gap-3">
+                                    <button @click="showOrder(order.order_number)" title="View">
+                                        <Eye class="size-5" />
+                                    </button>
+                                    <button v-if="order.editable" class="text-blue-500" title="Edit" @click="editOrder(order.order_number)">
+                                        <Pencil class="size-5" />
+                                    </button>
+                                </DivFlexCenter>
                             </TD>
                         </tr>
                     </TableBody>
@@ -460,6 +421,9 @@ const invoiceLabel = (order) => {
                     <MobileTableHeading :title="order.order_number">
                         <button @click="showOrder(order.order_number)">
                             <Eye class="size-5" />
+                        </button>
+                        <button v-if="order.editable" class="text-blue-500" @click="editOrder(order.order_number)">
+                            <Pencil class="size-5" />
                         </button>
                     </MobileTableHeading>
                     <LabelXS>Vendor: {{ vendorName(order) }}</LabelXS>

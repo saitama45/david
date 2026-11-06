@@ -15,6 +15,32 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 6, 2026
+    {
+        date: '2026-11-06',
+        module: 'CPO Orders',
+        type: 'new',
+        title: 'CPO orders can now be edited with the Edit (pencil) button',
+        summary:
+            'CPO Orders had only a View button, so a CPO order placed with a wrong quantity, cost, item or vendor had to be rejected and placed again. A CPO order waiting in Mass Orders Approval now has an Edit button, which opens Edit CPO Order. The rules are the same as for editing a mass order.',
+        steps: [
+            'Open CPO Orders and click the pencil on the order.',
+            'Change the Store, Delivery Date or Vendor Name, or the Unit, Quantity or Cost of a line. Remove a line with the trash button, or add an item: type at least 3 characters of its name or code, pick it, then enter its Unit, Quantity and Cost and click Add.',
+            'Click Save Changes. The order goes back to CPO Orders and stays in Mass Orders Approval.',
+        ],
+        rules: [
+            'An order can be edited only while it waits for approval. Once its last approval commits it, the Edit button is gone and the system refuses the change with "This order is already committed and can no longer be edited." An order whose receiving has started cannot be edited either.',
+            'If an ordering cutoff is set for CPO, an order can be edited only until the first cutoff after it was placed, and Edit CPO Order shows that time.',
+            'Every line needs an item from the CPO list, one of that item\'s units, and a Quantity and Cost greater than 0. The same item and unit cannot be on two lines, and the order needs at least one line. Nothing is saved while a line has a problem, and the problem is shown under that line.',
+            'The Store can only be one of your stores set up to order CPO. Moving the order to another store gives it that store\'s next order number.',
+            'A Delivery Date closed by the store\'s final approved month end count cannot be chosen. An order keeps the date it already has.',
+            'One CPO order per store, Delivery Date and vendor, as when placing it. With no vendor, one order per store and Delivery Date.',
+            'The Vendor Name stays optional. While it is not changed, the order keeps the TIN and Address it was placed with. Choosing another vendor takes that vendor\'s details.',
+            'Saving resets each line\'s approved quantity to the new quantity ordered. An order already approved at Level 1 of 2 or more stays at that level.',
+            'Editing needs the new "Edit CPO Orders" permission in Roles, and the CPO ordering template assigned to the user. Roles that could already place CPO orders and edit mass orders have it ticked.',
+        ],
+        affects: 'Users who place CPO orders, and approvers in Mass Orders Approval, who now see the edited order.',
+    },
     // ---------------------------------------------------------------- November 5, 2026
     {
         date: '2026-11-05',
