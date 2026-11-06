@@ -464,7 +464,15 @@ class MonthEndCountController extends Controller
 
         $fileName = 'month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new \App\Exports\MonthEndCountDownloadExport($items, $withCurrentSoh), $fileName);
+        $response = Excel::download(new \App\Exports\MonthEndCountDownloadExport($items, $withCurrentSoh), $fileName);
+
+        // Built fresh on every download. Sent as "Cache-Control: public" with no expiry, a browser
+        // could hand back an earlier template for the same link (one that still had Current SOH).
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
+        return $response;
     }
 
     /**

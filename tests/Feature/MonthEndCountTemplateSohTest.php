@@ -230,7 +230,11 @@ it('leaves the Current SOH column out of the template while it is switched off',
 
     Excel::fake();
     test()->actingAs($f['user']);
-    app(MonthEndCountController::class)->downloadTemplate(Request::create('/month-end-count/download', 'GET', ['branch_id' => $a->id]));
+    $response = app(MonthEndCountController::class)->downloadTemplate(Request::create('/month-end-count/download', 'GET', ['branch_id' => $a->id]));
+
+    // Never reused from a browser cache: a template downloaded before still had Current SOH.
+    expect($response->headers->get('Cache-Control'))->toContain('no-store')
+        ->and($response->headers->get('Pragma'))->toBe('no-cache');
 
     Excel::assertDownloaded('month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx', function (MonthEndCountDownloadExport $export) {
         $headings = $export->headings();

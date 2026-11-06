@@ -108,6 +108,7 @@ export const changeLog = [
             'The template from Download Count Template had a Current SOH column with the system\'s stock of each item. It is taken out for now, so the template goes from Loose UOM straight to Bulk Qty, Loose Qty and Remarks. The note under Month End Count Template Download that explained Current SOH is hidden too.',
         rules: [
             'Fill in Bulk Qty, Loose Qty and Remarks as before. A template downloaded before this change, with the Current SOH column, still uploads.',
+            'Every click on Download Count Template now gets a newly made file. Before, a browser could reuse a template it had downloaded earlier for the same branch.',
             'For a count uploaded from the new template, the Current SOH column on the review page and on the Level 1 and Level 2 approval pages shows 0.',
             'The template still cannot be downloaded while the store has unfinished transactions in the month counted.',
         ],

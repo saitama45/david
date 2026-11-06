@@ -43,6 +43,9 @@ const selectedBranchBlockers = computed(() =>
 );
 
 // The period the selected branch's Current SOH covers: the month of the count it takes next, to its MEC Scheduled Date.
+// Part of the template download link, so each page load asks the server for a fresh file.
+const pageLoadedAt = Date.now();
+
 const sohPeriod = computed(() =>
     selectedBranchId.value ? (props.sohPeriods?.[selectedBranchId.value] ?? null) : null
 );
@@ -339,7 +342,8 @@ const viewReviewPage = (scheduleId, branchId) => {
                     <p v-else-if="selectedBranchOwesReport" class="mt-4 p-3 border border-red-300 bg-red-50 rounded-md text-red-800 text-sm" data-testid="mec-download-needs-report">
                         The template is not available yet. File the Incident Report below first.
                     </p>
-                    <a v-else-if="selectedBranchId" :href="route('month-end-count.download', { branch_id: selectedBranchId })"
+                    <!-- t: a new link on each page load, so no browser reuses a template it downloaded before. -->
+                    <a v-else-if="selectedBranchId" :href="route('month-end-count.download', { branch_id: selectedBranchId, t: pageLoadedAt })"
                        class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <Download class="-ml-1 mr-2 h-5 w-5" />
                         Download Count Template
