@@ -151,6 +151,10 @@ const activeStatuses = ref([
                         {{ form.errors.complete_address }}
                     </FormError>
                 </InputContainer>
+                <p class="sm:col-span-2 -mb-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800" data-testid="branch-email-note">
+                    The Head Chef, Director of Operations, VP of Operations and AOM emails receive the store's automatic
+                    no-reply notifications, such as a commit variance (Administration &gt; Email Notifications).
+                </p>
                 <InputContainer>
                     <LabelXS>Head Chef Email</LabelXS>
                     <Input

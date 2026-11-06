@@ -2113,6 +2113,19 @@ const promptFinalReceive = () => {
                 </div>
 
                 <div class="space-y-4">
+                    <!-- The item this receipt is for. A line with no supplier item falls back to its own
+                         code and description, as the Receiving History table does. -->
+                    <div v-if="currentEditingItem" class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2" data-testid="edit-receive-item">
+                        <p class="text-xs font-medium uppercase text-blue-700">Item Name</p>
+                        <p class="text-base font-semibold text-gray-900">
+                            {{ currentEditingItem.store_order_item.supplier_item?.item_name ?? currentEditingItem.store_order_item.item_description }}
+                        </p>
+                        <p class="text-xs text-gray-600">
+                            {{ currentEditingItem.store_order_item.supplier_item?.ItemCode ?? currentEditingItem.store_order_item.item_code }}
+                            · {{ currentEditingItem.store_order_item.uom }}
+                        </p>
+                    </div>
+
                     <InputContainer>
                         <Label class="text-xs font-medium uppercase text-gray-500">Quantity Received <span class="text-red-500">*</span></Label>
                         <Input v-model="editReceiveDetailsForm.quantity_received" type="number" step="any" class="font-bold text-lg" />

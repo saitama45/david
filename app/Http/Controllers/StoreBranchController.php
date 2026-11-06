@@ -11,6 +11,14 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class StoreBranchController extends Controller
 {
+    /** The store's emails receive its no-reply notifications (Email Notifications), so they must be addresses. */
+    private const EMAIL_MESSAGES = [
+        'head_chef.email' => 'The Head Chef Email must be a valid email address.',
+        'director_operations.email' => 'The Director of Operations Email must be a valid email address.',
+        'vp_operations.email' => 'The VP of Operations Email must be a valid email address.',
+        'aom.email' => 'The AOM Email must be a valid email address.',
+    ];
+
     public function index()
     {
         $search = request('search');
@@ -128,15 +136,15 @@ class StoreBranchController extends Controller
             'store_status' => ['required'],
             'tin' => ['nullable'],
             'complete_address' => ['nullable'],
-            'head_chef' => ['nullable'],
-            'director_operations' => ['nullable'],
-            'vp_operations' => ['nullable'],
+            'head_chef' => ['nullable', 'email', 'max:255'],
+            'director_operations' => ['nullable', 'email', 'max:255'],
+            'vp_operations' => ['nullable', 'email', 'max:255'],
             'store_representative' => ['nullable'],
-            'aom' => ['nullable'],
+            'aom' => ['nullable', 'email', 'max:255'],
             'point_of_contact' => ['nullable'],
             'contact_number' => ['nullable'],
             'is_active' => ['nullable'],
-        ]);
+        ], self::EMAIL_MESSAGES);
 
         StoreBranch::create($validated);
         return to_route("branches.index");
@@ -154,15 +162,15 @@ class StoreBranchController extends Controller
             'store_status' => ['required'],
             'tin' => ['nullable'],
             'complete_address' => ['nullable'],
-            'head_chef' => ['nullable'],
-            'director_operations' => ['nullable'],
-            'vp_operations' => ['nullable'],
+            'head_chef' => ['nullable', 'email', 'max:255'],
+            'director_operations' => ['nullable', 'email', 'max:255'],
+            'vp_operations' => ['nullable', 'email', 'max:255'],
             'store_representative' => ['nullable'],
-            'aom' => ['nullable'],
+            'aom' => ['nullable', 'email', 'max:255'],
             'point_of_contact' => ['nullable'],
             'contact_number' => ['nullable'],
             'is_active' => ['nullable'],
-        ]);
+        ], self::EMAIL_MESSAGES);
         $branch->update($validated);
         return to_route("branches.index");
     }

@@ -261,6 +261,8 @@ class MonthEndCountController extends Controller
                 'from' => Carbon::parse($period[0])->format('M j, Y'),
                 'through' => Carbon::parse($period[1])->format('M j, Y'),
             ], $sohPeriods),
+            // Whether the downloaded template carries the Current SOH column (switched off for now).
+            'templateHasCurrentSoh' => (bool) config('month_end_count.template_current_soh'),
             'uploadedCountsAwaitingSubmission' => $uploadedCountsAwaitingSubmission, // New prop
             'transactions' => $transactions,
             'filters' => $request->only(['year', 'month', 'calculated_date', 'status', 'branch_name', 'uploader_name', 'sort', 'direction']),
@@ -429,14 +431,15 @@ class MonthEndCountController extends Controller
 
         // Fetch only Active records from MonthEndCountTemplate
         $templates = MonthEndCountTemplate::where('is_active', 1)->get();
-        $theoretical = $this->theoreticalSohByLine($templates, (int) $branch->id, $from, $through);
+
+        // The Current SOH column is switched off for now (config/month_end_count.php).
+        $withCurrentSoh = (bool) config('month_end_count.template_current_soh');
+        $theoretical = $withCurrentSoh ? $this->theoreticalSohByLine($templates, (int) $branch->id, $from, $through) : [];
 
         $items = collect();
 
         foreach ($templates as $template) {
-            $currentSoh = $theoretical[$template->id] ?? 0;
-
-            $items->push([
+            $row = [
                 'Item Code' => $template->item_code,
                 'Item Name' => $template->item_name,
                 'Category 1' => $template->category,
@@ -446,7 +449,13 @@ class MonthEndCountController extends Controller
                 'Conversion' => $template->config,
                 'Bulk UOM' => $template->uom,
                 'Loose UOM' => $template->loose_uom,
-                'Current SOH' => $currentSoh,
+            ];
+
+            if ($withCurrentSoh) {
+                $row['Current SOH'] = $theoretical[$template->id] ?? 0;
+            }
+
+            $items->push($row + [
                 'Bulk Qty' => '', // User fillable
                 'Loose Qty' => '', // User fillable
                 'Remarks' => '', // User fillable
@@ -455,7 +464,7 @@ class MonthEndCountController extends Controller
 
         $fileName = 'month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new \App\Exports\MonthEndCountDownloadExport($items), $fileName);
+        return Excel::download(new \App\Exports\MonthEndCountDownloadExport($items, $withCurrentSoh), $fileName);
     }
 
     /**

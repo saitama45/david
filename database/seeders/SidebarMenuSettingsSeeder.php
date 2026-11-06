@@ -135,6 +135,7 @@ class SidebarMenuSettingsSeeder extends Seeder
             ['menu_key' => 'administration.schedules',      'parent_key' => 'administration', 'sort_order' => 5],
             ['menu_key' => 'administration.knowledge-base', 'parent_key' => 'administration', 'sort_order' => 6],
             ['menu_key' => 'administration.wastage-settings', 'parent_key' => 'administration', 'sort_order' => 7],
+            ['menu_key' => 'administration.email-notifications', 'parent_key' => 'administration', 'sort_order' => 7],
             ['menu_key' => 'administration.sidebar-management', 'parent_key' => 'administration', 'sort_order' => 8],
 
             // Administration > Masterfile children

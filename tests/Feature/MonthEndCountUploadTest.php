@@ -38,21 +38,22 @@ function mecUploadFixture(): array
 }
 
 /** Uploads the store's filled-in count sheet: lines of [item code, conversion, bulk qty, loose qty]. */
-function uploadMecCount(array $f, array $lines)
+function uploadMecCount(array $f, array $lines, bool $withCurrentSoh = true)
 {
-    $rows = collect($lines)->map(function (array $line) {
+    $rows = collect($lines)->map(function (array $line) use ($withCurrentSoh) {
         [$code, $conversion, $bulk, $loose] = $line;
         SAPMasterfile::create(['ItemCode' => $code, 'ItemDescription' => $code, 'AltQty' => 1, 'BaseQty' => 1, 'AltUOM' => 'Case', 'BaseUOM' => 'Case', 'is_active' => true]);
 
         return [
             'Item Code' => $code, 'Item Name' => $code, 'Category 1' => '', 'Area' => '', 'Category 2' => '',
             'Packaging' => '', 'Conversion' => $conversion, 'Bulk UOM' => 'Case', 'Loose UOM' => 'Gm',
-            'Current SOH' => 0, 'Bulk Qty' => $bulk, 'Loose Qty' => $loose, 'Remarks' => '',
+            ...($withCurrentSoh ? ['Current SOH' => 7] : []),
+            'Bulk Qty' => $bulk, 'Loose Qty' => $loose, 'Remarks' => '',
         ];
     });
 
     $path = tempnam(sys_get_temp_dir(), 'mec');
-    file_put_contents($path, Excel::raw(new MonthEndCountDownloadExport($rows), \Maatwebsite\Excel\Excel::XLSX));
+    file_put_contents($path, Excel::raw(new MonthEndCountDownloadExport($rows, $withCurrentSoh), \Maatwebsite\Excel\Excel::XLSX));
 
     test()->actingAs($f['user']);
 
@@ -94,4 +95,26 @@ it('saves a count whose loose quantity is a tiny fraction of the bulk unit', fun
         ->and($submitted->getTargetUrl())->toBe(route('month-end-count.index'))
         ->and($counted('total_qty'))->toEqual($totals)
         ->and(array_values(array_unique($counted('status'))))->toBe(['pending_level1_approval']);
+});
+
+it('uploads today\'s template, which has no Current SOH column, reading each column by its heading', function () {
+    $f = mecUploadFixture();
+
+    uploadMecCount($f, [['RM-SUGAR', 1000, 2, 500]], withCurrentSoh: false);
+    $sugar = MonthEndCountItem::where('item_code', 'RM-SUGAR')->sole();
+
+    expect(session('errors')?->get('error'))->toBeNull()
+        ->and($sugar->total_qty)->toBe('2.5000')
+        ->and($sugar->current_soh)->toEqual(0);
+});
+
+it('still uploads a template downloaded while it had the Current SOH column', function () {
+    $f = mecUploadFixture();
+
+    uploadMecCount($f, [['RM-CUPS', 3, 1, 1]]);
+    $cups = MonthEndCountItem::where('item_code', 'RM-CUPS')->sole();
+
+    expect(session('errors')?->get('error'))->toBeNull()
+        ->and($cups->total_qty)->toBe('1.3333')
+        ->and($cups->current_soh)->toEqual(7);
 });

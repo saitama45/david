@@ -371,6 +371,19 @@ class HandleInertiaRequests extends Middleware
                 ];
             },
             'notifications' => $notifications,
+            // Sidebar badge on Inbound Orders: deliveries due today not received yet, in the user's
+            // stores. Cached a minute, like the bell; the key carries the entity and the day.
+            'inboundDueToday' => function () use ($user) {
+                if (! $user || ! $user->can('view approved orders')) {
+                    return null;
+                }
+
+                $key = 'inbound_due_today_v1_'.$user->id.'_'.app(\App\Support\EntityContext::class)->id()
+                    .'_'.now('Asia/Manila')->toDateString();
+
+                return \Illuminate\Support\Facades\Cache::remember($key, now()->addMinute(),
+                    fn () => app(\App\Http\Services\OrderReceivingService::class)->dueToday());
+            },
             'flash' => [
                 'message' => $request->session()->get('message'),
                 'import_summary' => $request->session()->get('import_summary'),

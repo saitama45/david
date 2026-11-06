@@ -158,6 +158,7 @@ class RolesAndPermissionSeeder extends Seeder
             "manage sapitem types",
             "manage sidebar",
             "manage wastage settings",
+            "manage email notifications",
             "manage month end count settings",
             "manage success rate tickets",
             "reopen month end count",

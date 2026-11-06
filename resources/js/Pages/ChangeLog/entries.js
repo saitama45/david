@@ -18,6 +18,103 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 6, 2026
     {
         date: '2026-11-06',
+        module: 'Email Notifications',
+        type: 'new',
+        title: 'New Email Notifications page: a no-reply mailbox that emails the store when CS commits a different quantity',
+        summary:
+            'A store found out that CS committed less (or more) than it ordered only when the delivery arrived. Administration now has an Email Notifications page to set up a no-reply mailbox, and with Commit variance switched on, the store is emailed the items CS Mass Commits committed at a quantity different from what it ordered.',
+        steps: [
+            'Open Administration > Email Notifications.',
+            'Under Outbound Mail (SMTP), fill in the Sender Display Name, the Sender Email Address (a no-reply address), the SMTP Host, Port, Encryption, SMTP Username and SMTP Password. For Gmail, use a 16-character App Password.',
+            'Click Test Connection to check the account. Type an address in "Send a test email to" to also receive a test email.',
+            'Tick Commit variance under Notifications and click Save Settings.',
+            'When CS clicks Confirm All in CS Mass Commits, each store with a committed quantity different from its order gets one email for that order.',
+        ],
+        rules: [
+            'The mailbox only sends. Every email says it is a no-reply email, and replies to it are not read.',
+            'The email lists only the items with a variance: Item Code, Item Name, UOM, Ordered, Committed and Variance (Committed minus Ordered). Items committed at the ordered quantity are left out.',
+            'It goes to the store\'s Head Chef Email, Director of Operations Email, VP of Operations Email and AOM Email in Store Branches. A store with none of them filled in gets no email.',
+            'An item is emailed once at each committed quantity. If CS changes the quantity again and confirms, the store is emailed again.',
+            'Confirm All shows how many orders had a variance. A problem with the mailbox never stops the commit.',
+            'The password is stored encrypted and is never shown again. Leave it blank when saving to keep the saved one.',
+            'Mail Driver "Log only" sends nothing: it is for trying the page out.',
+            'The page needs the new "Manage Email Notifications" permission in Roles. Admin has it.',
+        ],
+        affects: 'Administrators who set up the mailbox, CS users who confirm commits, and the stores\' head chefs, directors, VPs and AOMs.',
+    },
+    {
+        date: '2026-11-06',
+        module: 'Store Branches',
+        type: 'improved',
+        title: 'The store\'s email fields must hold valid email addresses',
+        summary:
+            'The Head Chef Email, Director of Operations Email, VP of Operations Email and AOM Email of a store took any text. They now receive the store\'s no-reply notifications, so Create and Edit Store Branch accept only valid email addresses there, and a note on the form says what they are used for.',
+        rules: [
+            'A field that is not an email address is refused with, for example, "The Head Chef Email must be a valid email address."',
+            'The fields can still be left blank.',
+        ],
+        affects: 'Users who create or edit store branches.',
+    },
+    {
+        date: '2026-11-06',
+        module: 'General',
+        type: 'new',
+        title: 'Red counts in the sidebar show what is waiting in Orders, Commits, Wastage and MEC approvals',
+        summary:
+            'Only the bell showed how many approvals and commits were waiting. The sidebar now shows the same counts as red badges on Mass Orders Approval, CS Mass Commits, DTS Mass Orders, Interco Approval, Store Commits, Wastage Approval 1st and 2nd Level, and MEC Approval 1st and 2nd Level. A closed group, such as Ordering, Inventory, Wastage or MEC, shows the total of the counts inside it.',
+        rules: [
+            'The counts are the bell\'s: orders, commits and wastage of the current month, and month end counts scheduled this month, that your role and stores can act on. An approver counts only the approval level their role decides.',
+            'A count shows only on a page you can open. Clicking it opens that page.',
+            'The counts can take up to a minute to change after an approval or commit.',
+        ],
+        affects: 'Approvers, CS users, and users who commit interco transfers.',
+    },
+    {
+        date: '2026-11-06',
+        module: 'Inbound Orders',
+        type: 'improved',
+        title: 'Edit Receive Details shows the item being edited',
+        summary:
+            'The Edit Receive Details window opened from Receiving History showed only the quantity and remarks, so it was not clear which item was being changed. It now shows the Item Name, Item Code and unit at the top.',
+        affects: 'Store users who receive deliveries.',
+    },
+    {
+        date: '2026-11-06',
+        module: 'Inbound Orders',
+        type: 'new',
+        title: 'Inbound Orders in the sidebar shows how many of today\'s deliveries are still to receive',
+        summary:
+            'Nothing in the sidebar showed whether a delivery was due today. Inbound Orders now shows a red count of the deliveries whose Delivery Date is today and that have not been received yet, for the stores you can access. While the Receiving group is closed, the count shows next to Receiving.',
+        steps: [
+            'Look at Inbound Orders under Receiving in the sidebar. Point at the count to see how many deliveries and how many stores it covers.',
+            'Click the count to open Inbound Orders on the Committed tab, filtered to today\'s Delivery Date. It lists the same deliveries the count shows.',
+            'Clicking the words Inbound Orders still opens the page as before.',
+        ],
+        rules: [
+            'Only deliveries with today\'s Delivery Date that are ready to receive and not received yet are counted. A delivery that is received, due another day, or still waiting for approval or for CS commit is not counted.',
+            'A store user counts only the stores assigned to them. An admin counts every store, as in the Inbound Orders list.',
+            'The count follows the entity you are logged in to, and starts again each day.',
+            'The count can take up to a minute to change after a delivery is received.',
+            'It shows only for users who can open Inbound Orders.',
+        ],
+        affects: 'Store users who receive deliveries, and admins.',
+    },
+    {
+        date: '2026-11-06',
+        module: 'Month End Count',
+        type: 'removed',
+        title: 'The Current SOH column is taken out of the Month End Count template for now',
+        summary:
+            'The template from Download Count Template had a Current SOH column with the system\'s stock of each item. It is taken out for now, so the template goes from Loose UOM straight to Bulk Qty, Loose Qty and Remarks. The note under Month End Count Template Download that explained Current SOH is hidden too.',
+        rules: [
+            'Fill in Bulk Qty, Loose Qty and Remarks as before. A template downloaded before this change, with the Current SOH column, still uploads.',
+            'For a count uploaded from the new template, the Current SOH column on the review page and on the Level 1 and Level 2 approval pages shows 0.',
+            'The template still cannot be downloaded while the store has unfinished transactions in the month counted.',
+        ],
+        affects: 'Store users who take the Month End Count, and its Level 1 and Level 2 approvers.',
+    },
+    {
+        date: '2026-11-06',
         module: 'CPO Orders',
         type: 'new',
         title: 'CPO orders can now be edited with the Edit (pencil) button',

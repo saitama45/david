@@ -116,6 +116,9 @@ class RoleService
                 'Wastage Settings' => [
                     'manage wastage settings',
                 ],
+                'Email Notifications' => [
+                    'manage email notifications',
+                ],
                 'Sidebar Management' => [
                     'manage sidebar',
                 ],

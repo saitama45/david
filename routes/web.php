@@ -1364,6 +1364,17 @@ Route::controller(SidebarManagementController::class)
         Route::put('/announcements/{announcement}', 'updateAnnouncement')->name('announcements.update');
     });
 
+// Administration > Email Notifications: the no-reply mailbox notification emails are sent from.
+Route::controller(\App\Http\Controllers\EmailNotificationsController::class)
+    ->prefix('email-notifications')
+    ->name('email-notifications.')
+    ->middleware(['auth', 'permission:manage email notifications'])
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'update')->name('update');
+        Route::post('/test', 'test')->name('test');
+    });
+
 Route::controller(WastageSettingsController::class)
     ->prefix('wastage-settings')
     ->name('wastage-settings.')

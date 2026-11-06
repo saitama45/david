@@ -6,7 +6,9 @@ use App\Exports\CSMassCommitsExport;
 use App\Models\StoreBranch;
 use App\Models\Supplier;
 use App\Models\StoreOrder;
+use App\Http\Services\NotificationMailService;
 use App\Http\Services\OrderReceivingService;
+use App\Jobs\SendCommitVarianceEmails;
 use App\Services\CommitUomChangeService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
@@ -593,6 +595,7 @@ class CSMassCommitsController extends Controller
         $updatedItemsCount = 0;
         $skippedItemsCount = 0;
         $revokedItemsCount = 0;
+        $varianceLines = [];
 
         if ($ordersToCommit->count() > 0) {
             // Process each order and its items based on user permissions
@@ -693,6 +696,12 @@ class CSMassCommitsController extends Controller
                     // OrderReceivingController::show(), which materialises the same rows for
                     // orders that reach receiving without being committed here.
                     $this->orderReceiving->ensureReceivingPlaceholder($item);
+
+                    // Committed at a quantity other than ordered, and not emailed at it yet:
+                    // the store is told after the response (Email Notifications).
+                    if (NotificationMailService::needsVarianceNotice($item)) {
+                        $varianceLines[$order->id][] = $item->id;
+                    }
                 }
 
                 \Log::info('CS Mass Commits - Order processing complete', [
@@ -743,8 +752,18 @@ class CSMassCommitsController extends Controller
             ]);
         }
 
+        // Email each store the lines committed at another quantity than it ordered. After the
+        // response: the CS user never waits for the mail server, and a mail failure is only logged.
+        $varianceEmails = $varianceLines !== [] && app(NotificationMailService::class)->commitVarianceEnabled();
+        if ($varianceEmails) {
+            SendCommitVarianceEmails::dispatchAfterResponse($varianceLines, $user->id);
+        }
+
         // Build appropriate success message
         $message = [];
+        if ($varianceEmails) {
+            $message[] = count($varianceLines).' order(s) with a commit variance: the store is being emailed';
+        }
         if ($updatedOrdersCount > 0) {
             $message[] = $updatedOrdersCount . ' order(s) processed';
         }

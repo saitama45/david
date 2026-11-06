@@ -125,6 +125,7 @@ class CheckSidebarMenuActive
         'orders-cutoff.index'                => 'administration.schedules.orders-cutoff',
         'manage-knowledge-base.index'        => 'administration.knowledge-base',
         'wastage-settings.index'             => 'administration.wastage-settings',
+        'email-notifications.index'          => 'administration.email-notifications',
     ];
 
     /** Every menu_key that is a page, for pickers such as Announcements. */

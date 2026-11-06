@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/collapsible";
 
 import NavLink from "./NavLink.vue"; // Assuming NavLink.vue is in the same directory
+import SidebarBadge from "./SidebarBadge.vue";
 import { usePage } from "@inertiajs/vue3";
 import { ref, computed, watchEffect } from "vue"; // Import 'watchEffect'
 
@@ -51,6 +52,7 @@ import {
     ChevronRight,
     Calculator,
     ShieldAlert,
+    Mail,
 } from "lucide-vue-next";
 
 const auth = computed(() => usePage().props.auth);
@@ -121,6 +123,7 @@ const canViewAdministrationGroup = computed(() =>
     hasAccess("view users") ||
     hasAccess("view roles") ||
     hasAccess("manage wastage settings") ||
+    hasAccess("manage email notifications") ||
     hasAccess("manage sidebar") ||
     hasAccess("view import logs") ||
     hasAccess("view items list") ||
@@ -305,6 +308,67 @@ const bomOpen = ref(false);
 const reportsOpen = ref(false);
 const referencesOpen = ref(false);
 
+// Inbound Orders badge: deliveries due today that the user's stores have not received yet.
+// The server counts exactly the list the badge opens (OrderReceivingService::dueToday()).
+const inboundDueToday = computed(() => usePage().props.inboundDueToday);
+const inboundBadge = computed(() => (
+    hasAccess('view approved orders') && isMenuActive('receiving.inbound-orders') ? (inboundDueToday.value?.orders ?? 0) : 0
+));
+const inboundBadgeTitle = computed(() => {
+    const due = inboundDueToday.value;
+    if (!due?.orders) return "";
+    const day = new Date(`${due.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `${due.orders} ${due.orders === 1 ? "delivery" : "deliveries"} due today (${day}) not received yet, `
+        + `for ${due.stores} ${due.stores === 1 ? "store" : "stores"}. Click the count to open them.`;
+});
+const inboundBadgeHref = computed(() => (inboundDueToday.value?.listParams ? route("orders-receiving.index", inboundDueToday.value.listParams) : null));
+
+// Badges of the modules waiting for the user's action: the bell's own counts (pending work of the
+// current month, per permission, approval level and assigned store), shown only where the link is.
+const pendingCount = (key) => Number(usePage().props.notifications?.[key] ?? 0);
+const shownCount = (visible, key) => (visible ? pendingCount(key) : 0);
+const moduleBadges = computed(() => ({
+    massOrdersApproval: shownCount(hasAccess('view mass order approval') && isMenuActive('ordering.mass.mass-orders-approval'), 'massOrdersApprovalCount'),
+    csMassCommits: shownCount(hasAccess('view cs mass commits') && isMenuActive('ordering.mass.cs-mass-commits'), 'csMassCommitsCount'),
+    dtsMassCommits: shownCount((hasAccess('view dts mass orders') || hasAccess('view cs dts mass commit')) && isMenuActive('ordering.dts-mass'), 'csDtsMassCommitsCount'),
+    intercoApproval: shownCount(hasAccess('view interco approvals') && isMenuActive('ordering.stock-transfer.interco-approval'), 'intercoApprovalCount'),
+    storeCommits: shownCount(hasAccess('view store commits') && isMenuActive('ordering.stock-transfer.store-commits'), 'storeCommitsCount'),
+    wastageLevel1: shownCount(hasAccess('view wastage approval level 1') && isMenuActive('inventory.wastage.approval-level1'), 'wastageLvl1Count'),
+    wastageLevel2: shownCount(canShowWastageLevel2.value && hasAccess('view wastage approval level 2') && isMenuActive('inventory.wastage.approval-level2'), 'wastageLvl2Count'),
+    mecLevel1: shownCount(hasAccess('view month end count approvals') && isMenuActive('inventory.mec.approval-level1'), 'monthEndLvl1Count'),
+    mecLevel2: shownCount(hasAccess('view month end count approvals level 2') && isMenuActive('inventory.mec.approval-level2'), 'monthEndLvl2Count'),
+}));
+const moduleBadgeTitles = {
+    massOrdersApproval: "mass order(s) of this month waiting for your approval",
+    csMassCommits: "approved mass order(s) of this month waiting for CS commit",
+    dtsMassCommits: "DTS batch(es) of this month waiting for CS commit",
+    intercoApproval: "interco transfer(s) of this month waiting for approval",
+    storeCommits: "approved interco transfer(s) of this month waiting for the sending store's commit",
+    wastageLevel1: "wastage record(s) of this month waiting for 1st level approval",
+    wastageLevel2: "wastage record(s) of this month waiting for 2nd level approval",
+    mecLevel1: "month end count(s) waiting for 1st level approval",
+    mecLevel2: "month end count(s) waiting for 2nd level approval",
+};
+const badgeTitle = (key) => (moduleBadges.value[key] ? `${moduleBadges.value[key]} ${moduleBadgeTitles[key]}` : "");
+
+// A closed group shows the total of the badges inside it, so no count is hidden.
+const groupBadges = computed(() => {
+    const b = moduleBadges.value;
+    const regularMass = b.massOrdersApproval + b.csMassCommits;
+    const stockTransfer = b.intercoApproval + b.storeCommits;
+    const wastage = b.wastageLevel1 + b.wastageLevel2;
+    const mec = b.mecLevel1 + b.mecLevel2;
+    return {
+        regularMass,
+        stockTransfer,
+        ordering: (isMenuActive('ordering.mass') ? regularMass : 0) + b.dtsMassCommits + (isMenuActive('ordering.stock-transfer') ? stockTransfer : 0),
+        wastage,
+        mec,
+        inventory: (isMenuActive('inventory.wastage') ? wastage : 0) + (isMenuActive('inventory.mec') ? mec : 0),
+    };
+});
+const groupBadgeTitle = (count) => (count ? `${count} item(s) waiting for your action in this group. Open it to see where.` : "");
+
 // Nested ordering section states
 const regularOpen = ref(false);
 const regularDTSOpen = ref(false);
@@ -318,7 +382,7 @@ watchEffect(() => {
     const currentUrl = usePage().url;
 
     const sections = [
-        { ref: adminOpen, paths: ["/entities", "/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base", "/wastage-settings"] },
+        { ref: adminOpen, paths: ["/entities", "/users", "/roles", "/work-queue", "/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers", "/templates", "/ordering-template-approval", "/month-end-count-templates", "/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff", "/manage-knowledge-base", "/wastage-settings", "/email-notifications"] },
         { ref: masterfileOpen, paths: ["/items-list", "/sapitems-list", "/SupplierItems-list", "/POSMasterfile-list", "/branches", "/suppliers"] },
         { ref: templatesOpen, paths: ["/templates", "/ordering-template-approval", "/month-end-count-templates"] },
         { ref: schedulesOpen, paths: ["/dts-delivery-schedules", "/dsp-delivery-schedules", "/month-end-schedules", "/orders-cutoff"] },
@@ -375,8 +439,9 @@ watchEffect(() => {
             <CollapsibleTrigger
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
-                <div class="flex items-center">
+                <div class="flex items-center gap-2">
                     <span >{{ menuLabel('ordering', 'Ordering') }}</span>
+                    <SidebarBadge v-if="!orderingOpen" :count="groupBadges.ordering" :title="groupBadgeTitle(groupBadges.ordering)" />
                 </div>
                 <ChevronDown v-if="orderingOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -477,8 +542,9 @@ watchEffect(() => {
                     <CollapsibleTrigger
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
-                        <div class="flex items-center">
+                        <div class="flex items-center gap-2">
                             <span class="text-muted-foreground">{{ menuLabel('ordering.mass', 'Regular Mass Orders') }}</span>
+                            <SidebarBadge v-if="!regularMassOpen" :count="groupBadges.regularMass" :title="groupBadgeTitle(groupBadges.regularMass)" />
                         </div>
                         <ChevronDown v-if="regularMassOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
@@ -509,6 +575,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view mass order approval') && isMenuActive('ordering.mass.mass-orders-approval')"
                             href="/mass-orders-approval"
+                            :badge="moduleBadges.massOrdersApproval"
+                            :badge-title="badgeTitle('massOrdersApproval')"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/mass-orders-approval')"
                         >
@@ -519,6 +587,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view cs mass commits') && isMenuActive('ordering.mass.cs-mass-commits')"
                             href="/cs-mass-commits"
+                            :badge="moduleBadges.csMassCommits"
+                            :badge-title="badgeTitle('csMassCommits')"
                             :icon="SquareChartGantt"
                             :is-active="isPathActive('/cs-mass-commits')"
                         >
@@ -534,6 +604,8 @@ watchEffect(() => {
                 <NavLink
                     v-if="(hasAccess('view dts mass orders') || hasAccess('view cs dts mass commit')) && isMenuActive('ordering.dts-mass')"
                     href="/dts-mass-orders"
+                    :badge="moduleBadges.dtsMassCommits"
+                    :badge-title="badgeTitle('dtsMassCommits')"
                     :icon="SquareChartGantt"
                     :is-active="isPathActive(['/dts-mass-orders', '/cs-dts-mass-commits'])"
                 >
@@ -550,8 +622,9 @@ watchEffect(() => {
                     <CollapsibleTrigger
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
-                        <div class="flex items-center">
+                        <div class="flex items-center gap-2">
                             <span class="text-muted-foreground">{{ menuLabel('ordering.stock-transfer', 'Stock Transfer') }}</span>
+                            <SidebarBadge v-if="!stockTransferOpen" :count="groupBadges.stockTransfer" :title="groupBadgeTitle(groupBadges.stockTransfer)" />
                         </div>
                         <ChevronDown v-if="stockTransferOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
@@ -572,6 +645,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view interco approvals') && isMenuActive('ordering.stock-transfer.interco-approval')"
                             href="/interco-approval"
+                            :badge="moduleBadges.intercoApproval"
+                            :badge-title="badgeTitle('intercoApproval')"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/interco-approval')"
                         >
@@ -582,6 +657,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view store commits') && isMenuActive('ordering.stock-transfer.store-commits')"
                             href="/store-commits"
+                            :badge="moduleBadges.storeCommits"
+                            :badge-title="badgeTitle('storeCommits')"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/store-commits')"
                         >
@@ -711,8 +788,10 @@ watchEffect(() => {
             <CollapsibleTrigger
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
-                <div class="flex items-center">
+                <div class="flex items-center gap-2">
                     <span >{{ menuLabel('receiving', 'Receiving') }}</span>
+                    <!-- While the group is closed, its Inbound Orders count shows here. -->
+                    <SidebarBadge v-if="!receivingOpen" :count="inboundBadge" :title="inboundBadgeTitle" data-testid="receiving-badge" />
                 </div>
                 <ChevronDown v-if="receivingOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -735,6 +814,9 @@ watchEffect(() => {
                     href="/orders-receiving"
                     :icon="ClipboardList"
                     :is-active="isPathActive('/orders-receiving')"
+                    :badge="inboundBadge"
+                    :badge-title="inboundBadgeTitle"
+                    :badge-href="inboundBadgeHref"
                 >
                     {{ menuLabel('receiving.inbound-orders', 'Inbound Orders') }}
                 </NavLink>
@@ -837,8 +919,9 @@ watchEffect(() => {
             <CollapsibleTrigger
                 class="flex items-center justify-between w-full py-2 hover:bg-muted/50 rounded-md px-2"
             >
-                <div class="flex items-center">
+                <div class="flex items-center gap-2">
                     <span >{{ menuLabel('inventory', 'Inventory') }}</span>
+                    <SidebarBadge v-if="!inventoryOpen" :count="groupBadges.inventory" :title="groupBadgeTitle(groupBadges.inventory)" />
                 </div>
                 <ChevronDown v-if="inventoryOpen" class="h-4 w-4" />
                 <ChevronRight v-else class="h-4 w-4" />
@@ -876,8 +959,9 @@ watchEffect(() => {
                     <CollapsibleTrigger
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
-                        <div class="flex items-center">
+                        <div class="flex items-center gap-2">
                             <span class="text-muted-foreground">{{ menuLabel('inventory.wastage', 'Wastage') }}</span>
+                            <SidebarBadge v-if="!wastageOpen" :count="groupBadges.wastage" :title="groupBadgeTitle(groupBadges.wastage)" />
                         </div>
                         <ChevronDown v-if="wastageOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
@@ -898,6 +982,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view wastage approval level 1') && isMenuActive('inventory.wastage.approval-level1')"
                             href="/wastage-approval-level1"
+                            :badge="moduleBadges.wastageLevel1"
+                            :badge-title="badgeTitle('wastageLevel1')"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/wastage-approval-level1')"
                         >
@@ -908,6 +994,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="canShowWastageLevel2 && hasAccess('view wastage approval level 2') && isMenuActive('inventory.wastage.approval-level2')"
                             href="/wastage-approval-level2"
+                            :badge="moduleBadges.wastageLevel2"
+                            :badge-title="badgeTitle('wastageLevel2')"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/wastage-approval-level2')"
                         >
@@ -928,8 +1016,9 @@ watchEffect(() => {
                     <CollapsibleTrigger
                         class="flex items-center justify-between w-full py-1 text-xs hover:bg-muted/30 rounded-md px-2"
                     >
-                        <div class="flex items-center">
+                        <div class="flex items-center gap-2">
                             <span class="text-muted-foreground">{{ menuLabel('inventory.mec', 'MEC') }}</span>
+                            <SidebarBadge v-if="!mecOpen" :count="groupBadges.mec" :title="groupBadgeTitle(groupBadges.mec)" />
                         </div>
                         <ChevronDown v-if="mecOpen" class="h-3 w-3" />
                         <ChevronRight v-else class="h-3 w-3" />
@@ -950,6 +1039,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view month end count approvals') && isMenuActive('inventory.mec.approval-level1')"
                             href="/month-end-count-approvals"
+                            :badge="moduleBadges.mecLevel1"
+                            :badge-title="badgeTitle('mecLevel1')"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/month-end-count-approvals')"
                         >
@@ -960,6 +1051,8 @@ watchEffect(() => {
                         <NavLink
                             v-if="hasAccess('view month end count approvals level 2') && isMenuActive('inventory.mec.approval-level2')"
                             href="/month-end-count-approvals-level2"
+                            :badge="moduleBadges.mecLevel2"
+                            :badge-title="badgeTitle('mecLevel2')"
                             :icon="ClipboardCheck"
                             :is-active="isPathActive('/month-end-count-approvals-level2')"
                         >
@@ -1185,6 +1278,7 @@ watchEffect(() => {
                 </div>
                 <div :style="{ order: getMenuOrder('administration.knowledge-base') }" class="w-full"><NavLink v-if="hasAccess('view knowledge base articles') && isMenuActive('administration.knowledge-base')" href="/manage-knowledge-base" :icon="FileCheck" :is-active="isPathActive('/manage-knowledge-base')">{{ menuLabel('administration.knowledge-base', 'Knowledge Base Articles') }}</NavLink></div>
                 <div :style="{ order: getMenuOrder('administration.wastage-settings') }" class="w-full"><NavLink v-if="hasAccess('manage wastage settings') && isMenuActive('administration.wastage-settings')" href="/wastage-settings" :icon="MonitorCog" :is-active="isPathActive('/wastage-settings')">{{ menuLabel('administration.wastage-settings', 'Wastage Settings') }}</NavLink></div>
+                <div :style="{ order: getMenuOrder('administration.email-notifications') }" class="w-full"><NavLink v-if="hasAccess('manage email notifications') && isMenuActive('administration.email-notifications')" href="/email-notifications" :icon="Mail" :is-active="isPathActive('/email-notifications')">{{ menuLabel('administration.email-notifications', 'Email Notifications') }}</NavLink></div>
                 <div :style="{ order: getMenuOrder('administration.sidebar-management') }" class="w-full"><NavLink v-if="hasAccess('manage sidebar') && isMenuActive('administration.sidebar-management')" href="/sidebar-management" :icon="MonitorCog" :is-active="isPathActive('/sidebar-management')">{{ menuLabel('administration.sidebar-management', 'Sidebar Management') }}</NavLink></div>
                 </div>
             </CollapsibleContent>

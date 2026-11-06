@@ -156,7 +156,15 @@ jobs:
           mkdir -p ftp_output
           tar -xf ftp.tar -C ftp_output
 
+      # Site10 is Windows hosting: a PHP file a live request is reading at that moment
+      # cannot be overwritten, and the server answers "550 Could not access file: driver
+      # error: calling GetHandle: failure" (routes/web.php, 2026-11-06). The lock lasts
+      # only for that request, so the upload is tried up to three times. A retry is safe:
+      # the action saves its sync-state file only after a complete run, so it resends
+      # everything changed since the last successful deploy.
       - name: Deploy to FTP
+        id: ftp_1
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER_SITE10 }}
@@ -167,6 +175,51 @@ jobs:
           timeout: 120000
           # Same content and the action's default sync-state file as before, so
           # only changed files are sent and nothing is deleted on the server.
+          local-dir: ./ftp_output/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md
+
+      - name: Wait before the second FTP try
+        if: steps.ftp_1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to FTP (second try)
+        id: ftp_2
+        if: steps.ftp_1.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER_SITE10 }}
+          username: ${{ secrets.FTP_USERNAME_SITE10 }}
+          password: ${{ secrets.FTP_PASSWORD_SITE10 }}
+          protocol: ftp
+          port: 21
+          timeout: 120000
+          local-dir: ./ftp_output/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md
+
+      - name: Wait before the last FTP try
+        if: steps.ftp_2.outcome == 'failure'
+        run: sleep 90
+
+      # No continue-on-error: if this one fails too, the job fails as before.
+      - name: Deploy to FTP (last try)
+        if: steps.ftp_2.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER_SITE10 }}
+          username: ${{ secrets.FTP_USERNAME_SITE10 }}
+          password: ${{ secrets.FTP_PASSWORD_SITE10 }}
+          protocol: ftp
+          port: 21
+          timeout: 120000
           local-dir: ./ftp_output/
           exclude: |
             **/.git*

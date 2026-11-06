@@ -24,6 +24,8 @@ const props = defineProps({
     // gets neither the template (blocks_template) nor the upload.
     incidentReports: { type: Array, default: () => [] },
     sohPeriods: { type: Object, default: () => ({}) },
+    // Whether the downloaded template carries the Current SOH column (switched off for now).
+    templateHasCurrentSoh: { type: Boolean, default: false },
     uploadWindow: { type: Object, default: null },
     supportEmail: { type: String, default: '' },
     uploadedCountsAwaitingSubmission: { type: Array, required: true },
@@ -295,7 +297,7 @@ const viewReviewPage = (scheduleId, branchId) => {
                 <p v-else class="font-medium">A month end count is scheduled. Please contact your administrator to get the required permissions to download the template.</p>
                 <p class="font-medium">{{ message }}</p> -->
                 <p v-if="downloadSchedule" class="text-sm mt-1">Scheduled for: {{ getMonthName(downloadSchedule.month) }} {{ downloadSchedule.year }} (MEC Schedule Date: {{ downloadSchedule.calculated_date }})</p>
-                <p v-if="sohPeriod" class="text-xs mt-1">
+                <p v-if="sohPeriod && templateHasCurrentSoh" class="text-xs mt-1">
                     Current SOH in the template is the Theoretical SOH from {{ sohPeriod.from }} to {{ sohPeriod.through }}, as in the Inventory Movement Report.
                 </p>
 
@@ -320,9 +322,12 @@ const viewReviewPage = (scheduleId, branchId) => {
                     </p>
                     <div v-if="selectedBranchId && selectedBranchBlockers.length" class="mt-4 p-3 border border-red-300 bg-red-50 rounded-md text-red-800 text-sm" data-testid="mec-download-blockers">
                         <p class="font-semibold">The template is not available yet.</p>
-                        <p class="mt-1">
+                        <p v-if="templateHasCurrentSoh" class="mt-1">
                             Current SOH is the theoretical stock from {{ sohPeriod?.from }} to {{ sohPeriod?.through }}, so everything in that period
                             must be finished first:
+                        </p>
+                        <p v-else class="mt-1">
+                            The count covers {{ sohPeriod?.from }} to {{ sohPeriod?.through }}, so everything in that period must be finished first:
                         </p>
                         <ul class="list-disc ml-5 mt-2 space-y-1">
                             <li v-for="blocker in selectedBranchBlockers" :key="blocker.key">

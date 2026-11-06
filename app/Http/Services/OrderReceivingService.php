@@ -136,6 +136,32 @@ class OrderReceivingService extends StoreOrderService
     }
 
     /**
+     * Deliveries due today that the user's stores have not received yet, for the sidebar badge:
+     * exactly the Inbound Orders list on its Committed tab with today's Delivery Date (`listParams`),
+     * so the badge opens the orders it counts. Admin counts every store, like the list.
+     *
+     * @return array{orders: int, stores: int, date: string, listParams: array<string, string>}
+     */
+    public function dueToday(): array
+    {
+        $today = Carbon::today('Asia/Manila')->toDateString();
+        $params = ['currentFilter' => 'commited', 'delivery_date_from' => $today, 'delivery_date_to' => $today];
+
+        $query = StoreOrder::query();
+        $this->applyCommonFilters($query, $params);
+        $this->applyStatusFilter($query, $params['currentFilter']);
+
+        $row = $query->toBase()->selectRaw('COUNT(*) as orders, COUNT(DISTINCT store_branch_id) as stores')->first();
+
+        return [
+            'orders' => (int) ($row->orders ?? 0),
+            'stores' => (int) ($row->stores ?? 0),
+            'date' => $today,
+            'listParams' => $params,
+        ];
+    }
+
+    /**
      * Apply the shared "suggester" filters to an orders query. This is used by both the
      * listing (Index) and the Excel export so they always stay consistent. The receiving
      * status tab filter is intentionally NOT applied here (see applyStatusFilter).

@@ -279,6 +279,21 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   download / upload blockers (`MonthEndCountReadinessService::countPeriod()`) read the 1st of the month
   counted through `MonthEndStockVariance::periodFor()`'s end, cut at today only while that date is still
   ahead. Run to today, October's undelivered orders withheld September's count (fixed 2026-10-05).
+  **The template's Current SOH column is switched off for now** (2026-11-06, `config('month_end_count.template_current_soh')`,
+  env `MEC_TEMPLATE_CURRENT_SOH`); the blockers still run, and uploads store `current_soh` 0 without it.
+- **Sidebar badges of Orders, Commits, Wastage and MEC are the bell's counts** (`notifications.*Count`, read in
+  `Sidebar.vue`'s `moduleBadges`); a closed group shows the total of its items. Change a count in
+  `HandleInertiaRequests`' notifications (bump its cache key), never with a second query in the sidebar.
+- **Notification emails come from Administration > Email Notifications, not `.env`**: a no-reply SMTP account in
+  `settings` (`notification_mail.*`), built per send by `NotificationMailService::mailer()`. The commit variance email
+  (CS Mass Commits Confirm All, lines committed at a quantity other than ordered) goes after the response to the
+  store's Head Chef / Director of Operations / VP of Operations / AOM emails, once per committed quantity
+  (`store_order_items.commit_variance_notified_qty`). Detail: [Integrations.md](docs/knowledge/Integrations.md#mail).
+- **SQL Server hands integer columns back as strings** (`"entity_id":"1"`), so `$item->committed_by !== $user->id` is
+  always true. Compare ids with `(int)` or `==`.
+- **The Inbound Orders sidebar badge is the list it opens** (`OrderReceivingService::dueToday()`: `applyCommonFilters()`
+  + the Committed tab + today's Delivery Date, shared as `inboundDueToday`, cached a minute per user, entity and day).
+  Change what it counts only by changing those list filters, never with its own query.
 - **The Qty / Cost Variance report has no figures of its own - they are the Inventory Movement Report's.**
   `MonthEndStockVariance::rows()` reads `InventoryMovementService::movementDataForBranches()` over the
   count's `period()` (1st of the month counted through the MEC Scheduled Date, kept inside that month),

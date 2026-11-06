@@ -181,6 +181,7 @@ it('blocks a store on every unfinished transaction this month, and only this mon
 });
 
 it('fills Current SOH with the Theoretical SOH of the report, in each line\'s Bulk UOM', function () {
+    config(['month_end_count.template_current_soh' => true]); // switched off by default for now
     $f = mecSohFixture();
     $a = $f['stores']['A'];
     $sap = mecSohEspresso();
@@ -219,7 +220,36 @@ it('fills Current SOH with the Theoretical SOH of the report, in each line\'s Bu
     });
 });
 
+it('leaves the Current SOH column out of the template while it is switched off', function () {
+    $f = mecSohFixture();
+    $a = $f['stores']['A'];
+    mecSohEspresso();
+    MonthEndCountTemplate::create(['item_code' => 'RM-ESP', 'item_name' => 'RM-ESP', 'uom' => 'Bag', 'is_active' => true, 'created_by' => $f['user']->id]);
+
+    expect(config('month_end_count.template_current_soh'))->toBeFalse();
+
+    Excel::fake();
+    test()->actingAs($f['user']);
+    app(MonthEndCountController::class)->downloadTemplate(Request::create('/month-end-count/download', 'GET', ['branch_id' => $a->id]));
+
+    Excel::assertDownloaded('month_end_count_template_'.Carbon::now()->format('Ymd_His').'.xlsx', function (MonthEndCountDownloadExport $export) {
+        $headings = $export->headings();
+        $row = $export->collection()->first();
+        $sheet = (new \PhpOffice\PhpSpreadsheet\Spreadsheet)->getActiveSheet();
+        $export->styles($sheet);
+
+        return ! in_array('Current SOH', $headings, true)
+            && array_slice($headings, -4) === ['Loose UOM', 'Bulk Qty', 'Loose Qty', 'Remarks']
+            && array_keys($row) === $headings
+            // The store's three columns, now J to L, keep their yellow heading.
+            && $sheet->getStyle('J1')->getFill()->getStartColor()->getRGB() === 'FFFF00'
+            && $sheet->getStyle('L1')->getFill()->getStartColor()->getRGB() === 'FFFF00'
+            && $sheet->getStyle('I1')->getFill()->getStartColor()->getRGB() === '87CEEB';
+    });
+});
+
 it('keeps Current SOH on the month being counted once the calendar rolls into the next month', function () {
+    config(['month_end_count.template_current_soh' => true]); // switched off by default for now
     $f = mecSohFixture();
     $a = $f['stores']['A'];
     $sap = mecSohEspresso();

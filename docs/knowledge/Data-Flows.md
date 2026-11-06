@@ -539,6 +539,12 @@ transaction and `WorkflowGuidanceService::reportMetrics()` ignores it.
 
 ## Month End Count template: Current SOH
 
+**Switched off since 2026-11-06** (business request, "for now"): `config('month_end_count.template_current_soh')`
+(env `MEC_TEMPLATE_CURRENT_SOH`, default false) leaves the column out of the template, skips the Theoretical SOH
+computation, and hides the page's Current SOH note; the download blockers still apply. The upload reads columns
+by heading, so templates with and without it both upload; without it `month_end_count_items.current_soh` is stored
+0 (NOT NULL, default 0), which Review and the Level 1 / Level 2 pages show. Set the env to true to restore all of it.
+
 The downloaded template's **Current SOH** is the Inventory Movement Report's **Theoretical SOH**
 over the period of the count: previous month's count + approved receipts +
 interco in − sales − level 2 wastage − interco out. Both call `InventoryMovementService::movementData()`,

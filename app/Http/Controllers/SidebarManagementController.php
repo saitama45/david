@@ -129,6 +129,7 @@ class SidebarManagementController extends Controller
         ['menu_key' => 'administration.schedules.orders-cutoff',  'parent_key' => 'administration.schedules', 'default_label' => 'Ordering Cut off',            'level' => 2],
         ['menu_key' => 'administration.knowledge-base',           'parent_key' => 'administration',   'default_label' => 'Knowledge Base Articles',      'level' => 1],
         ['menu_key' => 'administration.wastage-settings',         'parent_key' => 'administration',   'default_label' => 'Wastage Settings',             'level' => 1],
+        ['menu_key' => 'administration.email-notifications',      'parent_key' => 'administration',   'default_label' => 'Email Notifications',          'level' => 1],
         ['menu_key' => 'administration.sidebar-management',       'parent_key' => 'administration',   'default_label' => 'Sidebar Management',           'level' => 1],
     ];
 
