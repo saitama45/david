@@ -65,19 +65,30 @@ class StoreTransactionReceiptProcessor
                         || ($row['__branch_id'] ?? $row['branch'] ?? '') !== ($first['__branch_id'] ?? $first['branch'] ?? '')) {
                         throw new \InvalidArgumentException('Mixed store, date or terminal within a receipt.');
                     }
+                    // A negative quantity is a returned line: its ingredients go back to stock.
                     foreach (['qty','base_qty'] as $field) {
                         $n = $row[$field] ?? null;
-                        if (!is_numeric($n) || !is_finite((float) $n) || $n <= 0 || floor((float) $n) != $n || $n > 2147483647) {
-                            throw new \InvalidArgumentException('Quantity and base quantity must be positive whole numbers within the supported range.');
+                        if (!is_numeric($n) || !is_finite((float) $n) || $n == 0 || floor((float) $n) != $n || abs((float) $n) > 2147483647) {
+                            throw new \InvalidArgumentException('Quantity and base quantity must be nonzero whole numbers within the supported range.');
                         }
+                    }
+                    $returned = $row['qty'] < 0;
+                    if (($row['base_qty'] < 0) !== $returned) {
+                        throw new \InvalidArgumentException('Quantity and base quantity must have the same sign.');
                     }
                     foreach (['price','discount','line_total','net_total'] as $field) {
                         if (!isset($row[$field]) || !is_numeric($row[$field]) || !is_finite((float) $row[$field])) {
                             throw new \InvalidArgumentException("Invalid numeric {$field}.");
                         }
                     }
-                    if ($row['price'] < 0 || $row['line_total'] < 0 || $row['net_total'] < 0) {
-                        throw new \InvalidArgumentException('Negative sales amounts require a correction, not a sales import.');
+                    if ($row['price'] < 0) {
+                        throw new \InvalidArgumentException('Negative unit price requires a correction, not a sales import.');
+                    }
+                    if (!$returned && ($row['line_total'] < 0 || $row['net_total'] < 0)) {
+                        throw new \InvalidArgumentException('Negative sales amounts on a sold line require a correction, not a sales import.');
+                    }
+                    if ($returned && ($row['line_total'] > 0 || $row['net_total'] > 0)) {
+                        throw new \InvalidArgumentException('A returned line (negative quantity) must have zero or negative amounts.');
                     }
                     $take = strtoupper(trim((string) ($row['take_out'] ?? '')));
                     if (!in_array($take, ['', 'N','NO','FALSE','0','Y','YES','TRUE','1','TAKE OUT','TAKEOUT'])) {
@@ -96,7 +107,7 @@ class StoreTransactionReceiptProcessor
                 }
                 $ingredients = [];
                 foreach ($items as $item) {
-                    if ($item['qty'] > 2147483647 || $item['base_qty'] > 2147483647) throw new \InvalidArgumentException('Aggregated quantity exceeds supported range.');
+                    if (abs($item['qty']) > 2147483647 || abs($item['base_qty']) > 2147483647) throw new \InvalidArgumentException('Aggregated quantity exceeds supported range.');
                     $pos = $item['pos'];
                     $bom = POSMasterfileBOM::where('POSCode', $pos->POSCode)->get();
                     $exempt = config('sales_posting.non_inventory_products.'.$branch->entity_id, []);
@@ -130,11 +141,16 @@ class StoreTransactionReceiptProcessor
                 }
                 $snapshots = [];
                 foreach ($ingredients as $ingredient) {
+                    // A sold line takes its ingredients out; a returned line (negative quantity) adds them back.
+                    if ($ingredient['qty'] == 0) continue;
+                    $returned = $ingredient['qty'] < 0;
+                    $quantity = abs($ingredient['qty']);
                     $movement = ProductInventoryStockManager::create(['product_inventory_id' => $ingredient['sap']->id,
-                        'store_branch_id' => $branch->id, 'cost_center_id' => null, 'quantity' => $ingredient['qty'],
-                        'action' => 'out', 'unit_cost' => $ingredient['cost'], 'total_cost' => $ingredient['qty'] * $ingredient['cost'],
+                        'store_branch_id' => $branch->id, 'cost_center_id' => null, 'quantity' => $quantity,
+                        'action' => $returned ? 'add' : 'out', 'unit_cost' => $ingredient['cost'], 'total_cost' => $quantity * $ingredient['cost'],
                         'transaction_date' => $date,
-                        'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$ingredient['bom_qty']} {$ingredient['bom_uom']}"]);
+                        'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$ingredient['bom_qty']} {$ingredient['bom_uom']}"
+                            .($returned ? '; returned, added back to stock' : '')]);
                     $snapshots[] = (array) DB::table('product_inventory_stock_managers')->where('id', $movement->id)
                         ->first(['id','entity_id','product_inventory_id','store_branch_id','quantity','action','unit_cost','total_cost','transaction_date','remarks']);
                 }

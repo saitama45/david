@@ -270,6 +270,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   import timestamp — a day's POS file is uploaded the next day, and one upload usually carries
   several earlier sales dates. Any sales-by-date report must filter `order_date` (date-only, so
   `whereBetween` is already inclusive). The Inventory Movement Report had this wrong until 2026-09-18.
+- **A negative sales quantity is a returned line and adds its BOM ingredients back** (since 2026-11-10, POS
+  and Excel). POS return flag `1` (the sale later returned) posts as a sale; flag `2` (the return, negative
+  lines) posts `add` movements, but only once its original is in `pos_sync_receipts`. Voids post nothing.
+  Reports net returns because they sum `store_transaction_items.quantity`: never filter sales to positive
+  quantities. Detail: [docs/pos-sales-sync.md](docs/pos-sales-sync.md).
 - **A month end count is identified by its MEC Scheduled Date, not by a calendar month.**
   `month_end_schedules.calculated_date` often sits in the month after the schedule's `year`/`month`
   (the March 2026 count is dated Apr 5), so never map a picked date to a count through its month. The

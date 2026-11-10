@@ -45,10 +45,13 @@ class PosReceiptMapper
     public function map(array $sale, array $lines, array $profile, ?array &$corrections = null): array
     {
         $corrections = [];
+        // freturn_flag: 0 a sale, 1 a sale that was later returned (still sold, so it
+        // deducts), 2 the return itself, whose negative lines add the stock back.
         if (($sale['fpost_flag'] ?? '') !== '1' || ($sale['fvoid_flag'] ?? '') !== '0'
-            || ($sale['freturn_flag'] ?? '') !== '0' || trim($sale['ftrx_no'] ?? '') === '0') {
-            throw new InvalidArgumentException('Unposted, void or return receipt requires separate reconciliation.');
+            || !in_array($sale['freturn_flag'] ?? '', ['0', '1', '2'], true) || trim($sale['ftrx_no'] ?? '') === '0') {
+            throw new InvalidArgumentException('Unposted or void receipt, or an unknown return flag, requires separate reconciliation.');
         }
+        $isReturn = $sale['freturn_flag'] === '2';
         $date = \DateTimeImmutable::createFromFormat('!Ymd', $sale['fsale_date'] ?? '');
         if (!$date || $date->format('Ymd') !== $sale['fsale_date']) {
             throw new InvalidArgumentException('Invalid POS sale date; expected YYYYMMDD.');
@@ -121,9 +124,14 @@ class PosReceiptMapper
             $price = $this->number($line['funitprice']);
             $lineTotal = $this->number($line['ftotal_line']);
             $lineVariance = $this->number($line['fvar'] ?? 0);
-            // The existing destination columns are integers. Never truncate sales.
-            if ($qty <= 0 || $base <= 0 || $qty > 2147483647 || $base > 2147483647 || floor($qty) !== $qty || floor($base) !== $base) {
-                throw new InvalidArgumentException('Nonpositive or fractional quantity cannot be imported into the current integer quantity columns.');
+            // The existing destination columns are integers. Never truncate sales. A negative
+            // quantity is a returned line: it adds its ingredients back to stock.
+            if ($qty == 0.0 || $base == 0.0 || ($qty < 0) !== ($base < 0) || abs($qty) > 2147483647 || abs($base) > 2147483647
+                || floor($qty) !== $qty || floor($base) !== $base) {
+                throw new InvalidArgumentException('Zero or fractional quantity cannot be imported into the current integer quantity columns.');
+            }
+            if ($isReturn && $qty > 0) {
+                throw new InvalidArgumentException('Return receipt has a sold (positive) line; reconcile it before posting.');
             }
             if (trim($line['fproductid']) === '') {
                 throw new InvalidArgumentException('Missing POS product code.');

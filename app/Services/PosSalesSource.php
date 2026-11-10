@@ -15,7 +15,7 @@ class PosSalesSource
         $fresh['after'] = $previous;
         $source = DB::connection(config('pos_sync.connection'));
         $referenceChanged = false;
-        foreach (['mst_account', 'mst_discount', 'mst_product', 'mst_pricelevel'] as $table) {
+        foreach (['mst_account', 'mst_discount', 'mst_product', 'mst_price_level'] as $table) {
             // Some store replicas do not supply optional reference tables.
             if (!$source->getSchemaBuilder()->hasColumn($table, '_sync_timestamp')) continue;
             $query = $source->table($table)->where('fcompanyid', $profile['company'])
@@ -89,9 +89,12 @@ class PosSalesSource
         $db = DB::connection(config('pos_sync.connection'));
         $base = $db->table('pos_sale')->where('fcompanyid', $profile['company'])->where('fsiteid', $profile['site']);
         $keys = $this->candidateKeys($profile, $from, $to, $window); // Close SQL Server results before receipt transactions (MARS).
+        // Returns come last, so a sale returned in the same batch posts before its return.
+        $returns = [];
         foreach ($keys as $key) {
             $identity = [$profile['company'], $profile['site'], $key->fpubid, $key->frecno];
             $packet = ['identity' => $identity, 'key' => hash('sha256', json_encode($identity)), 'error' => null];
+            $isReturn = false;
             try {
                 $headers = (clone $base)->where('fpubid', $key->fpubid)->where('frecno', $key->frecno)
                     ->get()->map(fn ($r) => (array) $r)->all();
@@ -110,8 +113,14 @@ class PosSalesSource
                     throw new RuntimeException('Source receipt header is missing or ambiguous.');
                 }
                 $header = $headers[0];
+                // A returned sale (return flag 1) still posts: its return (flag 2) adds the stock back.
                 $packet['excluded'] = ($header['fpost_flag'] ?? '') === '0' || ($header['fvoid_flag'] ?? '') === '1'
-                    || ($header['freturn_flag'] ?? '') === '1' || trim($header['ftrx_no'] ?? '') === '0';
+                    || trim($header['ftrx_no'] ?? '') === '0';
+                if (($header['freturn_flag'] ?? '') === '2') {
+                    $isReturn = true;
+                    $packet['return_of'] = [$profile['company'], $profile['site'],
+                        (string) ($header['freturn_pubid'] ?? ''), (string) ($header['freturn_recno'] ?? '')];
+                }
                 $lines = $mapper->uniqueRows($lines, 'fseqno');
                 foreach ($lines as $line) {
                     // Orders can open on one terminal and settle on another.
@@ -134,6 +143,13 @@ class PosSalesSource
                 }
                 $packet['error'] = $e->getMessage();
             }
+            if ($isReturn) {
+                $returns[] = $packet;
+                continue;
+            }
+            yield $packet;
+        }
+        foreach ($returns as $packet) {
             yield $packet;
         }
     }

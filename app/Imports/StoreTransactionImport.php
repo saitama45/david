@@ -201,6 +201,13 @@ class StoreTransactionImport extends \App\Services\StoreTransactionReceiptProces
             $row[$key] = $rawRow[$column] ?? null;
         }
 
+        // A report written as text shows a negative (a returned line) in brackets: "(170)" is -170.
+        foreach (['qty', 'base_qty', 'price', 'discount', 'line_total', 'net_total'] as $key) {
+            if (is_string($row[$key] ?? null) && preg_match('/^\(\s*(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?\s*\)$/', trim($row[$key]), $match)) {
+                $row[$key] = '-' . str_replace(',', '', $match[1]) . ($match[2] ?? '');
+            }
+        }
+
         return $row;
     }
 

@@ -33,9 +33,10 @@ class SalesPostingCorrection
             $originalItems = $sale->store_transaction_items()->get()->toJson();
             $reversals = [];
             foreach (json_decode($old->movements, true, 512, JSON_THROW_ON_ERROR) as $movement) {
+                // Reverse in the opposite direction: a sold line's `out` comes back as `add`, a returned line's `add` goes `out`.
                 $reversal = ProductInventoryStockManager::create([
                     'product_inventory_id' => $movement['product_inventory_id'], 'store_branch_id' => $sale->store_branch_id,
-                    'quantity' => $movement['quantity'], 'action' => 'add', 'unit_cost' => $movement['unit_cost'],
+                    'quantity' => $movement['quantity'], 'action' => ($movement['action'] ?? 'out') === 'add' ? 'out' : 'add', 'unit_cost' => $movement['unit_cost'],
                     'total_cost' => $movement['total_cost'], 'transaction_date' => $sale->order_date->format('Y-m-d'),
                     'remarks' => "Correction of sale #{$sale->id}; reverses movement #{$movement['id']}: {$reason}",
                 ]);

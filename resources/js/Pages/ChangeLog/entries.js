@@ -15,6 +15,31 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 10, 2026
+    {
+        date: '2026-11-10',
+        module: 'Store Transactions',
+        type: 'improved',
+        title: 'POS returns now add the returned items back to stock, and a negative quantity like -170 or (170) adds instead of deducting',
+        summary:
+            'Before, a POS return was held out of the system: the returned sale and its return changed no stock, and a return of a sale already recorded never put anything back. Now the returned sale is recorded like any other sale, and the return adds the ingredients of the returned items back to the store\'s stock. A full return leaves the stock where it was before the sale, and a partial return gives back only what was returned.',
+        steps: [
+            'The cashier makes a return in the POS.',
+            'The automated POS sync records the original sale, which deducts its ingredients.',
+            'The sync then records the return as a sale with a negative quantity, which adds the same ingredients back, dated on the sales date.',
+            'Store Transactions shows the return with a negative quantity and negative amounts.',
+        ],
+        rules: [
+            'A line with a negative quantity is a returned line. Its ingredients are added back to stock at the recipe quantity in the BOM List, the same quantity a sale deducts. For example, 2 cups returned of a drink that uses 0.5 KG of beans per cup add 1 KG of beans back.',
+            'A return adds stock back only after its original sale is recorded in the system. Until then it waits in the Work Queue as an unresolved receipt, and nothing is added.',
+            'A voided receipt still changes no stock.',
+            'A POS return receipt that also carries a sold (positive) line is held in the Work Queue for review.',
+            'In a sales upload, a quantity written as -170 or as (170) is a returned line of 170. Quantity and Base Qty must both be negative, Line Total and Net Total must be zero or negative, and Price stays positive. Otherwise the whole receipt is skipped and listed in the skipped rows file.',
+            'Sales totals and the Sales figure of the Inventory Movement Report are net of returns.',
+            'Correcting a return reverses what it added and records the corrected return instead.',
+        ],
+        affects: 'Stores on the automated POS sync, users who upload sales, and anyone reading stock, Store Transactions or the Inventory Movement Report.',
+    },
     // ---------------------------------------------------------------- November 6, 2026
     {
         date: '2026-11-06',

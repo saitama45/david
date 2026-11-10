@@ -172,6 +172,12 @@ class PosSalesSync
                     ? ['status' => 'unchanged', 'reason' => 'Already synchronized.']
                     : ['status' => 'review', 'reason' => 'Imported source changed or destination is missing. Reconcile original inventory movements before reposting.'];
             }
+            // A return adds back only what DAVID deducted: its original sale must be posted first.
+            if (!empty($packet['return_of']) && !DB::table('pos_sync_receipts')
+                ->where('source_key', hash('sha256', json_encode($packet['return_of'])))->exists()) {
+                return ['status' => 'review', 'reason' => 'Return of POS record '.$packet['return_of'][2].'/'.$packet['return_of'][3]
+                    .': its original sale is not posted yet, so nothing is added back to stock. It posts once the original sale does.'];
+            }
             $first = $packet['rows'][0];
             $ledger = new SalesPostingLedger;
             $existing = $ledger->existing($profile['branch_id'], $first['date'], $first['receipt_no'], $first['tm']);

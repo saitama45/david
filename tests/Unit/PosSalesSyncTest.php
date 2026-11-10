@@ -179,7 +179,136 @@ class PosSalesSyncTest extends TestCase
         $this->assertSame(3, DB::table('sales_postings')->count());
     }
 
-    public function test_manual_negative_quantity_and_missing_bom_never_post(): void
+    public function test_negative_quantity_returns_ingredients_to_stock_and_correction_reverses_it(): void
+    {
+        $rows = $this->packet()['rows'];
+        $rows[0] = array_replace($rows[0], ['qty' => -2, 'base_qty' => -2, 'discount' => -20, 'line_total' => -180, 'net_total' => -180]);
+        $this->assertNotNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($rows)));
+        $this->assertSame(-2.0, (float) DB::table('store_transaction_items')->value('quantity'));
+        $movements = DB::table('product_inventory_stock_managers')->where('remarks', 'like', 'Sale #%')->get();
+        $this->assertCount(1, $movements);
+        $this->assertSame('add', $movements[0]->action);
+        $this->assertSame(1.0, (float) $movements[0]->quantity); // 0.5 KG of beans per cup x 2 cups returned
+        $this->assertStringEndsWith('returned, added back to stock', $movements[0]->remarks);
+
+        // A returned line cannot carry a sold (positive) amount, and the two quantities must agree in sign.
+        foreach ([['line_total' => 180], ['base_qty' => 2]] as $i => $wrong) {
+            $bad = $rows; $bad[0] = array_replace($bad[0], ['receipt_no' => (string) (90 + $i)], $wrong);
+            $this->assertNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($bad)));
+        }
+
+        // Correcting the return from 2 cups to 1 takes the first return back out and adds 0.5 KG.
+        $actor = \Mockery::mock(\App\Models\User::class)->makePartial();
+        $actor->id = 7;
+        $actor->shouldReceive('can')->with('edit store transactions')->andReturn(true);
+        $actor->shouldReceive('hasRole')->with('admin')->andReturn(true);
+        $corrected = $rows;
+        $corrected[0] = array_replace($corrected[0], ['qty' => -1, 'base_qty' => -1, 'discount' => -10, 'line_total' => -90, 'net_total' => -90]);
+        (new \App\Services\SalesPostingCorrection)->replace(\App\Models\StoreTransaction::first(), $corrected, $actor, 'Customer returned one cup only');
+        $balance = fn () => (float) DB::table('product_inventory_stock_managers')->where('action', 'add')->sum('quantity')
+            - (float) DB::table('product_inventory_stock_managers')->where('action', 'out')->sum('quantity');
+        $this->assertSame(10.5, $balance());
+        $this->assertSame(1.0, (float) DB::table('product_inventory_stock_managers')->where('action', 'out')->sum('quantity'));
+    }
+
+    public function test_mapper_posts_returned_sales_and_returns_but_never_voids(): void
+    {
+        $mapper = new PosReceiptMapper;
+        // Return flag 1 is a sale that was later returned: it still sells (deducts).
+        $sold = $mapper->map(array_replace($this->sale(), ['freturn_flag' => '1']), [$this->line()], $this->profile());
+        $this->assertSame(2.0, (float) $sold[0]['qty']);
+
+        // Return flag 2 is the return: POS sends the lines negative.
+        [$returnSale, $returnLine] = $this->returnReceipt();
+        $rows = $mapper->map($returnSale, [$returnLine], $this->profile());
+        $this->assertSame(-2.0, (float) $rows[0]['qty']);
+        $this->assertSame(-2.0, (float) $rows[0]['base_qty']);
+        $this->assertSame(-180.0, (float) $rows[0]['line_total']);
+        $this->assertSame(-180.0, (float) $rows[0]['net_total']);
+
+        foreach ([
+            [array_replace($this->sale(), ['fvoid_flag' => '1']), $this->line()],
+            [array_replace($this->sale(), ['freturn_flag' => '3']), $this->line()],
+            [$returnSale, $this->line()], // a return receipt with a sold line
+        ] as [$sale, $line]) {
+            try {
+                $mapper->map($sale, [$line], $this->profile());
+                $this->fail('Expected the receipt to be held');
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function test_return_posts_after_its_original_and_puts_the_stock_back(): void
+    {
+        $original = $this->sale() + ['freturn_pubid' => '', 'freturn_recno' => '0'];
+        $original['freturn_flag'] = '1';
+        [$returnSale, $returnLine] = $this->returnReceipt();
+        $void = array_replace($original, ['frecno' => '3', 'ftrx_no' => '44', 'freturn_flag' => '0', 'fvoid_flag' => '1']);
+        foreach (['pos_sale' => $original, 'pos_sale_product' => $this->line(),
+            'pos_sale_cancel' => ['fcompanyid' => '', 'fpubid' => '', 'frecno' => '']] as $name => $sample) {
+            Schema::create($name, function (Blueprint $table) use ($sample) {
+                foreach (array_keys($sample) as $column) $table->string($column);
+                $table->dateTime('_sync_timestamp');
+            });
+        }
+        $old = ['_sync_timestamp' => '2020-01-01 00:00:00'];
+        // The return is stored first, so the source has to put it last.
+        DB::table('pos_sale')->insert([$returnSale + $old, $original + $old, $void + $old]);
+        DB::table('pos_sale_product')->insert([$returnLine + $old, $this->line() + $old,
+            array_replace($this->line(), ['frecno' => '3']) + $old]);
+
+        $packets = array_values(array_filter(iterator_to_array((new PosSalesSource)->receipts($this->profile(), '2026-09-19', '2026-09-19'), false),
+            fn ($packet) => empty($packet['excluded'])));
+        $this->assertCount(2, $packets); // the void receipt is still left out
+        $this->assertSame('1', $packets[0]['identity'][3]);
+        $this->assertSame(['COMPANY', 'TEST', 'PUB', '1'], $packets[1]['return_of']);
+        $this->assertNull($packets[0]['error']);
+        $this->assertNull($packets[1]['error']);
+
+        $sync = new PosSalesSync;
+        // On its own the return waits: DAVID never deducted the sale it returns.
+        $this->assertSame('review', $sync->process($packets[1], $this->profile(), 123)['status']);
+        $this->assertSame(0, DB::table('store_transactions')->count());
+        $this->assertSame('imported', $sync->process($packets[0], $this->profile(), 124)['status']);
+        $this->assertSame('imported', $sync->process($packets[1], $this->profile(), 125)['status']);
+        $this->assertSame(0, DB::table('pos_sync_exceptions')->whereNull('resolved_at')->count());
+        // 0.5 KG x 2 cups out for the sale, and back in for the return.
+        $sales = DB::table('product_inventory_stock_managers')->where('remarks', 'like', 'Sale #%');
+        $this->assertSame(1.0, (float) (clone $sales)->where('action', 'out')->sum('quantity'));
+        $this->assertSame(1.0, (float) (clone $sales)->where('action', 'add')->sum('quantity'));
+        $this->assertSame(0.0, (float) DB::table('store_transaction_items')->sum('quantity'));
+        $this->assertSame('unchanged', $sync->process($packets[1], $this->profile(), 126)['status']);
+    }
+
+    public function test_excel_brackets_are_a_returned_line_that_adds_stock_back(): void
+    {
+        $import = new StoreTransactionImport;
+        $import->collection(collect([
+            ['Product ID','Branch','Date','Receipt No','TM#','Qty','Base Qty','Price','Discount','Line Total','Net Total'],
+            ['COFFEE','TEST','2026-09-19','43','0041','(2)','(2)',100,'(20)','(180)','(1,180.00)'],
+            ['COFFEE','TEST','2026-09-19','44','0041',-2,-2,100,-20,-180,-180],
+        ]));
+        $this->assertSame(2, $import->getCreatedCount());
+        $this->assertCount(0, $import->getSkippedRows());
+        $this->assertSame(-1180.0, (float) DB::table('store_transaction_items')->min('net_total'));
+        $sales = DB::table('product_inventory_stock_managers')->where('remarks', 'like', 'Sale #%');
+        $this->assertSame(['add'], (clone $sales)->distinct()->pluck('action')->all());
+        $this->assertSame(2.0, (float) $sales->sum('quantity'));
+    }
+
+    /** A POS return receipt (return flag 2) of the sale(), with its line. */
+    private function returnReceipt(): array
+    {
+        return [
+            array_replace($this->sale() + ['freturn_pubid' => '', 'freturn_recno' => '0'], ['frecno' => '2', 'ftrx_no' => '43',
+                'freturn_flag' => '2', 'freturn_pubid' => 'PUB', 'freturn_recno' => '1', 'fsubtotal' => '-180', 'fgross' => '-180']),
+            array_replace($this->line(), ['frecno' => '2', 'fqty' => '-2', 'ftotal_discount' => '-20', 'fextprice' => '-200', 'ftotal_line' => '-180']),
+        ];
+    }
+
+    public function test_mismatched_quantity_signs_and_missing_bom_never_post(): void
     {
         $rows = $this->packet()['rows']; $rows[0]['qty'] = -2;
         $this->assertNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($rows)));
@@ -592,7 +721,7 @@ class PosSalesSyncTest extends TestCase
                 foreach (['fcompanyid','fsiteid','fpubid','frecno','fsale_date','_sync_timestamp'] as $column) $table->string($column);
             });
         }
-        foreach (['mst_account','mst_discount','mst_product','mst_pricelevel'] as $name) {
+        foreach (['mst_account','mst_discount','mst_product','mst_price_level'] as $name) {
             Schema::create($name, function (Blueprint $table) {
                 $table->string('fcompanyid'); $table->string('_sync_timestamp');
             });
@@ -616,7 +745,7 @@ class PosSalesSyncTest extends TestCase
             $this->assertFalse($fresh['reference_changed']);
             DB::table($table)->where('_sync_timestamp','2026-09-19 11:00:10')->delete();
         }
-        foreach (['mst_account','mst_discount','mst_product','mst_pricelevel'] as $table) {
+        foreach (['mst_account','mst_discount','mst_product','mst_price_level'] as $table) {
             DB::table($table)->insert(['fcompanyid'=>'COMPANY','_sync_timestamp'=>'2026-09-19 11:00:10']);
             $fresh = $source->arrivalWindow($this->profile(),$window,$previous);
             $this->assertTrue($fresh['reference_changed']);
@@ -932,7 +1061,7 @@ class PosSalesSyncTest extends TestCase
         $this->assertSame(162.0, $rows[0]['net_total']);
         $this->assertSame(180.0, $rows[1]['net_total']);
         $this->assertSame(20.0, $rows[0]['discount']);
-        $this->expectExceptionMessage('Unposted, void or return');
+        $this->expectExceptionMessage('Unposted or void receipt');
         (new PosReceiptMapper)->map(array_replace($sale,['fvoid_flag'=>'1']), [$first], $this->profile());
     }
 
