@@ -38,8 +38,8 @@ class FreezeBomHistory extends Command
     /** Rows per plain multi-row insert: 23 columns a row stay under SQL Server's 2,100 parameters. */
     private const ROWS_PER_INSERT = 80;
 
-    /** Rows per OPENJSON insert: one parameter, so one round trip, whatever the row count. */
-    private const ROWS_PER_JSON = 2000;
+    /** Rows per OPENJSON insert: one parameter, so one round trip, and ~1 MB of JSON at a time. */
+    private const ROWS_PER_JSON = 1000;
 
     /** bom_consumptions columns as OPENJSON reads them. */
     private const JSON_COLUMNS = [
@@ -70,6 +70,7 @@ class FreezeBomHistory extends Command
     {
         $apply = (bool) $this->option('apply');
         $branch = $this->option('branch') !== null ? (int) $this->option('branch') : null;
+        $this->raiseMemoryLimit();
 
         $this->info($apply ? 'Freezing.' : 'Dry run: nothing is written. Run again with --apply to write.');
 
@@ -114,7 +115,6 @@ class FreezeBomHistory extends Command
         // progress; running again resumes.
         $open->select(['id', 'store_branch_id', 'order_date'])
             ->chunkById(self::SALES_PER_BATCH, function (Collection $sales) use ($apply, &$stats, &$done, $total, $started) {
-                $rows = [];
                 $ids = $sales->pluck('id')->all();
                 $postings = DB::table('sales_postings')->whereIn('store_transaction_id', $ids)->get()->keyBy('store_transaction_id');
                 $items = DB::table('store_transaction_items as sti')
@@ -126,36 +126,53 @@ class FreezeBomHistory extends Command
                 $entities = DB::table('store_branches')->whereIn('id', $sales->pluck('store_branch_id')->unique()->all())->pluck('entity_id', 'id');
                 $this->prefetch($sales, $items, $postings, $entities);
 
-                foreach ($sales as $sale) {
-                    $entityId = $entities[$sale->store_branch_id] ?? null;
-                    $entityId = $entityId !== null ? (int) $entityId : null;
-                    $saleItems = $items->get($sale->id, collect());
-                    $current = $this->currentBomLines($sale, $saleItems, $entityId);
-                    $posting = $postings->get($sale->id);
-                    $lines = $posting ? $this->snapshotLines($sale, $posting, $saleItems, $entityId) : $current;
+                // The batch's lines are written as they fill, never held all at once: a batch of 500
+                // sales is ~12,000 lines, which with the app itself took a 128 MB PHP over its limit.
+                $work = function () use ($sales, $items, $postings, $entities, $apply, &$stats) {
+                    $rows = [];
 
-                    $this->compare($sale->store_branch_id, (string) $sale->order_date, $current, $lines);
-                    $stats[$posting ? 'snapshot' : 'current_bom']++;
-                    $stats['lines'] += count($lines);
+                    foreach ($sales as $sale) {
+                        $entityId = $entities[$sale->store_branch_id] ?? null;
+                        $entityId = $entityId !== null ? (int) $entityId : null;
+                        $saleItems = $items->get($sale->id, collect());
+                        $current = $this->currentBomLines($sale, $saleItems, $entityId);
+                        $posting = $postings->get($sale->id);
+                        $lines = $posting ? $this->snapshotLines($sale, $posting, $saleItems, $entityId) : $current;
 
-                    foreach ($lines as $line) {
-                        $rows[] = BomConsumptions::row($line);
+                        $this->compare($sale->store_branch_id, (string) $sale->order_date, $current, $lines);
+                        $stats[$posting ? 'snapshot' : 'current_bom']++;
+                        $stats['lines'] += count($lines);
+
+                        if (! $apply) {
+                            continue;
+                        }
+
+                        foreach ($lines as $line) {
+                            $rows[] = BomConsumptions::row($line);
+                        }
+
+                        if (count($rows) >= self::ROWS_PER_JSON) {
+                            $this->insertLines($rows);
+                            $rows = [];
+                        }
                     }
-                }
 
-                if ($apply) {
-                    DB::transaction(function () use ($rows, $sales) {
+                    if ($apply) {
                         $this->insertLines($rows);
                         // Frozen even with no lines: it no longer reads the BOM at all.
                         DB::table('store_transactions')->whereIn('id', $sales->pluck('id')->all())->update(['bom_frozen_at' => now()]);
-                    });
-                }
+                    }
+                };
+                $apply ? DB::transaction($work) : $work();
 
                 $done += $sales->count();
+                unset($items, $postings, $work);
+                gc_collect_cycles();
                 $rate = $done / max(microtime(true) - $started, 0.001);
                 $left = $rate > 0 ? (int) round(($total - $done) / $rate / 60) : 0;
-                $this->line(sprintf('  sales %s of %s (%s lines)%s', number_format($done), number_format($total), number_format($stats['lines']),
-                    $done < $total ? ", about {$left} min left" : ''));
+                $this->line(sprintf('  sales %s of %s (%s lines)%s%s', number_format($done), number_format($total), number_format($stats['lines']),
+                    $done < $total ? ", about {$left} min left" : '',
+                    $this->output->isVerbose() ? sprintf(', memory peak %d MB', memory_get_peak_usage(true) / 1048576) : ''));
             });
 
         return $stats;
@@ -434,7 +451,28 @@ class FreezeBomHistory extends Command
         }
     }
 
-    /** Writes the lines: one OPENJSON statement per 2,000 rows on SQL Server, multi-row inserts elsewhere. */
+    /**
+     * The CLI on Azure runs with 128 MB, which a run over tens of thousands of sales outgrew
+     * (2026-11-11, at 2,500 of 68,085). Raised for this command alone; a higher limit is kept.
+     */
+    private function raiseMemoryLimit(): void
+    {
+        $limit = trim((string) ini_get('memory_limit'));
+
+        if ($limit === '-1') {
+            return;
+        }
+
+        $bytes = (int) $limit * match (strtoupper(substr($limit, -1))) {
+            'G' => 1073741824, 'M' => 1048576, 'K' => 1024, default => 1,
+        };
+
+        if ($bytes < 512 * 1048576) {
+            ini_set('memory_limit', '1024M');
+        }
+    }
+
+    /** Writes the lines: one OPENJSON statement per 1,000 rows on SQL Server, multi-row inserts elsewhere. */
     private function insertLines(array $rows): void
     {
         if ($rows === []) {
