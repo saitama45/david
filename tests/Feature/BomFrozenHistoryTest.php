@@ -139,6 +139,27 @@ it('reads the BOM for a sale not frozen yet, until bom:freeze-history freezes it
         ->and(DB::table('bom_consumptions')->count())->toBe(1);
 });
 
+it('reads the recipes and units of a whole batch in one query each and writes its lines in one statement', function () {
+    $f = frozenFixture(170);
+    foreach (range(1, 5) as $i) {
+        frozenLegacySale($f, "OLD-{$i}", $i);
+    }
+    $queries = collect();
+    DB::listen(fn ($query) => $queries->push($query->sql));
+
+    test()->artisan('bom:freeze-history', ['--apply' => true])->assertSuccessful();
+
+    // A distant database costs a round trip per query: per batch, not per sale or per recipe.
+    expect($queries->filter(fn ($sql) => str_contains($sql, '[pos_masterfiles_bom]'))->count())->toBe(1)
+        ->and($queries->filter(fn ($sql) => str_contains($sql, 'from [sap_masterfiles]'))->count())->toBe(1)
+        ->and($queries->filter(fn ($sql) => str_contains($sql, 'OPENJSON'))->count())->toBe(1)
+        ->and(DB::table('bom_consumptions')->count())->toBe(5)
+        ->and((float) DB::table('bom_consumptions')->sum('qty'))->toBe(2550.0) // (1+2+3+4+5) lattes x 170 Ml
+        ->and(DB::table('store_transactions')->whereNull('bom_frozen_at')->count())->toBe(0)
+        // Written in Manila wall time, as Eloquent writes timestamps.
+        ->and(abs(\Carbon\Carbon::parse(DB::table('bom_consumptions')->value('created_at'))->diffInMinutes(now())))->toBeLessThan(5);
+});
+
 it('freezes a sale posted before lines were kept at what its posting really deducted, not at today\'s BOM', function () {
     $f = frozenFixture(170);
     frozenPostSale($f, '1001', 2);

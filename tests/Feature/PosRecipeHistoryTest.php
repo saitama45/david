@@ -28,7 +28,8 @@ function historyFixture(): array
 
     $entity = Entity::create(['name' => 'Test Entity', 'code' => 'TE'.uniqid(), 'is_active' => true]);
     app(EntityContext::class)->set($entity->id);
-    $user = User::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
+    // Fixed emails: Changed By also matches the email, and a random one can contain any search term.
+    $user = User::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'email' => 'maria.santos@example.com']);
     test()->actingAs($user);
 
     POSMasterfile::create(['POSCode' => 'POS-LATTE', 'POSDescription' => 'Coffee Latte', 'SRP' => 150, 'is_active' => true]);
@@ -178,8 +179,8 @@ it('copies form changes from the audit log once, and none made after the history
 
 it('searches Changed By among the users who made a change, from three characters or an exact short name', function () {
     ['user' => $user] = historyFixture();
-    $other = User::factory()->create(['first_name' => 'Al', 'last_name' => 'Cruz']);
-    User::factory()->create(['first_name' => 'Maria', 'last_name' => 'Clara']); // made no change: never offered
+    $other = User::factory()->create(['first_name' => 'Al', 'last_name' => 'Cruz', 'email' => 'al.cruz@example.com']);
+    User::factory()->create(['first_name' => 'Maria', 'last_name' => 'Clara', 'email' => 'maria.clara@example.com']); // made no change: never offered
     historyImport([historyBomRow(170)], 'bom-september.xlsx');
     test()->actingAs($other);
     historyImport([historyBomRow(150)], 'bom-october.xlsx');

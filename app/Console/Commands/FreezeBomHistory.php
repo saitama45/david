@@ -33,9 +33,26 @@ class FreezeBomHistory extends Command
 
     protected $description = 'Freeze the ingredients past sales and Sub-Prep wastage used, and copy past BOM / POS item audits into the change history (dry run unless --apply)';
 
-    private const SALES_PER_BATCH = 200;
+    private const SALES_PER_BATCH = 500;
 
+    /** Rows per plain multi-row insert: 23 columns a row stay under SQL Server's 2,100 parameters. */
     private const ROWS_PER_INSERT = 80;
+
+    /** Rows per OPENJSON insert: one parameter, so one round trip, whatever the row count. */
+    private const ROWS_PER_JSON = 2000;
+
+    /** bom_consumptions columns as OPENJSON reads them. */
+    private const JSON_COLUMNS = [
+        'entity_id' => 'bigint', 'store_branch_id' => 'bigint', 'business_date' => 'date', 'source_type' => 'nvarchar(20)',
+        'store_transaction_id' => 'bigint', 'store_transaction_item_id' => 'bigint', 'wastage_id' => 'bigint',
+        'pos_masterfile_id' => 'bigint', 'pos_code' => 'nvarchar(255)', 'pos_description' => 'nvarchar(255)',
+        'bom_line_id' => 'bigint', 'item_code' => 'nvarchar(255)', 'bom_uom' => 'nvarchar(255)',
+        'bom_qty' => 'decimal(18,7)', 'units' => 'decimal(18,4)', 'qty' => 'decimal(28,10)', 'stock_row_id' => 'bigint',
+        'stock_qty' => 'decimal(28,10)', 'unit_cost' => 'decimal(28,10)', 'movement_id' => 'bigint', 'origin' => 'nvarchar(20)',
+        'created_at' => 'datetime2', 'updated_at' => 'datetime2',
+    ];
+
+    private ?bool $openJson = null;
 
     /** @var array<string, ItemStockUnit> */
     private array $stockUnits = [];
@@ -90,9 +107,11 @@ class FreezeBomHistory extends Command
         $started = microtime(true);
         $this->line("Sales to freeze: {$total}");
 
-        // One transaction per 200 sales, their lines in multi-row inserts: against a distant
-        // database each round trip costs, and one transaction per sale took ~3 s a sale.
-        // An interrupted run loses at most the batch in progress; running again resumes.
+        // Round trips are what cost against a distant database (about 1 s each to the Test cloud
+        // database): one transaction per sale and one lookup per recipe took ~3 s a sale. So each
+        // batch of 500 sales reads its recipes, units and stock rows in a few queries, writes its
+        // lines in one statement and commits once. An interrupted run loses at most the batch in
+        // progress; running again resumes.
         $open->select(['id', 'store_branch_id', 'order_date'])
             ->chunkById(self::SALES_PER_BATCH, function (Collection $sales) use ($apply, &$stats, &$done, $total, $started) {
                 $rows = [];
@@ -105,6 +124,7 @@ class FreezeBomHistory extends Command
                     ->get(['sti.id', 'sti.store_transaction_id', 'sti.product_id', 'sti.quantity', 'pm.POSCode', 'pm.POSDescription', 'pm.entity_id'])
                     ->groupBy('store_transaction_id');
                 $entities = DB::table('store_branches')->whereIn('id', $sales->pluck('store_branch_id')->unique()->all())->pluck('entity_id', 'id');
+                $this->prefetch($sales, $items, $postings, $entities);
 
                 foreach ($sales as $sale) {
                     $entityId = $entities[$sale->store_branch_id] ?? null;
@@ -125,10 +145,7 @@ class FreezeBomHistory extends Command
 
                 if ($apply) {
                     DB::transaction(function () use ($rows, $sales) {
-                        // 23 columns a row: 80 rows stay under SQL Server's 2,100 parameters.
-                        foreach (array_chunk($rows, self::ROWS_PER_INSERT) as $chunk) {
-                            DB::table('bom_consumptions')->insert($chunk);
-                        }
+                        $this->insertLines($rows);
                         // Frozen even with no lines: it no longer reads the BOM at all.
                         DB::table('store_transactions')->whereIn('id', $sales->pluck('id')->all())->update(['bom_frozen_at' => now()]);
                     });
@@ -353,9 +370,115 @@ class FreezeBomHistory extends Command
         $this->info("Before / after written to {$path}.");
     }
 
+    /**
+     * Loads, in a few queries, the recipes, item units and stock rows a batch of sales needs and
+     * the caches do not hold yet - one query per recipe or item cost a round trip each.
+     */
+    private function prefetch(Collection $sales, Collection $items, Collection $postings, Collection $entities): void
+    {
+        $saleEntity = $sales->mapWithKeys(fn ($sale) => [$sale->id => isset($entities[$sale->store_branch_id]) ? (int) $entities[$sale->store_branch_id] : null]);
+        $items = $items->flatten(1);
+
+        // Recipes, keyed as bom() keys them (POS code + the product's entity).
+        $wanted = $items->map(fn ($item) => [(string) $item->POSCode, $item->entity_id !== null ? (int) $item->entity_id : null])
+            ->unique(fn ($pair) => self::bomKey(...$pair))
+            ->reject(fn ($pair) => isset($this->boms[self::bomKey(...$pair)]));
+        foreach ($wanted->chunk(1000) as $chunk) {
+            $lines = DB::table('pos_masterfiles_bom')->whereIn('POSCode', $chunk->pluck(0)->unique()->values()->all())->orderBy('id')
+                ->get(['id', 'POSCode', 'entity_id', 'ItemCode', 'BOMUOM', 'BOMQty', 'UnitCost'])
+                ->groupBy(fn ($line) => self::bomKey((string) $line->POSCode, $line->entity_id !== null ? (int) $line->entity_id : null));
+            foreach ($chunk as $pair) {
+                $this->boms[self::bomKey(...$pair)] = $lines->get(self::bomKey(...$pair), collect())->values();
+            }
+        }
+
+        // Stock rows the postings moved.
+        $rowIds = $postings->flatMap(fn ($posting) => array_column(json_decode($posting->movements, true, 512, JSON_THROW_ON_ERROR), 'product_inventory_id'))
+            ->map(fn ($id) => (int) $id)->unique()->reject(fn ($id) => array_key_exists($id, $this->stockRows))->values();
+        foreach ($rowIds->chunk(1000) as $chunk) {
+            $found = DB::table('sap_masterfiles')->whereIn('id', $chunk->all())->get(['id', 'ItemCode', 'AltUOM', 'BaseUOM'])->keyBy(fn ($row) => (int) $row->id);
+            foreach ($chunk as $id) {
+                $this->stockRows[$id] = $found->get($id);
+            }
+        }
+
+        // Item units, per item and the sale's entity: every recipe item and every moved item.
+        $needed = [];
+        foreach ($items as $item) {
+            $entity = $saleEntity[$item->store_transaction_id] ?? null;
+            foreach ($this->boms[self::bomKey((string) $item->POSCode, $item->entity_id !== null ? (int) $item->entity_id : null)] ?? [] as $line) {
+                $needed[self::unitKey($line->ItemCode, $entity)] = [(string) $line->ItemCode, $entity];
+            }
+        }
+        foreach ($postings as $saleId => $posting) {
+            foreach (json_decode($posting->movements, true, 512, JSON_THROW_ON_ERROR) as $movement) {
+                if ($row = $this->stockRows[(int) $movement['product_inventory_id']] ?? null) {
+                    $needed[self::unitKey($row->ItemCode, $saleEntity[$saleId] ?? null)] = [(string) $row->ItemCode, $saleEntity[$saleId] ?? null];
+                }
+            }
+        }
+        $missing = collect($needed)->reject(fn ($pair, $key) => isset($this->stockUnits[$key]));
+        foreach ($missing->groupBy(fn ($pair) => (string) $pair[1]) as $group) {
+            $entity = $group->first()[1];
+            foreach ($group->chunk(1000) as $chunk) {
+                // As ItemStockUnit::forItem() reads them: the entity's rows, or every row without one.
+                $rows = \App\Models\SAPMasterfile::query()
+                    ->when($entity !== null, fn ($query) => $query->withoutEntityScope()->where('entity_id', $entity))
+                    ->whereIn('ItemCode', $chunk->pluck(0)->unique()->values()->all())->orderBy('id')->get()
+                    ->groupBy(fn ($row) => self::unitKey($row->ItemCode, $entity));
+                foreach ($chunk as $pair) {
+                    $key = self::unitKey($pair[0], $pair[1]);
+                    $this->stockUnits[$key] = ItemStockUnit::fromRows($rows->get($key, collect()));
+                }
+            }
+        }
+    }
+
+    /** Writes the lines: one OPENJSON statement per 2,000 rows on SQL Server, multi-row inserts elsewhere. */
+    private function insertLines(array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $this->openJson ??= DB::connection()->getDriverName() === 'sqlsrv'
+            && (int) DB::selectOne('SELECT compatibility_level AS c FROM sys.databases WHERE name = DB_NAME()')->c >= 130;
+
+        if (! $this->openJson) {
+            foreach (array_chunk($rows, self::ROWS_PER_INSERT) as $chunk) {
+                DB::table('bom_consumptions')->insert($chunk);
+            }
+
+            return;
+        }
+
+        $columns = array_keys(self::JSON_COLUMNS);
+        $list = implode(', ', array_map(fn ($column) => "[{$column}]", $columns));
+        $with = implode(', ', array_map(fn ($column) => "[{$column}] " . self::JSON_COLUMNS[$column] . " '$.{$column}'", $columns));
+
+        foreach (array_chunk($rows, self::ROWS_PER_JSON) as $chunk) {
+            // Timestamps as Manila wall time, as Eloquent writes them, not Carbon's UTC JSON form.
+            $json = json_encode(array_map(fn ($row) => array_map(
+                fn ($value) => $value instanceof \DateTimeInterface ? $value->format('Y-m-d H:i:s.v') : $value, $row
+            ), $chunk), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+
+            DB::insert("INSERT INTO [bom_consumptions] ({$list}) SELECT {$list} FROM OPENJSON(?) WITH ({$with})", [$json]);
+        }
+    }
+
+    private static function bomKey(string $posCode, ?int $entityId): string
+    {
+        return strtoupper(trim($posCode)) . '|' . $entityId;
+    }
+
+    private static function unitKey(string $itemCode, ?int $entityId): string
+    {
+        return strtoupper(trim($itemCode)) . '|' . $entityId;
+    }
+
     private function bom(string $posCode, ?int $entityId): Collection
     {
-        return $this->boms[strtoupper($posCode) . '|' . $entityId] ??= DB::table('pos_masterfiles_bom')
+        return $this->boms[self::bomKey($posCode, $entityId)] ??= DB::table('pos_masterfiles_bom')
             ->where('POSCode', $posCode)
             ->when($entityId !== null, fn ($query) => $query->where('entity_id', $entityId), fn ($query) => $query->whereNull('entity_id'))
             ->orderBy('id')
@@ -364,11 +487,15 @@ class FreezeBomHistory extends Command
 
     private function stockUnit(string $itemCode, ?int $entityId): ItemStockUnit
     {
-        return $this->stockUnits[$itemCode . '|' . $entityId] ??= ItemStockUnit::forItem($itemCode, $entityId);
+        return $this->stockUnits[self::unitKey($itemCode, $entityId)] ??= ItemStockUnit::forItem($itemCode, $entityId);
     }
 
     private function stockRow(int $id): ?object
     {
-        return $this->stockRows[$id] ??= DB::table('sap_masterfiles')->where('id', $id)->first(['id', 'ItemCode', 'AltUOM', 'BaseUOM']);
+        if (! array_key_exists($id, $this->stockRows)) {
+            $this->stockRows[$id] = DB::table('sap_masterfiles')->where('id', $id)->first(['id', 'ItemCode', 'AltUOM', 'BaseUOM']);
+        }
+
+        return $this->stockRows[$id];
     }
 }
