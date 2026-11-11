@@ -35,8 +35,9 @@ final class SubPrepRecipe
             $query->withoutEntityScope()->where('entity_id', $entityId);
         }
 
+        // A negative BOM Qty is kept: wasting the Sub-Prep adds that item back, as a sale would.
         return $query->get()
-            ->filter(fn ($line) => (float) $line->BOMQty > 0)
+            ->filter(fn ($line) => (float) $line->BOMQty != 0)
             ->groupBy(fn ($line) => self::key($line->ItemCode) . '|' . self::key($line->BOMUOM))
             ->map(function (Collection $lines) use ($entityId) {
                 $line = $lines->first();

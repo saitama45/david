@@ -48,6 +48,19 @@ function savedBomQtys(): array
         ->map(fn ($qty) => (float) $qty)->all();
 }
 
+it('imports a negative BOM Qty, also written in brackets, and skips only a zero', function () {
+    bomImportFixture();
+
+    $bracketed = bomRow(1)->merge(['bom_qty' => '(2.5)']);
+    $import = runBomImport([bomRow(-5), bomRow(0), $bracketed]);
+
+    expect(savedBomQtys())->toBe([-5.0])
+        // "(2.5)" is -2.5: a repeat of the same line with another BOM Qty, held for the user to allow.
+        ->and($import->getPendingDuplicates())->toHaveCount(1)
+        ->and($import->getPendingDuplicates()[0]['row']['BOMQty'])->toBe('-2.5000000')
+        ->and(collect($import->getSkippedItems())->pluck('reason')->all())->toBe(['BOM Qty cannot be 0.']);
+});
+
 it('holds back a repeated line with a different BOM Qty instead of overwriting the first', function () {
     bomImportFixture();
 

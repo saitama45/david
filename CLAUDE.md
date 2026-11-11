@@ -477,6 +477,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `/pos-bom-list`, never written over the line before it (it silently did until 2026-09-25).
   The one-by-one Create there refuses the same line + BOMQty, saves a repeat only with `allow_repeat`
   (the form asks first), and - stricter than the import - requires BOMUOM to be a SAP unit of the item.
+  **BOMQty may be negative, never 0** (since 2026-11-11, import accepts "(0.25)" too): a sale adds that item
+  back, its return takes it out, and a Sub-Prep's negative line adds back on wastage approval
+  (`SubPrepRecipe` keeps it; the wastage search leaves it out of the stock coverage). Never filter BOM lines to `> 0`.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

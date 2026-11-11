@@ -190,9 +190,10 @@ const confirmRepeat = (message) => {
 
                 <InputContainer>
                     <Label>BOM Qty</Label>
-                    <Input v-model="form.BOMQty" type="number" min="0" step="any" placeholder="Deducted per sale" />
+                    <Input v-model="form.BOMQty" type="number" step="any" placeholder="Deducted per sale" />
                     <span class="text-xs text-gray-500">
-                        How much is deducted from stock for each sale. Must be more than zero.
+                        How much is deducted from stock for each sale. A negative quantity adds it back to stock
+                        instead. It cannot be 0.
                     </span>
                     <FormError>{{ form.errors.BOMQty }}</FormError>
                 </InputContainer>
@@ -205,7 +206,7 @@ const confirmRepeat = (message) => {
 
                 <InputContainer>
                     <Label>Recipe Quantity</Label>
-                    <Input v-model="form.RecipeQty" type="number" min="0" step="any" />
+                    <Input v-model="form.RecipeQty" type="number" step="any" />
                     <FormError>{{ form.errors.RecipeQty }}</FormError>
                 </InputContainer>
 
@@ -223,7 +224,7 @@ const confirmRepeat = (message) => {
 
                 <InputContainer>
                     <Label>Total Cost</Label>
-                    <Input v-model="form.TotalCost" type="number" min="0" step="any" />
+                    <Input v-model="form.TotalCost" type="number" step="any" />
                     <FormError>{{ form.errors.TotalCost }}</FormError>
                 </InputContainer>
             </CardContent>

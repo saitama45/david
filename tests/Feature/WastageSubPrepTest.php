@@ -234,6 +234,42 @@ it('deducts the raw materials of an approved Sub-Prep through its BOM', function
         ->and(round((float) $movements[$f['sap']['RM-SUGAR|Kg']]->total_cost, 2))->toBe(1.5);
 });
 
+it('adds back what a Sub-Prep BOM line with a negative BOM Qty gives, in approval, search and report alike', function () {
+    $f = subPrepFixture();
+    // 1 ml of Chocolate Mix also gives back 4 Gm of sugar, so it nets 1 Gm of sugar back per ml.
+    POSMasterfileBOM::create([
+        'POSCode' => 'SP-0001', 'POSDescription' => 'Chocolate Mix', 'Assembly' => 'RM', 'ItemCode' => 'RM-SUGAR',
+        'ItemDescription' => 'Sugar - Brown', 'BOMQty' => -4, 'BOMUOM' => 'Gm', 'UnitCost' => 0.1,
+    ]);
+
+    // Sugar no longer limits how much can be wasted: 2,000 Gm of cocoa covers 1,000 ml.
+    expect((float) subPrepSearch($f, 'Chocolate Mix')[0]['stock'])->toBe(1000.0);
+
+    $wastages = subPrepWastage($f, 5, WastageStatus::APPROVED_LVL1);
+    expect(app(WastageService::class)->getApprovalStockCheck($wastages, $f['store']->id, 'level2'))->toBe(['errors' => [], 'negative' => []]);
+
+    app(WastageService::class)->finalizeWastageApproval($wastages, $f['store']->id, $f['user']->id, 'level2');
+
+    // 5 ml used 10 Gm of cocoa (0.01 Bag) and gave back 5 Gm of sugar (0.005 Kg).
+    expect(round(subPrepBalance($f, 'RM-COCOA|Bag'), 4))->toBe(1.99)
+        ->and(round(subPrepBalance($f, 'RM-SUGAR|Kg'), 4))->toBe(1.005);
+
+    $sugar = DB::table('product_inventory_stock_managers')->where('product_inventory_id', $f['sap']['RM-SUGAR|Kg'])
+        ->where('remarks', 'like', '%WS-SP-1')->first();
+    expect($sugar->action)->toBe('add')
+        ->and(round((float) $sugar->quantity, 4))->toBe(0.005)
+        // 5 ml x (3 Gm x 0.10 - 4 Gm x 0.10).
+        ->and(round((float) $sugar->total_cost, 2))->toBe(0.5);
+
+    // The Inventory Movement Report charges the same: a negative wastage of sugar.
+    $today = now('Asia/Manila')->toDateString();
+    $rows = collect(app(InventoryMovementService::class)->movementData(
+        SAPMasterfile::whereIn('ItemCode', ['RM-COCOA', 'RM-SUGAR'])->get(),
+        ['branch_id' => $f['store']->id, 'date_from' => $today, 'date_to' => $today]
+    ))->keyBy('sap_code');
+    expect($rows['RM-SUGAR']['wastage_qty'])->toBe(-0.005);
+});
+
 it('lists the raw material a Sub-Prep approval would take below zero', function () {
     $f = subPrepFixture();
     // 1,000 ml needs 2 Bag of cocoa, which is on hand, and 3 Kg of sugar, of which there is 1.
@@ -305,10 +341,10 @@ it('notes the Sub-Prep on the wastage cell of the Excel export', function () {
     $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx')->load($path)->getActiveSheet();
     @unlink($path);
 
-    // Row 6 is the first item; column J is Wastage Qty, still a number.
+    // Row 6 is the first item; column K is Wastage Qty (Item Type sits in D), still a number.
     expect($sheet->getCell('B6')->getValue())->toBe('RM-COCOA')
-        ->and((float) $sheet->getCell('J6')->getValue())->toBe(0.01)
-        ->and($sheet->getComment('J6')->getText()->getPlainText())->toBe('Sub-Prep SP-0001 Chocolate Mix: 5.0000 ml wasted = 0.0100 Bag of this item');
+        ->and((float) $sheet->getCell('K6')->getValue())->toBe(0.01)
+        ->and($sheet->getComment('K6')->getText()->getPlainText())->toBe('Sub-Prep SP-0001 Chocolate Mix: 5.0000 ml wasted = 0.0100 Bag of this item');
 });
 
 it('marks no Sub-Prep on wastage filed for the item itself', function () {

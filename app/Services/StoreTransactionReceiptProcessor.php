@@ -121,14 +121,15 @@ class StoreTransactionReceiptProcessor
                         if (!$sap) throw new \InvalidArgumentException("Missing base-stock masterfile: {$recipe->ItemCode}.");
                         $factor = $stockUnit->factor($recipe->BOMUOM);
                         if (!$factor) throw new \InvalidArgumentException("Missing unit conversion from {$recipe->BOMUOM} to a stock unit for {$recipe->ItemCode}.");
-                        if (!is_numeric($recipe->BOMQty) || (float) $recipe->BOMQty <= 0 || !is_finite((float) $recipe->BOMQty)) {
+                        // A negative BOM Qty is an item each sale adds back to stock (a "No Whip" add-on).
+                        if (!is_numeric($recipe->BOMQty) || (float) $recipe->BOMQty == 0 || !is_finite((float) $recipe->BOMQty)) {
                             throw new \InvalidArgumentException("Invalid BOM quantity for {$recipe->ItemCode}.");
                         }
                         $qty = (float) $recipe->BOMQty * $factor * $item['qty'];
                         $cost = (float) $recipe->UnitCost / $factor;
                         if (!is_finite($qty) || !is_finite($cost) || $cost < 0) throw new \InvalidArgumentException('Invalid ingredient quantity or cost.');
                         $ingredients[] = ['sap' => $sap, 'qty' => $qty, 'cost' => $cost, 'pos' => $pos->POSCode,
-                            'bom_qty' => $recipe->BOMQty, 'bom_uom' => $recipe->BOMUOM];
+                            'bom_qty' => $recipe->BOMQty, 'bom_uom' => $recipe->BOMUOM, 'returned' => $item['qty'] < 0];
                     }
                 }
                 if ($this->preview) return new StoreTransaction;
@@ -141,16 +142,22 @@ class StoreTransactionReceiptProcessor
                 }
                 $snapshots = [];
                 foreach ($ingredients as $ingredient) {
-                    // A sold line takes its ingredients out; a returned line (negative quantity) adds them back.
+                    // Sale qty x BOM Qty: positive takes the ingredient out, negative adds it to stock
+                    // (a returned line, or a BOM line with a negative BOM Qty).
                     if ($ingredient['qty'] == 0) continue;
-                    $returned = $ingredient['qty'] < 0;
+                    $adds = $ingredient['qty'] < 0;
                     $quantity = abs($ingredient['qty']);
+                    $note = match (true) {
+                        $ingredient['returned'] && $adds => '; returned, added back to stock',
+                        $adds => '; negative BOM Qty, added to stock',
+                        $ingredient['returned'] => '; returned, negative BOM Qty taken back out',
+                        default => '',
+                    };
                     $movement = ProductInventoryStockManager::create(['product_inventory_id' => $ingredient['sap']->id,
                         'store_branch_id' => $branch->id, 'cost_center_id' => null, 'quantity' => $quantity,
-                        'action' => $returned ? 'add' : 'out', 'unit_cost' => $ingredient['cost'], 'total_cost' => $quantity * $ingredient['cost'],
+                        'action' => $adds ? 'add' : 'out', 'unit_cost' => $ingredient['cost'], 'total_cost' => $quantity * $ingredient['cost'],
                         'transaction_date' => $date,
-                        'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$ingredient['bom_qty']} {$ingredient['bom_uom']}"
-                            .($returned ? '; returned, added back to stock' : '')]);
+                        'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$ingredient['bom_qty']} {$ingredient['bom_uom']}".$note]);
                     $snapshots[] = (array) DB::table('product_inventory_stock_managers')->where('id', $movement->id)
                         ->first(['id','entity_id','product_inventory_id','store_branch_id','quantity','action','unit_cost','total_cost','transaction_date','remarks']);
                 }

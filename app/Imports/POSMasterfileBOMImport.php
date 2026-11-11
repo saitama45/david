@@ -47,7 +47,17 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
 
     public function collection(Collection $rows)
     {
-        $toFloat = fn($value) => is_numeric($value) ? (float)$value : (float)str_replace(',', '', (string)$value);
+        // A negative may come as "(0.5)", the way accounting formats show it.
+        $toFloat = function ($value) {
+            if (is_numeric($value)) {
+                return (float) $value;
+            }
+            $text = str_replace(',', '', trim((string) $value));
+
+            return preg_match('/^\((.+)\)$/', $text, $match) && is_numeric(trim($match[1]))
+                ? -(float) trim($match[1])
+                : (float) $text;
+        };
 
         foreach ($rows as $row) {
             $posCode = null;
@@ -85,9 +95,10 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                     continue;
                 }
 
+                // A negative BOM Qty is allowed: each sale adds that much back to stock.
                 $bomQty = $toFloat($bomQtyRaw);
-                if ($bomQty <= 0) {
-                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'BOM Qty must be greater than 0.');
+                if ($bomQty == 0.0) {
+                    $this->addSkippedItem($posCode, $itemCode, $assembly, 'BOM Qty cannot be 0.');
                     $this->skippedCount++;
                     continue;
                 }

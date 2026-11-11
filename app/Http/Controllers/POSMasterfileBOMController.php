@@ -117,14 +117,21 @@ class POSMasterfileBOMController extends Controller
             'Assembly' => ['nullable', 'string', 'max:255'],
             'ItemCode' => ['required', 'string', 'max:255'],
             'RecPercent' => ['nullable', 'numeric', 'min:0'],
-            'RecipeQty' => ['nullable', 'numeric', 'min:0'],
+            // A negative BOM Qty (and its Recipe Qty / Total Cost) is a line each sale adds back to stock.
+            'RecipeQty' => ['nullable', 'numeric'],
             'RecipeUOM' => ['nullable', 'string', 'max:50'],
-            'BOMQty' => ['required', 'numeric', 'gt:0'],
+            'BOMQty' => ['required', 'numeric'],
             'BOMUOM' => ['required', 'string', 'max:50'],
             'UnitCost' => ['nullable', 'numeric', 'min:0'],
-            'TotalCost' => ['nullable', 'numeric', 'min:0'],
+            'TotalCost' => ['nullable', 'numeric'],
             'allow_repeat' => ['nullable', 'boolean'],
         ]);
+
+        if ((float) $validated['BOMQty'] == 0.0) {
+            throw ValidationException::withMessages([
+                'BOMQty' => 'BOM Qty cannot be 0. Use a negative quantity for an item each sale adds back to stock.',
+            ]);
+        }
 
         $posItem = POSMasterfile::where('POSCode', $validated['POSCode'])->first();
 

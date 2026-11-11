@@ -73,6 +73,20 @@ it('creates a BOM line with the masterlist descriptions and stamps the entity', 
         ->and((int) $line->created_by)->toBe($user->id);
 });
 
+it('creates a negative BOM line, with its negative Recipe Qty and Total Cost, for an item each sale adds back', function () {
+    ['user' => $user] = bomCreateFixture();
+    $this->actingAs($user);
+
+    createBomLine(['BOMQty' => -50, 'RecipeQty' => -50, 'UnitCost' => 0.1, 'TotalCost' => -5]);
+
+    $line = POSMasterfileBOM::where('POSCode', 'POS-100')->first();
+
+    expect($line)->not->toBeNull()
+        ->and((float) $line->BOMQty)->toBe(-50.0)
+        ->and((float) $line->RecipeQty)->toBe(-50.0)
+        ->and((float) $line->TotalCost)->toBe(-5.0);
+});
+
 it('refuses codes that are not on the masterlists, a unit the item does not have, and a zero BOM Qty', function () {
     ['user' => $user] = bomCreateFixture();
     $this->actingAs($user);

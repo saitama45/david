@@ -98,18 +98,25 @@ class WastageService
         }
 
         foreach ($deductionData['deductions'] as $deduction) {
+            // A negative quantity (a Sub-Prep BOM line with a negative BOM Qty) is added to stock.
+            $adds = $deduction['quantity'] < 0;
+            $quantity = abs($deduction['quantity']);
+            $totalCost = abs($deduction['total_cost']);
+
             $productStock = $deduction['product_stock'];
             $productStock->quantity -= $deduction['quantity'];
-            $productStock->used += $deduction['quantity'];
+            if (! $adds) {
+                $productStock->used += $quantity;
+            }
             $productStock->save();
 
             ProductInventoryStockManager::create([
                 'product_inventory_id' => $deduction['product_inventory_id'],
                 'store_branch_id' => $storeBranchId,
-                'quantity' => $deduction['quantity'],
-                'action' => 'out',
-                'unit_cost' => $deduction['total_cost'] / ($deduction['quantity'] ?: 1),
-                'total_cost' => $deduction['total_cost'],
+                'quantity' => $quantity,
+                'action' => $adds ? 'add' : 'out',
+                'unit_cost' => $totalCost / ($quantity ?: 1),
+                'total_cost' => $totalCost,
                 'transaction_date' => $now,
                 'remarks' => $remarksPrefix . ': ' . $relatedWastages->first()->wastage_no,
             ]);
@@ -208,7 +215,26 @@ class WastageService
             $targetSapMasterfile = $group['target'];
             $totalQtyToDeductInBaseUom = $group['quantity'];
 
-            if ($totalQtyToDeductInBaseUom <= 0) {
+            if ($totalQtyToDeductInBaseUom == 0) {
+                continue;
+            }
+
+            // A Sub-Prep whose BOM gives an item back (negative BOM Qty) adds it to stock: no shortfall to check.
+            if ($totalQtyToDeductInBaseUom < 0) {
+                $deductions[] = [
+                    'product_stock' => ProductInventoryStock::where('product_inventory_id', $targetSapMasterfile->id)
+                        ->where('store_branch_id', $storeBranchId)
+                        ->first() ?? new ProductInventoryStock([
+                            'product_inventory_id' => $targetSapMasterfile->id,
+                            'store_branch_id' => $storeBranchId,
+                            'quantity' => 0,
+                            'recently_added' => 0,
+                            'used' => 0,
+                        ]),
+                    'product_inventory_id' => $targetSapMasterfile->id,
+                    'quantity' => $totalQtyToDeductInBaseUom,
+                    'total_cost' => $group['cost'],
+                ];
                 continue;
             }
 

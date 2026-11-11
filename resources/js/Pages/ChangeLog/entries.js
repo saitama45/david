@@ -15,6 +15,28 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 11, 2026
+    {
+        date: '2026-11-11',
+        module: 'BOM List',
+        type: 'improved',
+        title: 'BOM List accepts a negative BOM Qty in Import POS BOMs and Create New Item: each sale adds that item back to stock',
+        summary:
+            'Before, a BOM line with a negative BOM Qty was skipped on import with "BOM Qty must be greater than 0." and refused on Create New Item. Now a negative BOM Qty is accepted. It is for an item a sale gives back instead of using, such as a "No Whip" add-on that returns the whip a drink would normally use.',
+        steps: [
+            'Open BOM List and import the file in Import POS BOMs, or click Create New Item.',
+            'Enter the BOM Qty with a minus sign, for example -0.25. In the import file it may also be written in brackets, as (0.25).',
+            'Each sale of that POS item adds the BOM Qty back to the store\'s stock instead of deducting it.',
+        ],
+        rules: [
+            'A BOM Qty of 0 is still refused, with "BOM Qty cannot be 0."',
+            'On Create New Item, Recipe Quantity and Total Cost may also be negative. Unit Cost stays 0 or more.',
+            'A sale of the POS item adds the item back at the BOM Qty times the quantity sold. A return of that sale takes it back out again.',
+            'A Sub-Prep with a negative BOM line adds that item back when its wastage is approved, and that item never blocks the Sub-Prep from being wasted for lack of stock.',
+            'The Sales and Wastage figures of the Inventory Movement Report go down by what is added back, so they match the stock.',
+        ],
+        affects: 'Users who maintain the BOM List, and every store selling or wasting an item whose recipe has a negative BOM Qty.',
+    },
     // ---------------------------------------------------------------- November 10, 2026
     {
         date: '2026-11-10',

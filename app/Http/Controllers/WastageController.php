@@ -841,6 +841,11 @@ class WastageController extends Controller
                 continue;
             }
 
+            // A negative BOM Qty gives the item back, so its stock never limits the wastage.
+            if ($ingredient['bom_qty'] <= 0) {
+                continue;
+            }
+
             // On hand in the BOM unit, then how many units of the Sub-Prep that makes.
             $onHand = ($stockByProductId->get($ingredient['stock_row']->id)->stock_on_hand ?? 0) / $ingredient['factor'];
             if ($onHand <= 0) {

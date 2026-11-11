@@ -211,6 +211,34 @@ class PosSalesSyncTest extends TestCase
         $this->assertSame(1.0, (float) DB::table('product_inventory_stock_managers')->where('action', 'out')->sum('quantity'));
     }
 
+    public function test_negative_bom_qty_adds_its_item_on_a_sale_and_takes_it_back_on_a_return(): void
+    {
+        // A "No Whip" coffee gives 0.25 KG of whip back to stock per cup.
+        DB::table('sap_masterfiles')->insert(['id' => 21, 'entity_id' => 1, 'ItemCode' => 'WHIP', 'ItemDescription' => 'Whip', 'BaseUOM' => 'KG', 'AltUOM' => 'KG']);
+        DB::table('pos_masterfiles_bom')->insert(['entity_id' => 1, 'POSCode' => 'COFFEE', 'ItemCode' => 'WHIP', 'ItemDescription' => 'Whip', 'BOMUOM' => 'KG', 'BOMQty' => '-0.25', 'UnitCost' => '4']);
+        $rows = $this->packet()['rows']; // 2 cups sold
+        $this->assertNotNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($rows)));
+        $whip = fn () => DB::table('product_inventory_stock_managers')->where('product_inventory_id', 21)->orderByDesc('id')->first();
+        $this->assertSame('add', $whip()->action);
+        $this->assertSame(0.5, (float) $whip()->quantity);
+        $this->assertStringEndsWith('negative BOM Qty, added to stock', $whip()->remarks);
+        $this->assertSame('out', DB::table('product_inventory_stock_managers')->where('product_inventory_id', 20)->where('remarks', 'like', 'Sale #%')->value('action'));
+
+        // Returning those 2 cups takes the whip back out.
+        $return = $rows;
+        $return[0] = array_replace($return[0], ['receipt_no' => '43', 'qty' => -2, 'base_qty' => -2, 'discount' => -20, 'line_total' => -180, 'net_total' => -180]);
+        $this->assertNotNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($return)));
+        $this->assertSame('out', $whip()->action);
+        $this->assertSame(0.5, (float) $whip()->quantity);
+        $this->assertStringEndsWith('returned, negative BOM Qty taken back out', $whip()->remarks);
+
+        // A BOM Qty of 0 still holds the sale.
+        DB::table('pos_masterfiles_bom')->where('ItemCode', 'WHIP')->update(['BOMQty' => '0']);
+        $zero = $rows;
+        $zero[0]['receipt_no'] = '44';
+        $this->assertNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($zero)));
+    }
+
     public function test_mapper_posts_returned_sales_and_returns_but_never_voids(): void
     {
         $mapper = new PosReceiptMapper;
