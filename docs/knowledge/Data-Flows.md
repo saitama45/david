@@ -360,7 +360,51 @@ a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM
   Current SOH follow, since they read the same service. The Wastage Report and both wastage exports
   show the line by its POS code, name and UOM (`leftJoin pos_masterfiles`, grouped by both ids).
 
-Both readings use the BOM as it is now, as sales do: editing a BOM changes past figures in the report.
+Approval reads the BOM as it is at that moment and freezes what it used (next section), so editing a
+BOM afterwards no longer changes the wastage's figures in the report.
+
+## Frozen BOM consumption and the BOM change history
+
+Since 2026-11-11 a sale and an approved Sub-Prep wastage keep the ingredients they used.
+
+- **Frozen lines.** `bom_consumptions` holds one row per ingredient line used: `source_type` `sale`
+  (with `store_transaction_id` / `store_transaction_item_id`) or `wastage` (`wastage_id`), the POS
+  code and description *as they were*, the BOM line, `item_code` + `bom_uom`, `bom_qty`, `units`,
+  `qty` = BOM Qty x units (signed as the report sums it), and the stock row, stock quantity, unit
+  cost and movement it went with. `App\Support\BomConsumptions` writes them:
+  `StoreTransactionReceiptProcessor` beside each stock movement (POS sync, Excel, manual create and
+  corrections all go through it), `WastageService::finalizeWastageApproval()` per Sub-Prep line
+  (`recordSubPrepWastage()`, Scrap included, because the report counts it).
+- **`bom_frozen_at`** on `store_transactions` and `wastages` marks a frozen source - set even with no
+  lines (a non-inventory product), so a BOM added to that product later cannot reach back.
+- **Reports read the lines.** `InventoryMovementService` (Sales; Sub-Prep part of Wastage), its twin
+  `InventoryMovementDetailService`, and `InventoryMovementReportController::applyMovementFilter()` sum
+  `frozenConsumption()` (`superseded_at IS NULL`) and fall back to today's BOM **only** for sales and
+  wastages with `bom_frozen_at` NULL (`notFrozen()`). The Qty / Cost Variance report and the MEC
+  template follow, since they read the same service. **`OrderCalculatorService` PMIX stays on today's
+  BOM on purpose**: it forecasts the next order.
+- **Corrections** (`SalesPostingCorrection`) mark the sale's current lines `superseded_at` +
+  `superseded_by_correction_id` and move the replacement's lines onto the original sale id, as they
+  move its items. Nothing is deleted.
+- **Backfill.** `php artisan bom:freeze-history` (dry run; `--apply`; `--branch=`; `--output=` CSV of
+  the Sales figure per store, month, item and unit at today's BOM vs frozen) freezes every sale and
+  approved Sub-Prep wastage still open. A sale with a `sales_postings` row is frozen from its posting
+  snapshot - what was really deducted (the remark "CODE: BOM qty uom" gives the BOM unit; an
+  unreadable one keeps the stock row's unit); an older sale and a wastage at the BOM of that day
+  (`origin` `current_bom`). It also copies the `audits` rows of BOM lines and POS items made before
+  the history's first own change into the history (`audit_log`). Running it again adds nothing.
+
+**BOM change history** (`pos_recipe_changes`, page `/pos-bom-list/history`, permission
+`view POSMasterfile BOM list`): one row per BOM line or POS item created, changed or deleted, with
+who, when, only the fields that changed (old and new, normalised: `170.0000000` = `170`, blank =
+null), and the source - `form`, `import` (+ file name), `allowed_repeat` (+ file) or `audit_log`.
+Every write path calls `App\Support\PosRecipeHistory`: the BOM import's `write()` (raw `DB::table`,
+which the auditing package never sees), the BOM and POS Masterfile forms (create, edit, delete) and
+the POS Masterfile import. An import or edit that changes nothing records nothing. A POS Code edit is
+allowed and recorded (user's decision, 2026-11-11). Entity-scoped like the lines (a row with no entity
+shows everywhere). Changed By is an autocomplete over the users who made a change (3 characters, or
+an exact short name). Entry points: BOM List's Change History button and the POS Masterfile page's
+History button (filtered to its POS Code). Export is one row per changed field, sent `no-store`.
 
 ## Inventory Movement Report drill-down
 
@@ -373,8 +417,10 @@ answers for a store the user is assigned to.
 `InventoryMovementDetailService::source()` returns, per metric, one row per source line with the
 same joins and filters as the grouped query in `InventoryMovementService`, as `tx_date, ref_no,
 ref_id, d1, d2, unit, qty`. The service pages it (25), sums it per unit and converts with the
-report's own `itemUnits()`, so `total` equals the cell. Wastage is a `UNION ALL` of the item's own
-lines and the Sub-Prep lines (quantity x BOM Qty). Supplies Used has no source: its popup is the
+report's own `itemUnits()`, so `total` equals the cell. Sales and the Sub-Prep part of Wastage read
+the frozen `bom_consumptions` lines (POS code as it was at posting), plus today's BOM for anything not
+frozen yet - see the section above. Wastage is a `UNION ALL` of the item's own lines and the Sub-Prep
+lines. Supplies Used has no source: its popup is the
 calculation (`calculation`) with the current count as its one reference.
 
 Ref No. links (`url()`): an order opens where it was placed - `mass-orders.show` by order number,

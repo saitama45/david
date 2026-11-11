@@ -199,8 +199,18 @@ class InventoryMovementService
                     ->select($unitSum('so.sending_store_branch_id', 'soi.item_code', 'soi.uom', '-COALESCE(soi.quantity_commited, 0)'))
                     ->get());
 
-            // 2. Sales (dated by the POS sales date, not the import timestamp). The BOM is
-            // matched within the product's entity, as sales posting does.
+            // 2. Sales (dated by the POS sales date, not the import timestamp): what each sale
+            // used, frozen when it was posted, so a BOM changed later moves no past figure.
+            $totals['sales'] = $totals['sales']->merge(self::frozenConsumption(\App\Support\BomConsumptions::SALE)
+                ->whereIn('bc.store_branch_id', $branchChunk)
+                ->whereBetween('bc.business_date', [$dateFrom, $dateTo])
+                ->tap($onlyItems('bc.item_code'))
+                ->select($unitSum('bc.store_branch_id', 'bc.item_code', 'bc.bom_uom', 'bc.qty'))
+                ->groupBy('bc.store_branch_id', 'bc.item_code', DB::raw($unitKey('bc.bom_uom')))
+                ->get());
+
+            // A sale with no frozen lines (posted before they were kept, not yet frozen by
+            // bom:freeze-history) still reads today's BOM, matched within the product's entity.
             $totals['sales'] = $totals['sales']->merge(DB::table('store_transaction_items as sti')
                 ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
                 ->join('pos_masterfiles as pm', 'sti.product_id', '=', 'pm.id')
@@ -213,6 +223,7 @@ class InventoryMovementService
                 })
                 ->whereIn('st.store_branch_id', $branchChunk)
                 ->whereBetween('st.order_date', [$dateFrom, $dateTo])
+                ->tap(self::notFrozen('st'))
                 ->tap($onlyItems('bom.ItemCode'))
                 ->select($unitSum('st.store_branch_id', 'bom.ItemCode', 'bom.BOMUOM', 'COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)'))
                 ->groupBy('st.store_branch_id', 'bom.ItemCode', DB::raw($unitKey('bom.BOMUOM')))
@@ -241,21 +252,37 @@ class InventoryMovementService
                 ->groupBy('store_branch_id', 'pos_masterfile_id')
                 ->select('store_branch_id', 'pos_masterfile_id', DB::raw('SUM(COALESCE(approverlvl2_qty, 0)) as wasted'));
 
-            $subPrepRows = DB::query()->fromSub($subPrepWasted, 'w')
-                ->join('pos_masterfiles as pm', 'w.pos_masterfile_id', '=', 'pm.id')
-                ->join('pos_masterfiles_bom as bom', function ($join) {
-                    $join->on('pm.POSCode', '=', 'bom.POSCode')
-                        ->where(function ($entity) {
-                            $entity->whereColumn('pm.entity_id', 'bom.entity_id')
-                                ->orWhere(fn ($legacy) => $legacy->whereNull('pm.entity_id')->whereNull('bom.entity_id'));
-                        });
-                })
-                ->tap($onlyItems('bom.ItemCode'))
-                ->select(array_merge(
-                    $unitSum('w.store_branch_id', 'bom.ItemCode', 'bom.BOMUOM', 'w.wasted * COALESCE(bom.BOMQty, 0)'),
-                    ['pm.POSCode as pos_code', 'pm.POSDescription as pos_description', 'pm.UOM as pos_uom', 'w.wasted']
-                ))
-                ->groupBy('w.store_branch_id', 'bom.ItemCode', DB::raw($unitKey('bom.BOMUOM')), 'pm.POSCode', 'pm.POSDescription', 'pm.UOM', 'w.wasted')
+            // What each wasted Sub-Prep used: frozen at its approval, or - for a wastage approved
+            // before the lines were kept and not yet frozen - its BOM of today.
+            $used = self::frozenConsumption(\App\Support\BomConsumptions::WASTAGE)
+                ->whereIn('bc.store_branch_id', $branchChunk)
+                ->whereBetween('bc.business_date', [$dateFrom, $dateTo])
+                ->tap($onlyItems('bc.item_code'))
+                ->select(['bc.store_branch_id as branch_id', 'bc.pos_masterfile_id', 'bc.item_code', DB::raw($unitKey('bc.bom_uom') . ' as unit'), 'bc.qty'])
+                ->unionAll(DB::table('wastages as uw')
+                    ->join('pos_masterfiles as upm', 'uw.pos_masterfile_id', '=', 'upm.id')
+                    ->join('pos_masterfiles_bom as bom', function ($join) {
+                        $join->on('upm.POSCode', '=', 'bom.POSCode')
+                            ->where(function ($entity) {
+                                $entity->whereColumn('upm.entity_id', 'bom.entity_id')
+                                    ->orWhere(fn ($legacy) => $legacy->whereNull('upm.entity_id')->whereNull('bom.entity_id'));
+                            });
+                    })
+                    ->whereNull('uw.sap_masterfile_id')
+                    ->whereIn('uw.store_branch_id', $branchChunk)
+                    ->where('uw.wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
+                    ->whereBetween('uw.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                    ->tap(self::notFrozen('uw'))
+                    ->tap($onlyItems('bom.ItemCode'))
+                    ->select(['uw.store_branch_id as branch_id', 'uw.pos_masterfile_id', 'bom.ItemCode as item_code', DB::raw($unitKey('bom.BOMUOM') . ' as unit'),
+                        DB::raw('COALESCE(uw.approverlvl2_qty, 0) * COALESCE(bom.BOMQty, 0) as qty')]));
+
+            $subPrepRows = DB::query()->fromSub($used, 'c')
+                ->joinSub($subPrepWasted, 'w', fn ($join) => $join->on('w.store_branch_id', '=', 'c.branch_id')->on('w.pos_masterfile_id', '=', 'c.pos_masterfile_id'))
+                ->join('pos_masterfiles as pm', 'c.pos_masterfile_id', '=', 'pm.id')
+                ->select(['c.branch_id', 'c.item_code', 'c.unit', DB::raw('SUM(c.qty) as qty'),
+                    'pm.POSCode as pos_code', 'pm.POSDescription as pos_description', 'pm.UOM as pos_uom', 'w.wasted'])
+                ->groupBy('c.branch_id', 'c.item_code', 'c.unit', 'pm.POSCode', 'pm.POSDescription', 'pm.UOM', 'w.wasted')
                 ->get();
 
             $totals['wastage'] = $totals['wastage']->merge($subPrepRows);
@@ -390,6 +417,27 @@ class InventoryMovementService
         }
 
         return $movementData;
+    }
+
+    /**
+     * The frozen ingredient lines of sales or Sub-Prep wastage that still count: a sales
+     * correction marks the lines it replaced superseded instead of removing them.
+     * InventoryMovementDetailService reads the same lines, so the popup adds up to the figure.
+     */
+    public static function frozenConsumption(string $sourceType): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('bom_consumptions as bc')
+            ->where('bc.source_type', $sourceType)
+            ->whereNull('bc.superseded_at');
+    }
+
+    /**
+     * Narrows a query of sales (store_transactions) or Sub-Prep wastages to those not frozen yet,
+     * which still read today's BOM. A frozen one is read from its lines alone, even with none.
+     */
+    public static function notFrozen(string $table): \Closure
+    {
+        return fn ($query) => $query->whereNull("{$table}.bom_frozen_at");
     }
 
     /**

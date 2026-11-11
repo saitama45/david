@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\POSMasterfile;
+use App\Support\PosRecipeHistory;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -16,6 +17,9 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
     protected $processedCount = 0;
     protected $skippedCount = 0;
     protected static $seenCombinations = [];
+
+    /** @param  string|null  $sourceFile  the uploaded file's name, kept in the change history */
+    public function __construct(protected ?string $sourceFile = null) {}
 
     public static function resetSeenCombinations()
     {
@@ -76,7 +80,12 @@ class POSMasterfileImport implements ToCollection, WithHeadingRow, WithChunkRead
                     $values['UOM'] = (string) Str::of($row['uom'] ?? $row['UOM'] ?? null)->trim() ?: null;
                 }
 
-                POSMasterfile::updateOrCreate(['POSCode' => $posCode], $values);
+                $existing = POSMasterfile::where('POSCode', $posCode)->first();
+                $before = $existing?->getAttributes();
+                $item = POSMasterfile::updateOrCreate(['POSCode' => $posCode], $values);
+                // Kept in the BOM change history; an unchanged row records nothing.
+                PosRecipeHistory::posItem($existing ? PosRecipeHistory::UPDATED : PosRecipeHistory::CREATED,
+                    $before, $item, PosRecipeHistory::IMPORT, $this->sourceFile);
 
                 $this->processedCount++;
 

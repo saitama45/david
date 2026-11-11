@@ -10,6 +10,7 @@ use App\Models\MenuCategory;
 use App\Models\SAPMasterfile;
 use App\Models\POSMasterfileBOM; // Import POSMasterfileBOM
 use App\Support\EntityContext;
+use App\Support\PosRecipeHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -122,7 +123,10 @@ class POSMasterfileController extends Controller
             'POSCode.unique' => 'This POS code already exists. Edit it instead.',
         ]);
 
-        POSMasterfile::create($validated);
+        DB::transaction(function () use ($validated) {
+            $item = POSMasterfile::create($validated);
+            PosRecipeHistory::posItem(PosRecipeHistory::CREATED, null, $item);
+        });
 
         return to_route('POSMasterfile.index')->with('success', 'POS item created.');
     }
@@ -236,8 +240,13 @@ class POSMasterfileController extends Controller
             // Removed 'ingredients' validation as it's no longer updated here.
         ]);
 
-        // Update the main POSMasterfile item
-        $item->update($validated);
+        // Update the main POSMasterfile item. A POS Code change is allowed and kept in the
+        // change history with its old and new code, like every other field.
+        DB::transaction(function () use ($item, $validated) {
+            $before = $item->getAttributes();
+            $item->update($validated);
+            PosRecipeHistory::posItem(PosRecipeHistory::UPDATED, $before, $item);
+        });
 
         // Removed all BOM update logic (DB::beginTransaction, delete, create/update loops)
         // as ingredient updates are no longer handled by this method.
@@ -252,7 +261,11 @@ class POSMasterfileController extends Controller
     {
         $items = POSMasterfile::findOrFail($id);
 
-        $items->delete();
+        DB::transaction(function () use ($items) {
+            $before = $items->getAttributes();
+            $items->delete();
+            PosRecipeHistory::posItem(PosRecipeHistory::DELETED, $before, null);
+        });
         return to_route('POSMasterfile.index');
     }
 
@@ -271,7 +284,7 @@ class POSMasterfileController extends Controller
         POSMasterfileImport::resetSeenCombinations();
 
         try {
-            $import = new POSMasterfileImport();
+            $import = new POSMasterfileImport($request->file('products_file')->getClientOriginalName());
             Excel::import($import, $request->file('products_file'));
             
             $skippedItems = $import->getSkippedItems();

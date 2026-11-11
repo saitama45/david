@@ -270,6 +270,36 @@ it('adds back what a Sub-Prep BOM line with a negative BOM Qty gives, in approva
     expect($rows['RM-SUGAR']['wastage_qty'])->toBe(-0.005);
 });
 
+it('keeps an approved Sub-Prep wastage at the recipe of its approval when the BOM changes afterwards', function () {
+    $f = subPrepFixture();
+    $wastages = subPrepWastage($f, 5, WastageStatus::APPROVED_LVL1);
+    app(WastageService::class)->finalizeWastageApproval($wastages, $f['store']->id, $f['user']->id, 'level2');
+
+    // Frozen at approval: 5 ml used 10 Gm of cocoa and 15 Gm of sugar, each beside its stock movement.
+    $lines = DB::table('bom_consumptions')->where('wastage_id', $wastages->first()->id)->get()->keyBy('item_code');
+    expect($lines)->toHaveCount(2)
+        ->and((float) $lines['RM-COCOA']->qty)->toBe(10.0)
+        ->and((float) $lines['RM-SUGAR']->qty)->toBe(15.0)
+        ->and($lines['RM-COCOA']->movement_id)->not->toBeNull()
+        ->and($wastages->first()->fresh()->bom_frozen_at)->not->toBeNull();
+
+    // The Chocolate Mix recipe doubles its cocoa afterwards.
+    POSMasterfileBOM::where('POSCode', 'SP-0001')->where('ItemCode', 'RM-COCOA')->update(['BOMQty' => 4]);
+
+    $today = now('Asia/Manila')->toDateString();
+    $filters = ['date_from' => $today, 'date_to' => $today];
+    $cocoa = SAPMasterfile::where('ItemCode', 'RM-COCOA')->get();
+    $row = collect(app(InventoryMovementService::class)->movementData($cocoa, $filters + ['branch_id' => $f['store']->id]))->first();
+    $popup = app(\App\Http\Services\InventoryMovementDetailService::class)->details($cocoa, $f['store']->id, $filters, 'wastage', 1, null);
+
+    // Still 10 Gm = 0.01 Bag, in the figure, its Sub-Prep breakdown and its popup alike.
+    expect($row['wastage_qty'])->toBe(0.01)
+        ->and($row['wastage_sub_preps'])->toBe([
+            ['code' => 'SP-0001', 'description' => 'Chocolate Mix', 'uom' => 'ml', 'wasted_qty' => 5.0, 'quantity' => 0.01],
+        ])
+        ->and($popup['total'])->toBe(0.01);
+});
+
 it('lists the raw material a Sub-Prep approval would take below zero', function () {
     $f = subPrepFixture();
     // 1,000 ml needs 2 Bag of cocoa, which is on hand, and 3 Kg of sugar, of which there is 1.

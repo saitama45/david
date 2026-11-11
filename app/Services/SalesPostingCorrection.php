@@ -6,6 +6,7 @@ use App\Models\ProductInventoryStockManager;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use App\Models\User;
+use App\Support\BomConsumptions;
 use Illuminate\Support\Facades\DB;
 
 class SalesPostingCorrection
@@ -42,6 +43,9 @@ class SalesPostingCorrection
                 ]);
                 $reversals[] = $reversal->id;
             }
+            // The ingredient lines this correction replaces: kept, marked superseded below.
+            $oldLines = DB::table('bom_consumptions')->where('source_type', BomConsumptions::SALE)
+                ->where('store_transaction_id', $sale->id)->whereNull('superseded_at')->pluck('id')->all();
             DB::table('sales_postings')->where('id', $old->id)->delete();
             $processor = new StoreTransactionReceiptProcessor($actor, 'correction', $sale->id);
             $replacement = $processor->processReceiptGroup(collect($rows));
@@ -56,17 +60,24 @@ class SalesPostingCorrection
             unset($movement);
             $sale->store_transaction_items()->delete();
             $replacement->store_transaction_items()->update(['store_transaction_id' => $sale->id]);
+            DB::table('bom_consumptions')->where('source_type', BomConsumptions::SALE)
+                ->where('store_transaction_id', $replacement->id)->update(['store_transaction_id' => $sale->id]);
+            DB::table('store_transactions')->where('id', $sale->id)->update(['bom_frozen_at' => now()]);
             DB::table('sales_postings')->where('id', $new->id)->update([
                 'store_transaction_id' => $sale->id, 'movements' => json_encode($newMovements, JSON_THROW_ON_ERROR), 'destination_hash' => $ledger->destinationHash($sale->id),
                 'pos_verified_at' => $old->pos_verified_at, 'import_log_id' => $old->import_log_id,
             ]);
             $replacement->delete();
-            DB::table('sales_posting_corrections')->insert([
+            $correctionId = DB::table('sales_posting_corrections')->insertGetId([
                 'entity_id' => $sale->entity_id, 'store_transaction_id' => $sale->id, 'user_id' => $actor->id,
                 'reason' => $reason, 'original_posting' => json_encode($old, JSON_THROW_ON_ERROR),
                 'original_items' => $originalItems, 'reversal_ids' => json_encode($reversals),
                 'created_at' => now(), 'updated_at' => now(),
             ]);
+            foreach (array_chunk($oldLines, 1000) as $chunk) {
+                DB::table('bom_consumptions')->whereIn('id', $chunk)
+                    ->update(['superseded_at' => now(), 'superseded_by_correction_id' => $correctionId, 'updated_at' => now()]);
+            }
         });
     }
 }

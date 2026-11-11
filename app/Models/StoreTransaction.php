@@ -25,6 +25,7 @@ class StoreTransaction extends Model implements Auditable
         'cancel_reason', // Nullable,
         'reference_number', // Nullable
         'remarks', // Nullable
+        'bom_frozen_at', // when its ingredient lines were frozen into bom_consumptions
     ];
 
     protected $casts = [

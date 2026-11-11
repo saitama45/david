@@ -82,6 +82,8 @@ class OrderCalculatorService
             $pmixEnd = Carbon::parse($month)->endOfMonth();
             $pmixTotalDays += ($pmixStart->diffInDays($pmixEnd) + 1);
 
+            // Deliberately today's BOM, not the frozen bom_consumptions the reports read: this
+            // forecasts the next order, which will be used up at the current recipe.
             $consumption = DB::table('store_transaction_items')
                 ->join('store_transactions', 'store_transaction_items.store_transaction_id', '=', 'store_transactions.id')
                 ->join('pos_masterfiles', 'store_transaction_items.product_id', '=', 'pos_masterfiles.id')

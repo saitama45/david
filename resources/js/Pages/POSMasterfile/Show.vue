@@ -2,6 +2,9 @@
 import { ref, computed } from 'vue'; // Added computed
 import { router } from '@inertiajs/vue3';
 import { Edit, Package } from 'lucide-vue-next'; // Using Lucide icons for better visuals
+import { useAuth } from '@/composables/useAuth';
+
+const { hasAccess } = useAuth();
 
 const props = defineProps({
     item: {
@@ -80,6 +83,15 @@ const sortIngredients = (column) => {
 
 <template>
     <Layout :heading="`POS Masterfile Details: ${item.POSDescription}`">
+        <template #header-actions>
+            <!-- This item's changes and its BOM lines' changes, in the BOM Change History. -->
+            <Button
+                v-if="hasAccess('view POSMasterfile BOM list')"
+                variant="outline"
+                class="sm:text-normal text-xs"
+                @click="router.get(route('pos-bom.history', { pos_code: item.POSCode }))"
+            >History</Button>
+        </template>
         <div class="p-6 bg-white rounded-lg shadow-md space-y-6">
 
             <!-- Item Details Section -->

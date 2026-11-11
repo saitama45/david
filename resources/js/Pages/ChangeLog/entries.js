@@ -19,6 +19,52 @@ export const changeLog = [
     {
         date: '2026-11-11',
         module: 'BOM List',
+        type: 'new',
+        title: 'Change History on the BOM List: who changed a recipe or a POS item, when, and what it was before',
+        summary:
+            'Before, a change to a recipe left no trace when it came from Import POS BOMs, so nobody could tell when a BOM Qty was changed or by whom. Now every change to a BOM line or a POS item is kept in the Change History, from the forms and from the Excel imports alike.',
+        steps: [
+            'Open BOM List and click Change History, or open a POS item in the POS Masterlist and click History to see only that POS Code.',
+            'Each row shows the date and time, who made the change, the POS Code, the item and its BOM UOM, whether the line was Added, Changed or Deleted, and each field before and after, for example BOM Qty: 170 to 150.',
+            'The Source column says whether the change was typed in on a form or came from an Excel import, and names the file that was imported.',
+            'Narrow the list by POS Code, Item Code, a From and To date, Changed By, Type, Action or Source. Click Clear filters to see everything again.',
+            'Click Export to Excel to download the list as filtered, with one row for each field that changed.',
+        ],
+        rules: [
+            'Anyone who can open the BOM List can open the Change History.',
+            'Only the fields that really changed are listed. Uploading the same file again adds nothing to the history.',
+            'A changed POS Code is allowed and is shown with its old and new code.',
+            'A deleted BOM line or POS item keeps its last values in the history.',
+            'A repeated line that was allowed from the import review shows as an Excel import with the repeat line allowed.',
+            'Changed By lists only people who made a change. Type at least 3 characters of a name, or a shorter name in full.',
+            'Each entity sees its own changes.',
+            'Changes made on the forms before this release are copied into the history. Changes made by Excel imports before this release were never recorded, so they cannot be shown.',
+        ],
+        affects: 'Everyone who maintains or reviews recipes in the BOM List and the POS Masterlist.',
+    },
+    {
+        date: '2026-11-11',
+        module: 'Inventory Movement Report',
+        type: 'improved',
+        title: 'A recipe change in the BOM List no longer changes past Sales Qty and Wastage Qty in the Inventory Movement Report',
+        summary:
+            'Before, the report worked out past sales from the recipe as it is today, so changing a BOM Qty also changed the Sales Qty, Theoretical SOH and Variance of months already counted. Now each sale keeps the recipe it was posted with, and a wasted Sub-Prep keeps the recipe it was approved with, so their figures stay as they were.',
+        rules: [
+            'Example: a Coffee Latte sold in September used 170 Ml of milk. If its BOM Qty is changed to 150 Ml in October, September still shows 170 Ml for each latte, and only sales after the change use 150 Ml.',
+            'The Qty / Cost Variance Report and the Month End Count template read the same figures, so they keep their history too.',
+            'The breakdown that opens when a Sales Qty or Wastage Qty is clicked shows the POS Code each sale had when it was posted.',
+            'An item taken out of a recipe stays on the report for the months it was still used.',
+            'A product sold with no recipe, such as a gift card, stays without ingredients for that sale even if a recipe is added to it later.',
+            'A corrected sale uses the recipe in place on the day of the correction.',
+            'A receipt held for review uses the recipe in place on the day it finally posts.',
+            'Sales recorded before this release are locked in once after the release, at what was deducted from stock when that is known, otherwise at the recipe of that day.',
+            'The Order Calculator still uses today\'s recipe, because it plans the next order.',
+        ],
+        affects: 'Office users who read the Inventory Movement Report, the Qty / Cost Variance Report and the Month End Count, and everyone who edits recipes.',
+    },
+    {
+        date: '2026-11-11',
+        module: 'BOM List',
         type: 'improved',
         title: 'BOM List accepts a negative BOM Qty in Import POS BOMs and Create New Item: each sale adds that item back to stock',
         summary:

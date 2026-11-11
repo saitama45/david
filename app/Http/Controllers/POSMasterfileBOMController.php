@@ -6,6 +6,8 @@ use App\Models\POSMasterfile;
 use App\Models\POSMasterfileBOM;
 use App\Models\SAPMasterfile;
 use App\Models\User; // Assuming User model is needed for created_by/updated_by
+use App\Http\Services\PosRecipeHistoryService;
+use App\Support\PosRecipeHistory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
@@ -185,7 +187,7 @@ class POSMasterfileBOMController extends Controller
             ]);
         }
 
-        POSMasterfileBOM::create([
+        $line = POSMasterfileBOM::create([
             'POSCode' => $posItem->POSCode,
             'POSDescription' => $posItem->POSDescription,
             'Assembly' => $assembly,
@@ -201,6 +203,7 @@ class POSMasterfileBOMController extends Controller
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),
         ]);
+        PosRecipeHistory::bomLine(PosRecipeHistory::CREATED, null, $line);
 
         return to_route('pos-bom.index')->with('success', 'BOM line created.');
     }
@@ -228,6 +231,77 @@ class POSMasterfileBOMController extends Controller
         return Inertia::render('POSMasterfileBOM/Show', [
             'bom' => $posBom->load(['creator', 'updater']), // Load related users
         ]);
+    }
+
+    /**
+     * BOM Change History: every change to a BOM line or a POS item, from the forms and the
+     * Excel imports, with who, when, the old and new values and the source.
+     */
+    public function history(Request $request, PosRecipeHistoryService $history)
+    {
+        $filters = $this->historyFilters($request);
+        $changes = $history->query($filters)->paginate(PosRecipeHistoryService::PER_PAGE)->withQueryString();
+        $changes->setCollection($changes->getCollection()->map(fn ($row) => $history->present($row)));
+        $changedBy = filled($filters['changed_by'] ?? null)
+            ? DB::table('users')->where('id', (int) $filters['changed_by'])->first(['id', 'first_name', 'last_name', 'email'])
+            : null;
+
+        return Inertia::render('POSMasterfileBOM/History', [
+            'changes' => $changes,
+            // Every key, even when empty: a missing one would read as a JavaScript built-in.
+            'filters' => $filters,
+            'changedBy' => $changedBy ? ['id' => (int) $changedBy->id, 'name' => trim($changedBy->first_name . ' ' . $changedBy->last_name), 'email' => $changedBy->email] : null,
+            'options' => [
+                'subjects' => $this->optionList(PosRecipeHistoryService::SUBJECTS),
+                'actions' => $this->optionList(PosRecipeHistoryService::ACTIONS),
+                'sources' => $this->optionList(PosRecipeHistoryService::SOURCES),
+            ],
+        ]);
+    }
+
+    public function historyExport(Request $request, PosRecipeHistoryService $history)
+    {
+        $changes = $history->query($this->historyFilters($request))->get()->map(fn ($row) => $history->present($row))->all();
+        $response = Excel::download(new \App\Exports\PosRecipeChangesExport($changes), 'bom_change_history-' . now()->format('Y-m-d') . '.xlsx');
+
+        // Built fresh on every download: the history grows, so a browser must never hand back an older copy.
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
+        return $response;
+    }
+
+    /** The Changed By picker: users who made a change, matching what was typed. */
+    public function historyUsers(Request $request, PosRecipeHistoryService $history)
+    {
+        return response()->json($history->users((string) $request->input('q', '')));
+    }
+
+    /** @return array<string, string> */
+    private function historyFilters(Request $request): array
+    {
+        $filters = $request->validate([
+            'pos_code' => ['nullable', 'string', 'max:255'],
+            'item_code' => ['nullable', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'changed_by' => ['nullable', 'integer'],
+            'source' => ['nullable', 'string', 'max:30'],
+            'action' => ['nullable', 'string', 'max:20'],
+            'subject' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        return array_map(fn ($value) => (string) ($value ?? ''), array_merge(
+            array_fill_keys(['pos_code', 'item_code', 'date_from', 'date_to', 'changed_by', 'source', 'action', 'subject'], null),
+            $filters
+        ));
+    }
+
+    /** @return array<int, array{value: string, label: string}> */
+    private function optionList(array $labels): array
+    {
+        return collect($labels)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values()->all();
     }
 
     /**
@@ -267,9 +341,13 @@ class POSMasterfileBOMController extends Controller
         ]);
 
         try {
-            $posBom->update(array_merge($validatedData, [
-                'updated_by' => $user->id,
-            ]));
+            DB::transaction(function () use ($posBom, $validatedData, $user) {
+                $before = $posBom->getAttributes();
+                $posBom->update(array_merge($validatedData, [
+                    'updated_by' => $user->id,
+                ]));
+                PosRecipeHistory::bomLine(PosRecipeHistory::UPDATED, $before, $posBom);
+            });
 
             return redirect()->route('pos-bom.index')->with('success', 'POS BOM updated successfully.');
         } catch (Exception $e) {
@@ -289,7 +367,12 @@ class POSMasterfileBOMController extends Controller
         }
 
         try {
-            $posBom->delete();
+            DB::transaction(function () use ($posBom) {
+                // The line as it was, kept in the change history once the line itself is gone.
+                $before = $posBom->getAttributes();
+                $posBom->delete();
+                PosRecipeHistory::bomLine(PosRecipeHistory::DELETED, $before, null);
+            });
             return redirect()->route('pos-bom.index')->with('success', 'POS BOM deleted successfully.');
         } catch (Exception $e) {
             Log::error("Error deleting POS BOM: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -332,7 +415,7 @@ class POSMasterfileBOMController extends Controller
         POSMasterfileBOMImport::resetSeenCombinations();
 
         try {
-            $import = new POSMasterfileBOMImport(app(\App\Support\EntityContext::class)->id());
+            $import = new POSMasterfileBOMImport(app(\App\Support\EntityContext::class)->id(), $request->file('pos_bom_file')->getClientOriginalName());
             Excel::import($import, $request->file('pos_bom_file'));
             
             $skippedItems = $import->getSkippedItems();
@@ -393,7 +476,7 @@ class POSMasterfileBOMController extends Controller
         }
 
         $import = new POSMasterfileBOMImport(app(\App\Support\EntityContext::class)->id());
-        DB::transaction(fn () => $selected->each(fn ($item) => $import->saveAllowedLine($item['row'])));
+        DB::transaction(fn () => $selected->each(fn ($item) => $import->saveAllowedLine($item['row'], $item['source_file'] ?? null)));
 
         session()->put($this->pendingKey(), $pending->whereNotIn('id', $ids)->values()->all());
 

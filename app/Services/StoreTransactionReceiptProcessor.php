@@ -6,6 +6,7 @@ use App\Models\POSMasterfile;
 use App\Models\POSMasterfileBOM;
 use App\Models\ProductInventoryStockManager;
 use App\Models\SAPMasterfile;
+use App\Support\BomConsumptions;
 use App\Support\ItemStockUnit;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
@@ -106,7 +107,7 @@ class StoreTransactionReceiptProcessor
                     foreach (['qty','base_qty','discount','line_total','net_total'] as $field) $items[$itemKey][$field] += (float) $row[$field];
                 }
                 $ingredients = [];
-                foreach ($items as $item) {
+                foreach ($items as $itemKey => $item) {
                     if (abs($item['qty']) > 2147483647 || abs($item['base_qty']) > 2147483647) throw new \InvalidArgumentException('Aggregated quantity exceeds supported range.');
                     $pos = $item['pos'];
                     $bom = POSMasterfileBOM::where('POSCode', $pos->POSCode)->get();
@@ -129,16 +130,20 @@ class StoreTransactionReceiptProcessor
                         $cost = (float) $recipe->UnitCost / $factor;
                         if (!is_finite($qty) || !is_finite($cost) || $cost < 0) throw new \InvalidArgumentException('Invalid ingredient quantity or cost.');
                         $ingredients[] = ['sap' => $sap, 'qty' => $qty, 'cost' => $cost, 'pos' => $pos->POSCode,
-                            'bom_qty' => $recipe->BOMQty, 'bom_uom' => $recipe->BOMUOM, 'returned' => $item['qty'] < 0];
+                            'bom_qty' => $recipe->BOMQty, 'bom_uom' => $recipe->BOMUOM, 'returned' => $item['qty'] < 0,
+                            'item_key' => $itemKey, 'bom_line_id' => $recipe->id, 'item_code' => $recipe->ItemCode, 'units' => $item['qty']];
                     }
                 }
                 if ($this->preview) return new StoreTransaction;
                 $transaction = StoreTransaction::create(['store_branch_id' => $branch->id, 'order_date' => $date,
-                    'posted' => $first['posted'] ?? '', 'tim_number' => $terminal, 'receipt_number' => $receipt]);
-                foreach ($items as $item) {
-                    $transaction->store_transaction_items()->create(['product_id' => $item['pos']->id,
+                    'posted' => $first['posted'] ?? '', 'tim_number' => $terminal, 'receipt_number' => $receipt,
+                    // Its ingredient lines are frozen below (none for a non-inventory product).
+                    'bom_frozen_at' => now()]);
+                $itemIds = [];
+                foreach ($items as $itemKey => $item) {
+                    $itemIds[$itemKey] = $transaction->store_transaction_items()->create(['product_id' => $item['pos']->id,
                         'quantity' => $item['qty'], 'base_quantity' => $item['base_qty'], 'price' => $item['price'],
-                        'discount' => $item['discount'], 'line_total' => $item['line_total'], 'net_total' => $item['net_total'], 'take_out' => $item['take_out']]);
+                        'discount' => $item['discount'], 'line_total' => $item['line_total'], 'net_total' => $item['net_total'], 'take_out' => $item['take_out']])->id;
                 }
                 $snapshots = [];
                 foreach ($ingredients as $ingredient) {
@@ -160,6 +165,16 @@ class StoreTransactionReceiptProcessor
                         'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$ingredient['bom_qty']} {$ingredient['bom_uom']}".$note]);
                     $snapshots[] = (array) DB::table('product_inventory_stock_managers')->where('id', $movement->id)
                         ->first(['id','entity_id','product_inventory_id','store_branch_id','quantity','action','unit_cost','total_cost','transaction_date','remarks']);
+                    // What this line used, frozen: reports read it instead of today's BOM.
+                    $pos = $items[$ingredient['item_key']]['pos'];
+                    BomConsumptions::record(['entity_id' => $branch->entity_id, 'store_branch_id' => $branch->id,
+                        'business_date' => $date, 'source_type' => BomConsumptions::SALE, 'origin' => BomConsumptions::POSTED,
+                        'store_transaction_id' => $transaction->id, 'store_transaction_item_id' => $itemIds[$ingredient['item_key']],
+                        'pos_masterfile_id' => $pos->id, 'pos_code' => $pos->POSCode, 'pos_description' => $pos->POSDescription,
+                        'bom_line_id' => $ingredient['bom_line_id'], 'item_code' => $ingredient['item_code'],
+                        'bom_uom' => $ingredient['bom_uom'], 'bom_qty' => $ingredient['bom_qty'], 'units' => $ingredient['units'],
+                        'qty' => (float) $ingredient['bom_qty'] * $ingredient['units'], 'stock_row_id' => $ingredient['sap']->id,
+                        'stock_qty' => $ingredient['qty'], 'unit_cost' => $ingredient['cost'], 'movement_id' => $movement->id]);
                 }
                 DB::table('sales_postings')->insert(['entity_id' => $branch->entity_id, 'store_branch_id' => $branch->id,
                     'business_date' => $date, 'receipt_key' => $key, 'store_transaction_id' => $transaction->id,

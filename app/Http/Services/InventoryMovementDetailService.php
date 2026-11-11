@@ -172,22 +172,32 @@ class InventoryMovementDetailService
                 ->whereRaw('COALESCE(oird.quantity_received, 0) <> 0')
                 ->selectRaw($columns('so.interco_number', 'CAST(so.id AS varchar(20))', 'other.name', 'CONVERT(varchar(10), oird.received_date, 23)', 'soi.uom', 'COALESCE(oird.quantity_received, 0)')),
 
-            // One line per receipt and product; the BOM is matched within the product's entity.
-            'sales' => DB::table('store_transaction_items as sti')
-                ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
-                ->join('pos_masterfiles as pm', 'sti.product_id', '=', 'pm.id')
-                ->join('pos_masterfiles_bom as bom', function ($join) {
-                    $join->on('pm.POSCode', '=', 'bom.POSCode')
-                        ->where(function ($entity) {
-                            $entity->whereColumn('pm.entity_id', 'bom.entity_id')
-                                ->orWhere(fn ($legacy) => $legacy->whereNull('pm.entity_id')->whereNull('bom.entity_id'));
-                        });
-                })
-                ->where('st.store_branch_id', $branchId)
-                ->whereBetween('st.order_date', [$from, $to])
-                ->where('bom.ItemCode', $itemCode)
-                ->groupBy('st.id', 'st.order_date', 'st.receipt_number', 'pm.POSCode', 'pm.POSDescription', DB::raw($unit('bom.BOMUOM')))
-                ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, pm.POSCode as d1, pm.POSDescription as d2, {$unit('bom.BOMUOM')} as unit, SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)) as qty"),
+            // One line per receipt and product: what the sale used, frozen when it was posted,
+            // under the POS code and name it had then. A sale not frozen yet reads today's BOM,
+            // matched within the product's entity.
+            'sales' => InventoryMovementService::frozenConsumption(\App\Support\BomConsumptions::SALE)
+                ->join('store_transactions as st', 'bc.store_transaction_id', '=', 'st.id')
+                ->where('bc.store_branch_id', $branchId)
+                ->whereBetween('bc.business_date', [$from, $to])
+                ->where('bc.item_code', $itemCode)
+                ->groupBy('st.id', 'st.order_date', 'st.receipt_number', 'bc.pos_code', 'bc.pos_description', DB::raw($unit('bc.bom_uom')))
+                ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, CAST(bc.pos_code AS nvarchar(255)) as d1, CAST(bc.pos_description AS nvarchar(255)) as d2, {$unit('bc.bom_uom')} as unit, SUM(bc.qty) as qty")
+                ->unionAll(DB::table('store_transaction_items as sti')
+                    ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
+                    ->join('pos_masterfiles as pm', 'sti.product_id', '=', 'pm.id')
+                    ->join('pos_masterfiles_bom as bom', function ($join) {
+                        $join->on('pm.POSCode', '=', 'bom.POSCode')
+                            ->where(function ($entity) {
+                                $entity->whereColumn('pm.entity_id', 'bom.entity_id')
+                                    ->orWhere(fn ($legacy) => $legacy->whereNull('pm.entity_id')->whereNull('bom.entity_id'));
+                            });
+                    })
+                    ->where('st.store_branch_id', $branchId)
+                    ->whereBetween('st.order_date', [$from, $to])
+                    ->tap(InventoryMovementService::notFrozen('st'))
+                    ->where('bom.ItemCode', $itemCode)
+                    ->groupBy('st.id', 'st.order_date', 'st.receipt_number', 'pm.POSCode', 'pm.POSDescription', DB::raw($unit('bom.BOMUOM')))
+                    ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, CAST(pm.POSCode AS nvarchar(255)) as d1, CAST(pm.POSDescription AS nvarchar(255)) as d2, {$unit('bom.BOMUOM')} as unit, SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)) as qty")),
 
             // Filed for the item itself, then what a wasted Sub-Prep used of it through its BOM.
             'wastage' => DB::table('wastages as w')
@@ -197,6 +207,15 @@ class InventoryMovementDetailService
                 ->where('sap.ItemCode', $itemCode)
                 ->whereBetween('w.created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
                 ->selectRaw("CONVERT(date, w.created_at) as tx_date, w.wastage_no as ref_no, w.wastage_no as ref_id, w.reason as d1, CAST(NULL AS nvarchar(255)) as d2, {$unit('sap.AltUOM')} as unit, COALESCE(w.approverlvl2_qty, 0) as qty")
+                // A wasted Sub-Prep's raw materials, frozen at its approval.
+                ->unionAll(InventoryMovementService::frozenConsumption(\App\Support\BomConsumptions::WASTAGE)
+                    ->join('wastages as w', 'bc.wastage_id', '=', 'w.id')
+                    ->where('w.wastage_status', WastageStatus::APPROVED_LVL2->value)
+                    ->where('bc.store_branch_id', $branchId)
+                    ->whereBetween('bc.business_date', [$from, $to])
+                    ->where('bc.item_code', $itemCode)
+                    ->selectRaw("CONVERT(date, w.created_at) as tx_date, w.wastage_no as ref_no, w.wastage_no as ref_id, w.reason as d1, CAST(COALESCE(bc.pos_code, '') + ' ' + COALESCE(bc.pos_description, '') AS nvarchar(255)) as d2, {$unit('bc.bom_uom')} as unit, bc.qty as qty"))
+                // One approved before lines were kept and not frozen yet: its BOM of today.
                 ->unionAll(DB::table('wastages as w')
                     ->join('pos_masterfiles as pm', 'w.pos_masterfile_id', '=', 'pm.id')
                     ->join('pos_masterfiles_bom as bom', function ($join) {
@@ -209,6 +228,7 @@ class InventoryMovementDetailService
                     ->whereNull('w.sap_masterfile_id')
                     ->where('w.store_branch_id', $branchId)
                     ->where('w.wastage_status', WastageStatus::APPROVED_LVL2->value)
+                    ->tap(InventoryMovementService::notFrozen('w'))
                     ->where('bom.ItemCode', $itemCode)
                     ->whereBetween('w.created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
                     ->selectRaw("CONVERT(date, w.created_at) as tx_date, w.wastage_no as ref_no, w.wastage_no as ref_id, w.reason as d1, CAST(pm.POSCode + ' ' + COALESCE(pm.POSDescription, '') AS nvarchar(255)) as d2, {$unit('bom.BOMUOM')} as unit, COALESCE(w.approverlvl2_qty, 0) * COALESCE(bom.BOMQty, 0) as qty")),

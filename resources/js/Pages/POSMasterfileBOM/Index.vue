@@ -272,6 +272,10 @@ onUnmounted(() => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
+        <template #header-actions>
+            <Button variant="outline" class="sm:text-normal text-xs" @click="router.get(route('pos-bom.history'))">Change History</Button>
+        </template>
+
         <!-- Success Message Box -->
         <div v-if="importedItemsCount > 0 && skippedItems.length === 0" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
             <strong class="font-bold">Success!</strong>

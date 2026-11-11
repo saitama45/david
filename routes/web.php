@@ -914,6 +914,10 @@ Route::middleware('auth')
         Route::controller(POSMasterfileBOMController::class)->name('pos-bom.')->group(function () {
             Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list', 'index')->name('index');
             Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list/show/{posBom}', 'show')->name('show');
+            // Who changed which BOM line or POS item, when, and from which form or import.
+            Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list/history', 'history')->name('history');
+            Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list/history/export', 'historyExport')->name('history.export');
+            Route::middleware('permission:view POSMasterfile BOM list')->get('/pos-bom-list/history/users', 'historyUsers')->name('history.users');
             Route::middleware('permission:create POSMasterfile BOM')->group(function () {
                 Route::post('/pos-bom-list/store', 'store')->name('store');
                 Route::get('/pos-bom-list/create', 'create')->name('create');

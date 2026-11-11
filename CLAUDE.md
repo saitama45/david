@@ -480,6 +480,16 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   **BOMQty may be negative, never 0** (since 2026-11-11, import accepts "(0.25)" too): a sale adds that item
   back, its return takes it out, and a Sub-Prep's negative line adds back on wastage approval
   (`SubPrepRecipe` keeps it; the wastage search leaves it out of the stock coverage). Never filter BOM lines to `> 0`.
+- **A past sale or Sub-Prep wastage is read from what it used, never from today's BOM** (since 2026-11-11).
+  Posting and wastage approval freeze their ingredient lines into `bom_consumptions` (`App\Support\BomConsumptions`)
+  and set `bom_frozen_at`; the Inventory Movement Report, its popup and its activity filter sum those lines and
+  fall back to the BOM only where `bom_frozen_at` is NULL (`InventoryMovementService::frozenConsumption()` /
+  `notFrozen()`). Never join `pos_masterfiles_bom` for a past figure again; only PMIX (a forecast) does, on purpose.
+  A correction marks lines `superseded_at`, never deletes them. Older sales: `bom:freeze-history` (dry run; `--apply`).
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#frozen-bom-consumption-and-the-bom-change-history).
+- **Every write to a BOM line or POS item records the BOM Change History** through `App\Support\PosRecipeHistory`
+  (`pos_recipe_changes`, `/pos-bom-list/history`): forms, both imports and allowed repeats. The BOM import writes
+  with `DB::table`, which the auditing package never sees, so a new write path must call the recorder itself.
 - **Two enum namespaces**: `App\Enum\` (OrderStatus, UserRole, Days, TimePeriod) and `App\Enums\`
   (IntercoStatus, WastageStatus).
 - **Services live in `app/Http/Services/`**, not `app/Services/`.

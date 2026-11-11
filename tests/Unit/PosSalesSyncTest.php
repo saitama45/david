@@ -46,7 +46,7 @@ class PosSalesSyncTest extends TestCase
             'pos_masterfiles' => ['POSCode', 'POSDescription'],
             'pos_masterfiles_bom' => ['POSCode', 'ItemCode', 'ItemDescription', 'BOMUOM', 'BOMQty', 'UnitCost'],
             'sap_masterfiles' => ['ItemCode', 'ItemDescription', 'BaseUOM', 'AltUOM'],
-            'store_transactions' => ['store_branch_id', 'order_date', 'posted', 'tim_number', 'receipt_number'],
+            'store_transactions' => ['store_branch_id', 'order_date', 'posted', 'tim_number', 'receipt_number', 'bom_frozen_at'],
             'store_transaction_items' => ['store_transaction_id', 'product_id', 'base_quantity', 'quantity', 'price', 'discount', 'line_total', 'net_total', 'take_out'],
             'product_inventory_stock_managers' => ['product_inventory_id', 'store_branch_id', 'cost_center_id', 'quantity', 'action', 'unit_cost', 'total_cost', 'transaction_date', 'remarks'],
         ] as $name => $columns) {
@@ -62,6 +62,8 @@ class PosSalesSyncTest extends TestCase
         (require base_path('database/migrations/2026_09_20_000001_create_pos_sync_receipts_table.php'))->up();
         (require base_path('database/migrations/2026_09_20_000003_create_sales_posting_controls.php'))->up();
         (require base_path('database/migrations/2026_09_20_000004_add_fingerprint_to_pos_sync_exceptions.php'))->up();
+        // Posting freezes each sale's ingredient lines next to its stock movements.
+        (require base_path('database/migrations/2026_11_11_120000_create_bom_consumptions_table.php'))->up();
         DB::table('store_branches')->insert(['id' => 1, 'entity_id' => 1, 'location_code' => 'TEST', 'is_active' => 1, 'branch_code' => 'TEST']);
         DB::table('pos_masterfiles')->insert(['id' => 10, 'entity_id' => 1, 'POSCode' => 'COFFEE', 'POSDescription' => 'Coffee']);
         DB::table('sap_masterfiles')->insert(['id' => 20, 'entity_id' => 1, 'ItemCode' => 'BEANS', 'ItemDescription' => 'Beans', 'BaseUOM' => 'KG', 'AltUOM' => 'KG']);
@@ -405,6 +407,43 @@ class PosSalesSyncTest extends TestCase
         }
         $this->assertSame(1, DB::table('sales_posting_corrections')->count());
         $this->assertSame(11.0, (float) DB::table('product_inventory_stock_managers')->where('action', 'add')->sum('quantity'));
+    }
+
+    public function test_posting_freezes_ingredient_lines_that_a_later_bom_change_leaves_alone(): void
+    {
+        $rows = $this->packet()['rows']; // 2 cups of COFFEE, 0.5 KG of beans each
+        $this->assertNotNull((new \App\Services\StoreTransactionReceiptProcessor)->processReceiptGroup(collect($rows)));
+        $sale = \App\Models\StoreTransaction::first();
+        $this->assertNotNull($sale->bom_frozen_at);
+
+        $line = DB::table('bom_consumptions')->first();
+        $this->assertSame(['sale', 'posted', 'BEANS', 'KG', 'COFFEE'], [$line->source_type, $line->origin, $line->item_code, $line->bom_uom, $line->pos_code]);
+        $this->assertSame(1.0, (float) $line->qty); // 0.5 KG x 2 cups
+        $this->assertSame(2.0, (float) $line->units);
+        $this->assertEquals($sale->store_transaction_items()->value('id'), $line->store_transaction_item_id);
+        $movement = DB::table('product_inventory_stock_managers')->where('id', $line->movement_id)->first();
+        $this->assertSame((float) $movement->quantity, (float) $line->stock_qty);
+
+        // The recipe changes afterwards: the sale keeps what it used.
+        DB::table('pos_masterfiles_bom')->update(['BOMQty' => '0.75']);
+        $this->assertSame(1.0, (float) DB::table('bom_consumptions')->value('qty'));
+
+        // Corrected to 4 cups: the old line is kept, superseded, and the new one is on the same sale.
+        $actor = \Mockery::mock(\App\Models\User::class)->makePartial();
+        $actor->id = 7;
+        $actor->shouldReceive('can')->with('edit store transactions')->andReturn(true);
+        $actor->shouldReceive('hasRole')->with('admin')->andReturn(true);
+        $corrected = $rows;
+        $corrected[0] = array_replace($corrected[0], ['qty' => 4, 'base_qty' => 4]);
+        (new \App\Services\SalesPostingCorrection)->replace($sale, $corrected, $actor, 'Correct quantity from verified receipt');
+
+        $lines = DB::table('bom_consumptions')->orderBy('id')->get();
+        $this->assertCount(2, $lines);
+        $this->assertNotNull($lines[0]->superseded_at);
+        $this->assertEquals(DB::table('sales_posting_corrections')->value('id'), $lines[0]->superseded_by_correction_id);
+        $this->assertNull($lines[1]->superseded_at);
+        $this->assertEquals($sale->id, $lines[1]->store_transaction_id);
+        $this->assertSame(3.0, (float) $lines[1]->qty); // 0.75 KG x 4 cups
     }
 
     public function test_manual_actor_cannot_post_an_unassigned_store(): void

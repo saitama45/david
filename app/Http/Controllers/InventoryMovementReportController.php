@@ -408,13 +408,23 @@ class InventoryMovementReportController extends Controller
                     ->where('so.store_branch_id', $branchId)
                     ->whereBetween('so.order_date', [$dateFrom, $dateTo]);
             })
-            // Check for sales via BOM based on the POS sales date (order_date), not the import timestamp
+            // Check for what sales and wasted Sub-Preps used, frozen when they were posted
+            ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
+                $sub->select(DB::raw(1))
+                    ->from('bom_consumptions as bc')
+                    ->whereNull('bc.superseded_at')
+                    ->whereColumn('bc.item_code', 'sap_masterfiles.ItemCode')
+                    ->where('bc.store_branch_id', $branchId)
+                    ->whereBetween('bc.business_date', [$dateFrom, $dateTo]);
+            })
+            // Check for sales not frozen yet via today's BOM, by the POS sales date (order_date), not the import timestamp
             ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $sub->select(DB::raw(1))
                     ->from('store_transaction_items as sti')
                     ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
                     ->where('st.store_branch_id', $branchId)
                     ->whereBetween('st.order_date', [$dateFrom, $dateTo])
+                    ->whereNull('st.bom_frozen_at')
                     ->whereExists(function($inner) {
                         $inner->select(DB::raw(1))
                             ->from('pos_masterfiles_bom as b')
@@ -433,7 +443,7 @@ class InventoryMovementReportController extends Controller
                     ->where('wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
                     ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
             })
-            // Check for a wasted Sub-Prep whose BOM uses the item
+            // Check for a wasted Sub-Prep not frozen yet whose BOM of today uses the item
             ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $sub->select(DB::raw(1))
                     ->from('wastages')
@@ -442,6 +452,7 @@ class InventoryMovementReportController extends Controller
                     ->whereColumn('b2.ItemCode', 'sap_masterfiles.ItemCode')
                     ->whereColumn('b2.entity_id', 'pm2.entity_id')
                     ->whereNull('wastages.sap_masterfile_id')
+                    ->whereNull('wastages.bom_frozen_at')
                     ->where('wastages.store_branch_id', $branchId)
                     ->where('wastages.wastage_status', \App\Enums\WastageStatus::APPROVED_LVL2->value)
                     ->whereBetween('wastages.created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);

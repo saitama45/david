@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Models\POSMasterfile;
 use App\Models\SAPMasterfile;
 use App\Support\EntityContext;
+use App\Support\PosRecipeHistory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -27,16 +28,22 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
 
     protected ?int $entityId;
 
+    /** The uploaded file's name, kept in the BOM change history with each change it made. */
+    protected ?string $sourceFile;
+
     /**
      * Rows are written via the raw query builder (DB::table), which bypasses
      * Eloquent — so BelongsToEntity never stamps entity_id and inserts would land
      * NULL (invisible to every scoped read). The active entity is captured here
      * (the import runs synchronously in the web request, where the context IS set)
      * and applied to every existence check, update and insert below.
+     * The same raw writes are invisible to the auditing package, so write() records
+     * every change in the BOM change history itself (PosRecipeHistory).
      */
-    public function __construct(?int $entityId = null)
+    public function __construct(?int $entityId = null, ?string $sourceFile = null)
     {
         $this->entityId = $entityId ?? app(EntityContext::class)->id();
+        $this->sourceFile = $sourceFile;
     }
 
     public static function resetSeenCombinations()
@@ -153,6 +160,7 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
                         'id' => (string) Str::uuid(),
                         'row' => $data,
                         'existing_qtys' => $lines->pluck('BOMQty')->map(fn ($qty) => (float) $qty)->values()->all(),
+                        'source_file' => $this->sourceFile,
                     ];
                     continue;
                 }
@@ -170,12 +178,12 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
      * Save a confirmed extra line: updates the line with this exact BOM Qty if it is
      * already there (a repeated allow), otherwise adds it next to the existing ones.
      */
-    public function saveAllowedLine(array $data): void
+    public function saveAllowedLine(array $data, ?string $sourceFile = null): void
     {
         $line = $this->lines($data)->get(['id', 'BOMQty'])
             ->first(fn ($line) => $this->sameQty($line->BOMQty, $data['BOMQty']));
 
-        $this->write($data, $line?->id);
+        $this->write($data, $line?->id, PosRecipeHistory::ALLOWED_REPEAT, $sourceFile);
     }
 
     /**
@@ -191,24 +199,31 @@ class POSMasterfileBOMImport implements ToCollection, WithHeadingRow, WithChunkR
             ->when($this->entityId === null, fn ($q) => $q->whereNull('entity_id'));
     }
 
-    protected function write(array $data, ?int $id): void
+    protected function write(array $data, ?int $id, string $source = PosRecipeHistory::IMPORT, ?string $sourceFile = null): void
     {
+        $sourceFile ??= $this->sourceFile;
+
         if ($id !== null) {
+            $before = DB::table('pos_masterfiles_bom')->where('id', $id)->first();
             DB::table('pos_masterfiles_bom')->where('id', $id)->update($data + [
                 'updated_by' => Auth::id(),
                 'updated_at' => now(),
             ]);
+            // Recorded only when a field really changed: re-uploading the same file adds nothing.
+            PosRecipeHistory::bomLine(PosRecipeHistory::UPDATED, $before, array_merge((array) $before, $data), $source, $sourceFile);
 
             return;
         }
 
-        DB::table('pos_masterfiles_bom')->insert($data + [
+        $row = $data + [
             'entity_id' => $this->entityId,
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+        $row['id'] = DB::table('pos_masterfiles_bom')->insertGetId($row);
+        PosRecipeHistory::bomLine(PosRecipeHistory::CREATED, null, $row, $source, $sourceFile);
     }
 
     protected function sameQty($a, $b): bool

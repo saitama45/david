@@ -97,6 +97,7 @@ class WastageService
             $item->save();
         }
 
+        $movementIds = [];
         foreach ($deductionData['deductions'] as $deduction) {
             // A negative quantity (a Sub-Prep BOM line with a negative BOM Qty) is added to stock.
             $adds = $deduction['quantity'] < 0;
@@ -110,7 +111,7 @@ class WastageService
             }
             $productStock->save();
 
-            ProductInventoryStockManager::create([
+            $movementIds[$deduction['product_inventory_id']] = ProductInventoryStockManager::create([
                 'product_inventory_id' => $deduction['product_inventory_id'],
                 'store_branch_id' => $storeBranchId,
                 'quantity' => $quantity,
@@ -119,7 +120,13 @@ class WastageService
                 'total_cost' => $totalCost,
                 'transaction_date' => $now,
                 'remarks' => $remarksPrefix . ': ' . $relatedWastages->first()->wastage_no,
-            ]);
+            ])->id;
+        }
+
+        // What each wasted Sub-Prep used of its raw materials, frozen at its recipe of today, so
+        // a BOM changed later does not move this wastage in the reports.
+        foreach ($relatedWastages as $item) {
+            \App\Support\BomConsumptions::recordSubPrepWastage($item, \App\Support\BomConsumptions::POSTED, $movementIds);
         }
 
         Wastage::whereIn('id', $relatedWastages->pluck('id'))
