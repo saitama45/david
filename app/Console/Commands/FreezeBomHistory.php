@@ -33,6 +33,10 @@ class FreezeBomHistory extends Command
 
     protected $description = 'Freeze the ingredients past sales and Sub-Prep wastage used, and copy past BOM / POS item audits into the change history (dry run unless --apply)';
 
+    private const SALES_PER_BATCH = 200;
+
+    private const ROWS_PER_INSERT = 80;
+
     /** @var array<string, ItemStockUnit> */
     private array $stockUnits = [];
 
@@ -79,12 +83,19 @@ class FreezeBomHistory extends Command
     private function freezeSales(bool $apply, ?int $branch): array
     {
         $stats = ['snapshot' => 0, 'current_bom' => 0, 'lines' => 0];
+        $open = DB::table('store_transactions')->whereNull('bom_frozen_at')
+            ->when($branch !== null, fn ($query) => $query->where('store_branch_id', $branch));
+        $total = (clone $open)->count();
+        $done = 0;
+        $started = microtime(true);
+        $this->line("Sales to freeze: {$total}");
 
-        DB::table('store_transactions')
-            ->whereNull('bom_frozen_at')
-            ->when($branch !== null, fn ($query) => $query->where('store_branch_id', $branch))
-            ->select(['id', 'store_branch_id', 'order_date'])
-            ->chunkById(200, function (Collection $sales) use ($apply, &$stats) {
+        // One transaction per 200 sales, their lines in multi-row inserts: against a distant
+        // database each round trip costs, and one transaction per sale took ~3 s a sale.
+        // An interrupted run loses at most the batch in progress; running again resumes.
+        $open->select(['id', 'store_branch_id', 'order_date'])
+            ->chunkById(self::SALES_PER_BATCH, function (Collection $sales) use ($apply, &$stats, &$done, $total, $started) {
+                $rows = [];
                 $ids = $sales->pluck('id')->all();
                 $postings = DB::table('sales_postings')->whereIn('store_transaction_id', $ids)->get()->keyBy('store_transaction_id');
                 $items = DB::table('store_transaction_items as sti')
@@ -107,16 +118,27 @@ class FreezeBomHistory extends Command
                     $stats[$posting ? 'snapshot' : 'current_bom']++;
                     $stats['lines'] += count($lines);
 
-                    if ($apply) {
-                        DB::transaction(function () use ($sale, $lines) {
-                            foreach (array_chunk($lines, 50) as $chunk) {
-                                DB::table('bom_consumptions')->insert(array_map(fn ($line) => BomConsumptions::row($line), $chunk));
-                            }
-                            // Frozen even with no lines: it no longer reads the BOM at all.
-                            DB::table('store_transactions')->where('id', $sale->id)->update(['bom_frozen_at' => now()]);
-                        });
+                    foreach ($lines as $line) {
+                        $rows[] = BomConsumptions::row($line);
                     }
                 }
+
+                if ($apply) {
+                    DB::transaction(function () use ($rows, $sales) {
+                        // 23 columns a row: 80 rows stay under SQL Server's 2,100 parameters.
+                        foreach (array_chunk($rows, self::ROWS_PER_INSERT) as $chunk) {
+                            DB::table('bom_consumptions')->insert($chunk);
+                        }
+                        // Frozen even with no lines: it no longer reads the BOM at all.
+                        DB::table('store_transactions')->whereIn('id', $sales->pluck('id')->all())->update(['bom_frozen_at' => now()]);
+                    });
+                }
+
+                $done += $sales->count();
+                $rate = $done / max(microtime(true) - $started, 0.001);
+                $left = $rate > 0 ? (int) round(($total - $done) / $rate / 60) : 0;
+                $this->line(sprintf('  sales %s of %s (%s lines)%s', number_format($done), number_format($total), number_format($stats['lines']),
+                    $done < $total ? ", about {$left} min left" : ''));
             });
 
         return $stats;
