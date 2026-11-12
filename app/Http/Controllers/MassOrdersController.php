@@ -472,10 +472,11 @@ class MassOrdersController extends Controller
     /**
      * Whether the store takes this template's deliveries on the weekday. An unrestricted
      * template (AO, EO, ALOC) needs only to be on the store's delivery schedule, any day.
+     * Fruits and Vegetables (DROPS) days count from either schedule page (Supplier::scheduleVariants()).
      */
     private function deliversOn($branch, string $supplierCode, string $dayName): bool
     {
-        $query = $branch->delivery_schedules()->wherePivot('variant', $supplierCode);
+        $query = $branch->delivery_schedules()->wherePivotIn('variant', Supplier::scheduleVariants($supplierCode));
 
         if (! Supplier::isUnrestrictedTemplate($supplierCode)) {
             $query->where('delivery_schedules.day', $dayName);

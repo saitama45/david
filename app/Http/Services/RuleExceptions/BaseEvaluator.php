@@ -33,11 +33,11 @@ abstract class BaseEvaluator implements RuleEvaluator
         return $store;
     }
 
-    /** The store is scheduled to receive this template/variant on that weekday. Never waivable. */
-    protected function onDeliverySchedule(StoreBranch $store, string $variant, string $date): bool
+    /** The store is scheduled to receive this template/variant (any of several labels) on that weekday. Never waivable. */
+    protected function onDeliverySchedule(StoreBranch $store, string|array $variant, string $date): bool
     {
         return $store->delivery_schedules()
-            ->wherePivot('variant', $variant)
+            ->wherePivotIn('variant', (array) $variant)
             ->where('delivery_schedules.day', strtoupper(Carbon::parse($date)->format('l')))
             ->exists();
     }

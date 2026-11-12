@@ -173,6 +173,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   (invisible, and it collides on `(entity_id, …)` unique indexes). Stamp it from `EntityContext` explicitly.
 - **`DeliverySchedule` (the 7 weekday rows) is shared, not entity-scoped.** All entities' store schedules
   point at ids 1–7; scoping it hid every non-Nono's store from templates. Don't add `BelongsToEntity` back.
+- **`d_t_s_delivery_schedules` is shared by two pages, told apart by `variant`.** Delivery Schedules (DSP) files a
+  Mass Orders template's days under its supplier code; DTS Delivery Schedules files `ICE CREAM` / `SALMON` /
+  `FRUITS AND VEGETABLES`, and its save replaces those three only (it once detached every variant, dropping the
+  store from its templates). Mass Orders' F&V is supplier `DROPS`, whose days count from **either** label: look a
+  template's days up with `Supplier::scheduleVariants()`, never `wherePivot('variant', $supplierCode)`.
 - **Dashboard Success Rate tab: only tickets are typed in.** `success_rate_weekly_tickets` stores
   Incoming/Closed per module and nothing else. Transaction volume is counted per week from the five
   Adoption Rate datasets (MEC has no indicator, so it contributes none), and Success Rate / Close

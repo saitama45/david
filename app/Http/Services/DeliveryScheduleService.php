@@ -9,27 +9,30 @@ use Illuminate\Support\Str;
 
 class DeliveryScheduleService
 {
+    /** The schedules this page owns, form field => variant label. */
+    private const VARIANTS = [
+        'ice_cream' => 'ICE CREAM',
+        'salmon' => 'SALMON',
+        'fruits_and_vegetables' => 'FRUITS AND VEGETABLES',
+    ];
+
+    /**
+     * Replaces the store's DTS schedules only. The same table holds each ordering template's
+     * days (Delivery Schedules, variant = supplier code), which must survive this save, or the
+     * store drops out of those Mass Orders templates.
+     */
     public function updateDeliveryScedule(array $data, $id)
     {
-        DB::beginTransaction();
-        $branch = StoreBranch::findOrFail($id);
-        $branch->delivery_schedules()->detach();
+        DB::transaction(function () use ($data, $id) {
+            $branch = StoreBranch::findOrFail($id);
+            $branch->delivery_schedules()->wherePivotIn('variant', array_values(self::VARIANTS))->detach();
 
-        $attachSchedules = function ($schedules, $variant) use ($branch) {
-            if (!empty($schedules)) {
-                foreach ($schedules as $scheduleId) {
-                    $branch->delivery_schedules()->attach($scheduleId, [
-                        'variant' => strtoupper(str_replace('_', ' ', $variant))
-                    ]);
+            foreach (self::VARIANTS as $field => $variant) {
+                foreach (array_unique($data[$field] ?? []) as $scheduleId) {
+                    $branch->delivery_schedules()->attach($scheduleId, ['variant' => $variant]);
                 }
             }
-        };
-
-        $attachSchedules($data['ice_cream'], 'ice_cream');
-        $attachSchedules($data['salmon'], 'salmon');
-        $attachSchedules($data['fruits_and_vegetables'], 'fruits_and_vegetables');
-
-        DB::commit();
+        });
     }
 
     public function getSchedules($id)

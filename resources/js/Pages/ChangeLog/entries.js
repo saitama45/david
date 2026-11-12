@@ -15,6 +15,47 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 12, 2026
+    {
+        date: '2026-11-12',
+        module: 'Mass Orders',
+        type: 'improved',
+        title: 'Fruits and Vegetables: Download Order Template now lists a store whose days are set on DTS Delivery Schedules',
+        summary:
+            'Before, a store left out of the FRUITS AND VEGETABLES template unless its delivery days were set on Delivery Schedules (as DROPSHIPPING), even when DTS Delivery Schedules showed Fruits and Vegetables days for it. Laus Group Complex (NNLGC), set for Monday and Friday on DTS Delivery Schedules only, never showed in the template. Now the days set on either page count.',
+        steps: [
+            'Open Mass Orders and click Create New Mass Order.',
+            'Choose FRUITS AND VEGETABLES as the Ordering Template and pick the Delivery Date.',
+            'Click Download Order Template. Every store you are assigned to that receives Fruits and Vegetables on that weekday has its own column.',
+        ],
+        rules: [
+            'A store receives Fruits and Vegetables on a weekday when that day is set for DROPSHIPPING on Delivery Schedules or for Fruits and Vegetables on DTS Delivery Schedules.',
+            'The upload, the store list when editing an order, and a request for a Mass order after the ordering cutoff all follow the same days, so a store in the template is accepted when the file is uploaded.',
+            'Where the two pages disagree, a store is listed on the days of both. Nono's Clark Henry Hotel (NNCHH) is now also listed on Saturday and SM Grand Central (NNSGC) on Tuesday, the extra days DTS Delivery Schedules shows for them.',
+            'You still need the store assigned to your user and the FRUITS AND VEGETABLES template assigned to you, and the date must not be closed by a final approved month end count.',
+            'Every other Ordering Template still uses only its own days on Delivery Schedules.',
+        ],
+        affects: 'Office users who place FRUITS AND VEGETABLES mass orders, and the stores that receive them.',
+    },
+    {
+        date: '2026-11-12',
+        module: 'DTS Delivery Schedules',
+        type: 'improved',
+        title: 'Update on DTS Delivery Schedules no longer removes the store from its Mass Orders templates',
+        summary:
+            'Before, clicking Update on a store in DTS Delivery Schedules erased every delivery day the store had on Delivery Schedules as well, such as GSI OT-PR, PUL OT-DG, DROPSHIPPING, Additional Order or CPO. The store then disappeared from those templates in Mass Orders until someone set its days again. Now Update changes only the Ice Cream, Salmon and Fruits and Vegetables days on that page.',
+        steps: [
+            'Open DTS Delivery Schedules and click the store to edit.',
+            'Set the Ice Cream, Salmon and Fruits and Vegetables delivery days and click Update.',
+            'The store keeps the days it has on Delivery Schedules for every Ordering Template.',
+        ],
+        rules: [
+            'DTS Delivery Schedules changes only the Ice Cream, Salmon and Fruits and Vegetables days.',
+            'Delivery Schedules remains the page for the days of each Mass Orders Ordering Template.',
+            'Days already erased by an earlier Update do not come back by themselves. Set them again on Delivery Schedules.',
+        ],
+        affects: 'Users who maintain DTS Delivery Schedules, and the stores and office users who order through Mass Orders.',
+    },
     // ---------------------------------------------------------------- November 11, 2026
     {
         date: '2026-11-11',

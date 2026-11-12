@@ -56,6 +56,25 @@ class Supplier extends Model implements Auditable
     public const COMMITTED_WHEN_PLACED = 'DROPS';
 
     /**
+     * The DTS Delivery Schedules label of the days Mass Orders' DROPS template (shown there as
+     * Fruits and Vegetables) delivers on, beside the DROPS label of Delivery Schedules.
+     */
+    public const FRUITS_AND_VEGETABLES_SCHEDULE = 'FRUITS AND VEGETABLES';
+
+    /**
+     * The delivery schedule labels (d_t_s_delivery_schedules.variant) that put a store on a
+     * template's schedule. DROPS is Fruits and Vegetables, whose days are filed under DROPS on
+     * Delivery Schedules or under FRUITS AND VEGETABLES on DTS Delivery Schedules: either one
+     * counts, as in the Adoption Rate. Every other template is its supplier code alone.
+     */
+    public static function scheduleVariants(?string $supplierCode): array
+    {
+        return strtoupper(trim((string) $supplierCode)) === self::COMMITTED_WHEN_PLACED
+            ? [self::COMMITTED_WHEN_PLACED, self::FRUITS_AND_VEGETABLES_SCHEDULE]
+            : [(string) $supplierCode];
+    }
+
+    /**
      * Whether CS commits this template's orders, so Ordering Template Approval can make Inbound
      * Orders wait for that commit (StoreOrder::waitsForCsCommit()). The unrestricted templates
      * are committed by their approval and DROPS when placed: nothing would ever release them.

@@ -2,6 +2,7 @@
 
 namespace App\Http\Services\RuleExceptions;
 
+use App\Models\Supplier;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -36,7 +37,7 @@ class MassOrderLateOrderEvaluator extends BaseEvaluator
             $this->deny("No ordering cutoff is configured for {$supplierCode}. Ask for the cutoff to be set up instead.");
         }
 
-        if (! $this->onDeliverySchedule($store, $supplierCode, $date)) {
+        if (! $this->onDeliverySchedule($store, Supplier::scheduleVariants($supplierCode), $date)) {
             $this->deny("{$store->name} is not on the {$supplierCode} delivery schedule for ".Carbon::parse($date)->format('l').'.');
         }
 
