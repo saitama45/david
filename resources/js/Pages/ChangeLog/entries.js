@@ -31,7 +31,7 @@ export const changeLog = [
         rules: [
             'A store receives Fruits and Vegetables on a weekday when that day is set for DROPSHIPPING on Delivery Schedules or for Fruits and Vegetables on DTS Delivery Schedules.',
             'The upload, the store list when editing an order, and a request for a Mass order after the ordering cutoff all follow the same days, so a store in the template is accepted when the file is uploaded.',
-            'Where the two pages disagree, a store is listed on the days of both. Nono's Clark Henry Hotel (NNCHH) is now also listed on Saturday and SM Grand Central (NNSGC) on Tuesday, the extra days DTS Delivery Schedules shows for them.',
+            'Where the two pages disagree, a store is listed on the days of both. Nono\'s Clark Henry Hotel (NNCHH) is now also listed on Saturday and SM Grand Central (NNSGC) on Tuesday, the extra days DTS Delivery Schedules shows for them.',
             'You still need the store assigned to your user and the FRUITS AND VEGETABLES template assigned to you, and the date must not be closed by a final approved month end count.',
             'Every other Ordering Template still uses only its own days on Delivery Schedules.',
         ],
