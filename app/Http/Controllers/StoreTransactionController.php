@@ -92,6 +92,7 @@ class StoreTransactionController extends Controller
             'branches' => $branches,
             'transactions' => $transactions,
             'salesSyncStatus' => fn () => app(\App\Services\SalesImportStatus::class)->summary(request()->user(), $branchId),
+            'salesUploadFormat' => \App\Support\SalesUploadFormat::active(),
         ]);
     }
 

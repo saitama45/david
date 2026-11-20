@@ -76,6 +76,11 @@ class ExcelTemplateController extends Controller
 
     public function storeTransactionsTemplate()
     {
+        // The TC entity uploads its daily sales summary, not the POS receipt report.
+        if (\App\Support\SalesUploadFormat::active() === \App\Support\SalesUploadFormat::DAILY_SUMMARY) {
+            return response()->download(storage_path('app/public/excel-templates/tc_sales_template.xlsx'), 'TC_Sales_Template.xlsx');
+        }
+
         $path = storage_path('app/public/excel-templates/store_transactions_template.xlsx');
         return response()->download($path);
     }

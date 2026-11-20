@@ -15,6 +15,32 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 20, 2026
+    {
+        date: '2026-11-20',
+        module: 'Store Transactions',
+        type: 'new',
+        title: 'Import Store Transactions: TC uploads its daily sales summary',
+        summary:
+            'Before, Import Store Transactions only read the POS receipt report that Nono\'s uploads, which TC does not have. Now, while TC is the active entity, it reads the TC daily sales summary: one row per store, date and item with its Qty and Net Sales. The other entities upload the same file as before.',
+        steps: [
+            'Switch to the TC entity and open Store Transactions.',
+            'Click Import Store Transactions. Under Store Transaction Template, click Click to download to get the TC file.',
+            'Fill in one row per store, date and item: Store Code, Date, Item Code, Item Name, Actual Item Name, Qty and Net Sales, with the column titles on row 6 as in the template.',
+            'Choose the file and click Proceed. The upload is queued, and its result and the rows not posted are on the Work Queue page.',
+        ],
+        rules: [
+            'Store Code is the store\'s location code or branch code. The store must belong to TC and be assigned to you.',
+            'Item Code is the POS Code in the POS Masterlist, and the item needs its BOM. Item Name and Actual Item Name are for reference only and are not checked.',
+            'Each store and date is posted as one sale, and all of its items post together or none do. One item that is not in the POS Masterlist or has no BOM holds back that store\'s whole day, while the other days in the file still post.',
+            'A store and date already uploaded is not posted again, so a file uploaded twice by mistake deducts nothing twice. Its rows are listed with the reason "Sales of this store for this date were already uploaded".',
+            'Qty must be a whole number other than 0. A row with both Qty and Net Sales at 0 or blank is ignored. A negative Qty with a negative Net Sales is a returned item, and its ingredients go back to stock.',
+            'Net Sales is recorded as the item\'s net total, and its price is Net Sales divided by Qty (6,680.84 for 37 sold is 180.5632).',
+            'Each item sold takes its BOM ingredients out of the store\'s stock on the sales date, as every other sales upload does.',
+            'A row whose Date cannot be read stops the whole file, and nothing is posted until it is corrected.',
+        ],
+        affects: 'TC users who upload sales. Sales uploads of Nono\'s and Coffee Bean Tea Leaf are unchanged.',
+    },
     // ---------------------------------------------------------------- November 12, 2026
     {
         date: '2026-11-12',

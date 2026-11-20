@@ -492,6 +492,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `notFrozen()`). Never join `pos_masterfiles_bom` for a past figure again; only PMIX (a forecast) does, on purpose.
   A correction marks lines `superseded_at`, never deletes them. Older sales: `bom:freeze-history` (dry run; `--apply`).
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#frozen-bom-consumption-and-the-bom-change-history).
+- **The TC entity's manual sales upload is a daily summary, not POS receipts** (since 2026-11-20).
+  `SalesUploadFormat` picks the reader by entity code (`TC` -> `TcSalesSummaryImport`); each store +
+  date posts as one sale (terminal `DAILY`, receipt `YYYYMMDD`) through the shared receipt processor,
+  so a re-upload of that day is refused. A new manual layout goes through `SalesUploadFormat`.
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#manual-sales-upload-layout-per-entity).
 - **Every write to a BOM line or POS item records the BOM Change History** through `App\Support\PosRecipeHistory`
   (`pos_recipe_changes`, `/pos-bom-list/history`): forms, both imports and allowed repeats. The BOM import writes
   with `DB::table`, which the auditing package never sees, so a new write path must call the recorder itself.

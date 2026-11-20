@@ -20,8 +20,10 @@ import { useToast } from "@/composables/useToast";
 const { toast } = useToast();
 import { useConfirm } from "primevue/useconfirm";
 const confirm = useConfirm();
-const { transactions, branches, salesSyncStatus } = defineProps({
+const { transactions, branches, salesSyncStatus, salesUploadFormat } = defineProps({
     salesSyncStatus: Object,
+    // 'daily_summary' for the TC entity's daily sales summary, 'pos_receipts' otherwise.
+    salesUploadFormat: { type: String, default: 'pos_receipts' },
     transactions: {
         type: Object,
         required: true,
@@ -475,6 +477,26 @@ const closeSkippedRowsCard = () => {
                     <FormError>{{
                         importForm.errors.store_transactions_file
                     }}</FormError>
+                </InputContainer>
+
+                <InputContainer v-if="salesUploadFormat === 'daily_summary'">
+                    <Label class="text-xs">TC Daily Sales Summary</Label>
+                    <ul class="list-disc pl-4 text-xs text-gray-600 space-y-1">
+                        <li>
+                            Columns: Store Code, Date, Item Code, Item Name,
+                            Actual Item Name, Qty, Net Sales. One row per store,
+                            date and item.
+                        </li>
+                        <li>
+                            Item Code is the POS Code. Item Name and Actual Item
+                            Name are for reference only.
+                        </li>
+                        <li>
+                            Each store and date posts as one sale, and all of its
+                            items post together or not at all. A store and date
+                            already uploaded is not posted again.
+                        </li>
+                    </ul>
                 </InputContainer>
 
                 <InputContainer>

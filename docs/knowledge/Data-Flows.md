@@ -58,6 +58,24 @@ Because a single stuck row blocks the queue, a reconciler runs **every 60 second
 does **not** filter — an entity-aware job must set it explicitly, ideally
 `EntityContext::runAs($id, fn () => ...)`.
 
+### Manual sales upload layout per entity
+
+`StoreTransactionImportJob` asks `App\Support\SalesUploadFormat::importer()` which reader to use,
+under the import log's entity. The entity with code **`TC`** uploads a daily sales summary
+(`TcSalesSummaryImport`: Store Code | Date | Item Code | Item Name | Actual Item Name | Qty |
+Net Sales, header found by content, row 6 in the template); every other entity uploads the POS
+receipt report (`StoreTransactionImport`). The Store Transactions page (`salesUploadFormat` prop)
+and `/excel/store-transactions-template` (`tc_sales_template.xlsx`, force-added: `storage/app/*` is
+git-ignored) follow the same switch. Manual only: TC has no POS sync.
+
+The TC file has no receipts, so each **store + date is one sale** with terminal `DAILY` and receipt
+`YYYYMMDD`, posted through `StoreTransactionReceiptProcessor` like every other channel: the day's
+items post together or not at all, and re-uploading a store/date is refused by the receipt key
+(no second deduction). Store Code matches `location_code` or `branch_code` in the entity, and rows
+are grouped by the store found, not the text. Item Code = POS Code; the two names are not checked.
+Net Sales = `net_total` = `line_total`, discount 0, price = |Net Sales / Qty| rounded to 4 dp.
+Qty and Net Sales both 0 or blank = no sale; an unreadable date refuses the whole file.
+
 ## Approval flow
 
 Orders, wastage, month-end counts, interco and cash pull-out share the same shape: a status column

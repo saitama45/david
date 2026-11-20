@@ -2,8 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Imports\StoreTransactionImport;
 use App\Jobs\Concerns\UsesEntityContext;
+use App\Support\SalesUploadFormat;
 use App\Models\ImportLog;
 use App\Services\ImportQueueService;
 use Exception;
@@ -64,7 +64,8 @@ class StoreTransactionImportJob implements ShouldQueue
             $owner = \App\Models\User::findOrFail($log->user_id);
             if (!$owner->can('create store transactions')) throw new \RuntimeException('Uploader no longer has sales import permission.');
             if (!$owner->accessibleEntities()->whereKey($log->entity_id)->exists()) throw new \RuntimeException('Uploader no longer has access to this entity.');
-            $import = new StoreTransactionImport($owner, 'manual', null, $log->id);
+            // The entity decides the layout: TC uploads a daily sales summary, the others the POS receipt report.
+            $import = SalesUploadFormat::importer($owner, $log->id);
             // Use a receipt-level transaction instead of the package's workbook-wide transaction.
             $reader = new \Maatwebsite\Excel\Reader(
                 app(\Maatwebsite\Excel\Files\TemporaryFileFactory::class),
