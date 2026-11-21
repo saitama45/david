@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\SupplierItemsExport;
 use App\Imports\SupplierItemsImport; // Make sure this is imported
+use App\Models\Entity;
 use App\Models\SupplierItems;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -348,17 +349,25 @@ class SupplierItemsController extends Controller
             return redirect('/login')->with('error', 'Please log in to import supplier items.');
         }
         
-        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
-
-        if (empty($assignedSupplierCodes)) {
-            return back()->with('error', 'You have no assigned suppliers, so you cannot import items.');
-        }
-
-        set_time_limit(10000000000); 
-        
         $request->validate([
             'products_file' => 'required|mimes:xlsx,xls,csv'
         ]);
+
+        // A refusal or a failure goes back as an error on the file, which the upload form shows
+        // and stays open for. The page shows no flash error: sent that way, the form closed and
+        // the upload looked as if nothing had happened.
+        $assignedSupplierCodes = $user->suppliers->pluck('supplier_code')->toArray();
+
+        if (empty($assignedSupplierCodes)) {
+            $entityName = Entity::find(app(\App\Support\EntityContext::class)->id())?->name ?? 'this entity';
+
+            throw ValidationException::withMessages([
+                'products_file' => "You have no suppliers assigned in {$entityName}, so nothing was imported. "
+                    . "Ask an administrator to tick this file's suppliers under Assign Suppliers on your user, then upload again.",
+            ]);
+        }
+
+        set_time_limit(10000000000);
 
         try {
             // Pass the assignedSupplierCodes to the import class
@@ -385,13 +394,15 @@ class SupplierItemsController extends Controller
 
             return redirect()->route('SupplierItems.index');
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('SupplierItems Import Error: ' . $e->getMessage(), [
                 'file_name' => $request->file('products_file')->getClientOriginalName(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return back()->with('error', 'Import failed: ' . $e->getMessage() . '. Please check logs for details.');
+            throw ValidationException::withMessages([
+                'products_file' => 'Import failed: ' . $e->getMessage(),
+            ]);
         }
     }
 

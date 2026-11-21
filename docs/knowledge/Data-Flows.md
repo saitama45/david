@@ -58,6 +58,13 @@ Because a single stuck row blocks the queue, a reconciler runs **every 60 second
 does **not** filter — an entity-aware job must set it explicitly, ideally
 `EntityContext::runAs($id, fn () => ...)`.
 
+**Only SAP Masterfile and sales uploads use this queue** (the Work Queue page). Supplier Items'
+Update List imports inside the request (`SupplierItemsImport`: TC's 273-row list takes about a second)
+and returns its summary as the `import_summary` flash, so it never appears on the Work Queue. It refuses
+(no supplier assigned in the active entity) and fails with a `ValidationException` on `products_file`,
+because the page shows no `flash.error`. A Sort Order typed as a formula is read as the result Excel
+saved with it (`useSavedFormulaResults()`), since a chunked read cannot recalculate across chunks.
+
 ### Manual sales upload layout per entity
 
 `StoreTransactionImportJob` asks `App\Support\SalesUploadFormat::importer()` which reader to use,

@@ -516,6 +516,13 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   own shows every toast twice. Inertia 1.3 re-creates the page on any visit without `preserveState`,
   even a redirect back to itself, so a page that toasts `flash.success` in `onMounted` already covers
   its forms and imports. Their `onSuccess` must not toast it again.
+- **Nothing shows `flash.error` unless the page does.** The layout's `<Toast />` toasts nothing by itself, so
+  an Inertia form answered with `back()->with('error')` just closes: Supplier Items' Update List looked like
+  "nothing happens" for a user with no supplier in the entity (fixed 2026-11-21). Refuse a form with a
+  `ValidationException` on its field. That upload runs in the request; it never reaches the Work Queue.
+- **An import reads a formula cell as its text** (`=M2+1` -> 0) unless it implements `WithCalculatedFormulas`,
+  and a `WithChunkReading` import cannot recalculate a formula pointing at an earlier chunk. Read the result
+  Excel saved instead, as `SupplierItemsImport::useSavedFormulaResults()` does.
 - **`e2e/.env.e2e` names `storerep@gmail.com`, which does not exist** in `daviddb`; the working QA
   pair is in auto memory (`reference_david_qa_profiles`), not the one in the `regression-test` skill.
 - **Repo root holds throwaway diagnostics** (`check_*.php`, `debug_*.php`, `find_*.php`). Not app code.

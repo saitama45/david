@@ -16,9 +16,13 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB; // Import DB facade for upsert
 
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
 use Maatwebsite\Excel\Events\AfterImport;
+use Maatwebsite\Excel\Events\BeforeSheet;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading, WithEvents, WithMultipleSheets
+class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkReading, WithEvents, WithMultipleSheets, WithCalculatedFormulas
 {
     protected $skippedDetails = [];
     protected $processedCount = 0;
@@ -229,6 +233,7 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
     public function registerEvents(): array
     {
         return [
+            BeforeSheet::class => fn (BeforeSheet $event) => self::useSavedFormulaResults($event->getSheet()->getDelegate()),
             AfterImport::class => function(AfterImport $event) {
                 // Perform deactivation logic after the entire import is complete
                 foreach ($this->importedItems as $supplierCode => $importedKeys) {
@@ -273,6 +278,29 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 }
             },
         ];
+    }
+
+    /**
+     * A formula cell (a Sort Order typed as =M2+1) is read as the result Excel saved with it,
+     * which is what the user saw. Read as text, every such Sort Order was stored as 0. It is not
+     * recalculated here: the file is read 1,000 rows at a time, and a formula pointing at a row
+     * of an earlier chunk would count that row as empty. A formula saved without a result (a file
+     * no spreadsheet program has opened) is still calculated, through WithCalculatedFormulas.
+     */
+    public static function useSavedFormulaResults(Worksheet $sheet): void
+    {
+        foreach ($sheet->getCoordinates(false) as $coordinate) {
+            $cell = $sheet->getCell($coordinate);
+            $saved = $cell->isFormula() ? $cell->getOldCalculatedValue() : null;
+
+            if ($saved !== null) {
+                $cell->setValueExplicit($saved, match (true) {
+                    is_bool($saved) => DataType::TYPE_BOOL,
+                    is_int($saved), is_float($saved) => DataType::TYPE_NUMERIC,
+                    default => DataType::TYPE_STRING,
+                });
+            }
+        }
     }
 
     /**

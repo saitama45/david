@@ -15,6 +15,40 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 21, 2026
+    {
+        date: '2026-11-21',
+        module: 'Supplier Items',
+        type: 'improved',
+        title: 'Update List: Import Supplier Items now says why an upload imported nothing',
+        summary:
+            'Before, when an upload was refused or stopped on an error, the Import Supplier Items window closed and no message appeared, so it looked as if nothing had happened. Now the window stays open and the reason is shown in red under the file. An upload that goes through shows its summary on Supplier Items, as before.',
+        steps: [
+            'Open Supplier Items and click Update List.',
+            'Choose the file and click Proceed.',
+            'If the window stays open, read the reason under the file, correct it, and click Proceed again.',
+        ],
+        rules: [
+            'You can only import items for suppliers assigned to you in the entity you are working in. With none assigned there, nothing is imported and the message reads, for example, "You have no suppliers assigned in TC, so nothing was imported."',
+            'Each supplier belongs to one entity, so the suppliers assigned to you in Nono\'s do not count in TC. An administrator assigns them under Assign Suppliers when editing your user in Users.',
+            'If the import stops on an error, the message starts with "Import failed:" followed by the error.',
+            'The upload runs straight away while you wait. It is not sent to the Work Queue, so it does not appear there.',
+        ],
+        affects: 'Users who upload supplier item lists, most of all those starting on a new entity such as TC.',
+    },
+    {
+        date: '2026-11-21',
+        module: 'Supplier Items',
+        type: 'improved',
+        title: 'Update List: a Sort Order filled in by a formula is imported as the number Excel shows',
+        summary:
+            'Before, a Sort Order filled in by a formula, such as =M2+1 to number the rows one after another, was imported as 0, so every item after the first lost the order the file gave it. Now the import takes the number the formula shows in Excel. A Sort Order typed as a plain number is imported as before.',
+        rules: [
+            'Any column filled in by a formula is imported as the value the formula shows when the file was last saved.',
+            'In the TC list, the formula =M2+1 numbered 273 rows from 1 to 273, and they are now imported as 1 to 273.',
+        ],
+        affects: 'Users who upload supplier item lists that use a formula in Sort Order or another column.',
+    },
     // ---------------------------------------------------------------- November 20, 2026
     {
         date: '2026-11-20',
