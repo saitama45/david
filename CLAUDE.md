@@ -339,6 +339,11 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.
   The one-by-one Create on `/sapitems-list` applies the same key and base guard (a pack already on file may be
   restated); Supplier Items' Create applies the import's assigned-supplier and SAP ItemCode + unit checks.
+- **A supplier item's unit may be a unit SAP gives only as a BaseUOM** (since 2026-11-22). TC's SAP Masterlist
+  writes "1000 Gm = 1 Bag" with no Bag / Bag row, so its ordering unit was refused while the import and Create
+  checked AltUOM alone. Look a unit up with `SAPMasterfile::unitsOf()` / `forUnit()` (AltUOM row first, else the
+  row it is the BaseUOM of), never `UPPER(AltUOM) = ?` alone; `singleRowPerJoinKey()` adds the missing 1 = 1 row
+  so report joins on `AltUOM = uom` still find the item. Stock already converts it through `ItemStockUnit`.
 - **An order line can have no supplier item.** Add Unlisted Item (`/orders-receiving/show`) briefly
   (2026-10-02) took any active SAP Masterlist item, so `store_order_items` rows exist whose
   `supplierItem` is null (ordered qty 0). Read the line's own `item_code` / `uom` / `item_description`,
@@ -450,8 +455,20 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `Wastage::lineItem()`, never `sapMasterfile->...` without a fallback. It holds no stock: approval
   deducts, and the Inventory Movement Report charges, its raw materials through `App\Support\SubPrepRecipe`
   (BOM Qty x quantity, **per one unit, as a sale reads the BOM**). Anything that sums wastage per SAP
-  item must add that breakdown. Any other POS product is never a line: the search only lists its
-  ingredients. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#sub-prep-wastage).
+  item must add that breakdown. Any other POS product (a finished good) is never a line, and since
+  2026-11-22 the search does not list it or its ingredients at all (the business asked for it gone).
+  Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#sub-prep-wastage).
+- **Wastage's out-of-stock block is in the search box only, and an entity can switch it off.** Wastage
+  Settings' "Out-of-Stock Items on Create" is per entity (`settings` key
+  `wastage.create_allow_out_of_stock.entity_<id>`, default off); the search answers `allow_out_of_stock`
+  and `ItemAutoComplete` lets such rows be picked. Save never checks stock; approval does, through
+  Negative Stock on Approval. Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#wastage-item-search).
+- **"No Wastage for the Day" (`no_wastage_days`) and a wastage record never stand for the same store and
+  date.** `NoWastageDayService::problem()` refuses the mark while a non-cancelled record is dated that
+  day, and a marked day takes no record: `recordProblem()` is checked by `WastageRequest` and by both
+  wastage create paths; a new way to create wastage must call it too. A mistaken mark is undone with
+  Unmark (`withdrawn_at/_by`), never deleted. Detail:
+  [Data-Flows.md](docs/knowledge/Data-Flows.md#no-wastage-for-the-day).
 - **A Month End Count can be rejected at Level 1 or Level 2, and both return it to the store** through
   `MonthEndCountRejectionService::returnToStore()` (rows `rejected`, upload reopened, re-upload replaces
   them and starts again before Level 1). Never give one level its own reject logic.

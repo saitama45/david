@@ -987,6 +987,11 @@ Route::middleware('auth')
                 Route::get('/create', 'create')->name('create');
                 Route::post('/', 'store')->name('store');
                 Route::get('/items/search', 'getAvailableItems')->name('items.search');
+                // "No Wastage for the Day" for a store and date
+                Route::post('/no-wastage-day', [\App\Http\Controllers\NoWastageDayController::class, 'store'])->name('no-wastage.store');
+                Route::post('/no-wastage-day/unmark', [\App\Http\Controllers\NoWastageDayController::class, 'unmark'])->name('no-wastage.unmark');
+                Route::get('/no-wastage-day/{noWastageDay}/edit', [\App\Http\Controllers\NoWastageDayController::class, 'edit'])->name('no-wastage.edit');
+                Route::get('/no-wastage-day/status', [\App\Http\Controllers\NoWastageDayController::class, 'status'])->name('no-wastage.status');
             });
             Route::middleware('permission:view wastage record')->get('/show/{wastage}', 'show')->name('show');
             Route::middleware('permission:view wastage record')->get('/show/by-number/{wastage_no}', 'showByNumber')->name('show.by-number');

@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2, Image as ImageIcon } from 'lucide-vue-next'
+import { ArrowLeft, Package, AlertTriangle, Calculator, ChevronDown, Plus, Trash2, Image as ImageIcon, CircleCheck } from 'lucide-vue-next'
+import axios from 'axios'
 import Select from 'primevue/select'
 import ItemAutoComplete from '@/components/ItemAutoComplete.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
@@ -19,7 +20,9 @@ const props = defineProps({
   branches: Array,
   canViewCost: Boolean,
   // Last date each store closed with a final approved month end count, by store id
-  closedThrough: { type: Object, default: () => ({}) }
+  closedThrough: { type: Object, default: () => ({}) },
+  // Store and date filled in when opened from an unmarked No Wastage day
+  prefill: { type: Object, default: () => ({}) },
 })
 
 // Create branch options using composable
@@ -39,8 +42,8 @@ const todayString = (() => {
 })()
 
 const form = useForm({
-  store_branch_id: '',
-  wastage_date: todayString,
+  store_branch_id: props.prefill?.store_branch_id ?? '',
+  wastage_date: props.prefill?.wastage_date ?? todayString,
   remarks: '',
   cartItems: [],
 })
@@ -99,6 +102,138 @@ const closedThroughLabel = computed(() => closedThroughDate.value
   ? new Date(`${closedThroughDate.value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   : '')
 
+// "No Wastage for the Day": the store states it had no wastage on the Wastage Date, so accounting
+// does not wait for a record. The server answers whether the store and date already are, or can be.
+const noWastage = reactive({ loading: false, declared: null, problem: null })
+const markingNoWastage = ref(false)
+let noWastageSeq = 0
+
+const loadNoWastageStatus = async () => {
+  const seq = ++noWastageSeq
+  noWastage.declared = null
+  noWastage.problem = null
+
+  if (!form.store_branch_id || !form.wastage_date || isWastageDateClosed.value) {
+    noWastage.loading = false
+    return
+  }
+
+  noWastage.loading = true
+  try {
+    const { data } = await axios.get(route('wastage.no-wastage.status'), {
+      params: { store_branch_id: form.store_branch_id, wastage_date: form.wastage_date },
+    })
+    if (seq !== noWastageSeq) return
+    noWastage.declared = data.declared
+    noWastage.problem = data.problem
+  } catch (error) {
+    if (seq !== noWastageSeq) return
+    noWastage.problem = error.response?.data?.message || 'Could not check this date. Try again.'
+  } finally {
+    if (seq === noWastageSeq) noWastage.loading = false
+  }
+}
+
+watch(() => [form.store_branch_id, form.wastage_date], loadNoWastageStatus)
+
+// A store filled in on opening (from an unmarked No Wastage day) is checked straight away.
+if (form.store_branch_id) {
+  loadNoWastageStatus()
+}
+
+const noWastageHint = computed(() => {
+  if (!form.store_branch_id) return 'Select a store to mark a day with no wastage.'
+  if (isWastageDateClosed.value) return null
+  if (noWastage.problem) return noWastage.problem
+  if (cartItems.value.length > 0) return 'The cart has items: save them as a wastage record instead.'
+  return 'No wastage today? Mark the day so accounting does not follow it up.'
+})
+
+const canMarkNoWastage = computed(() => form.store_branch_id
+  && form.wastage_date
+  && !isWastageDateClosed.value
+  && !noWastage.loading
+  && !noWastage.declared
+  && !noWastage.problem
+  && cartItems.value.length === 0
+  && !markingNoWastage.value)
+
+// A marked day takes no wastage items: the mark is already saved, and there is nothing else to save.
+const isMarkedNoWastage = computed(() => !!noWastage.declared)
+
+// A day marked by mistake is unmarked, after which items can be added.
+const unmarkNoWastage = () => {
+  if (!isMarkedNoWastage.value || markingNoWastage.value) return
+
+  const store = selectedBranch.value?.label || 'this store'
+  confirm.require({
+    header: 'Unmark No Wastage',
+    message: `Unmark ${store} for ${formatDateLabel(form.wastage_date)}? Do this only if the day was marked by mistake. You can then add the wastage items and save them.`,
+    icon: 'pi pi-undo',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true, size: 'small' },
+    acceptProps: { label: 'Yes, unmark', severity: 'warn', size: 'small' },
+    accept: () => {
+      markingNoWastage.value = true
+      router.post(route('wastage.no-wastage.unmark'), {
+        store_branch_id: form.store_branch_id,
+        wastage_date: form.wastage_date,
+      }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          toast.add({ severity: 'success', summary: 'Unmarked', detail: `${store}: you can now record wastage for ${formatDateLabel(form.wastage_date)}.`, life: 4000 })
+          loadNoWastageStatus()
+        },
+        onError: (errors) => {
+          toast.add({ severity: 'error', summary: 'Not unmarked', detail: errors.wastage_date || errors.store_branch_id || 'Could not unmark the day.', life: 5000 })
+          loadNoWastageStatus()
+        },
+        onFinish: () => {
+          markingNoWastage.value = false
+        },
+      })
+    },
+  })
+}
+
+const formatDateLabel = (value) => value
+  ? new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  : ''
+
+const markNoWastage = () => {
+  if (!canMarkNoWastage.value) return
+
+  const store = selectedBranch.value?.label || 'this store'
+  confirm.require({
+    header: 'No Wastage for the Day',
+    message: `Mark ${store} as having no wastage on ${formatDateLabel(form.wastage_date)}? If wastage turns up later, saving a wastage record for this date replaces the mark.`,
+    icon: 'pi pi-check-circle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true, size: 'small' },
+    acceptProps: { label: 'Yes, no wastage', severity: 'success', size: 'small' },
+    accept: () => {
+      markingNoWastage.value = true
+      router.post(route('wastage.no-wastage.store'), {
+        store_branch_id: form.store_branch_id,
+        wastage_date: form.wastage_date,
+      }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          toast.add({ severity: 'success', summary: 'No Wastage recorded', detail: `${store}: no wastage on ${formatDateLabel(form.wastage_date)}.`, life: 4000 })
+          loadNoWastageStatus()
+        },
+        onError: (errors) => {
+          toast.add({ severity: 'error', summary: 'Not recorded', detail: errors.wastage_date || errors.store_branch_id || 'Could not record No Wastage.', life: 5000 })
+          loadNoWastageStatus()
+        },
+        onFinish: () => {
+          markingNoWastage.value = false
+        },
+      })
+    },
+  })
+}
+
 const cartTotalCost = computed(() => {
   return cartItems.value.reduce((total, item) => {
     return total + (parseFloat(item.quantity || 0) * parseFloat(item.cost || 0))
@@ -115,6 +250,7 @@ const formattedCartTotal = computed(() => {
 const isFormValid = computed(() => {
   return form.store_branch_id &&
          !isWastageDateClosed.value &&
+         !isMarkedNoWastage.value &&
          form.remarks && form.remarks.trim() !== '' &&  // Required remarks
          cartItems.value.length > 0 &&
          cartItems.value.every(item =>
@@ -138,7 +274,7 @@ const validateAndScroll = () => {
     return false
   }
 
-  if (isWastageDateClosed.value) {
+  if (isWastageDateClosed.value || isMarkedNoWastage.value) {
     openSections.value.wastageDetails = true
     nextTick(() => {
       const el = document.getElementById('wastage_date')
@@ -241,12 +377,7 @@ const cartLineFor = (item, id) => {
     total_cost: cost,
     reason: 'Spoilage',
     images: [], // Per-item images
-    // An item found through a product keeps what that product's recipe uses, as a guide for the quantity
-    recipe_note: item.sub_prep
-      ? 'Sub-Prep: its raw materials are deducted on approval'
-      : (item.product && item.recipe_qty
-        ? `${item.product.description || item.product.code} recipe uses ${item.recipe_qty} ${item.recipe_uom}`
-        : null),
+    recipe_note: item.sub_prep ? 'Sub-Prep: its raw materials are deducted on approval' : null,
   }
 }
 
@@ -256,7 +387,7 @@ const isSameItem = (line, item) => (item.sub_prep
   : line.sap_masterfile_id === item.id)
 
 const addToCart = () => {
-  if (!selectedAutoCompleteItem.value) {
+  if (!selectedAutoCompleteItem.value || isMarkedNoWastage.value) {
     return
   }
 
@@ -275,32 +406,6 @@ const addToCart = () => {
   selectedAutoCompleteItem.value = null
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
-  })
-}
-
-// "Add all" on a product in the search: every ingredient of its recipe that has stock goes
-// into the cart at once, skipping the ones already there. The search leaves out the
-// ingredients with no stock and says how many (outOfStock).
-const addRecipeToCart = ({ product, items, outOfStock = 0 }) => {
-  const fresh = items.filter(item => !cartItems.value.some(line => isSameItem(line, item)))
-  const now = Date.now()
-
-  cartItems.value.unshift(...fresh.map((item, index) => cartLineFor(item, now + index)))
-
-  const name = product?.description || product?.code
-  const skipped = items.length - fresh.length
-  const notAdded = outOfStock ? ` ${outOfStock} out of stock ${outOfStock === 1 ? 'was' : 'were'} not added.` : ''
-
-  toast.add({
-    severity: fresh.length ? 'success' : 'info',
-    summary: fresh.length ? 'Ingredients added' : 'Already in the cart',
-    detail: fresh.length
-      ? `${fresh.length} ${fresh.length === 1 ? 'ingredient' : 'ingredients'} of ${name} added to the cart.`
-        + (skipped ? ` ${skipped} already in the cart.` : '')
-        + notAdded
-        + ' Enter the quantity wasted for each.'
-      : `Every ingredient of ${name} that has stock is already in the cart.` + notAdded,
-    life: 5000,
   })
 }
 
@@ -367,6 +472,17 @@ const performSubmit = () => {
 }
 
 const submit = () => {
+  if (isMarkedNoWastage.value) {
+    validateAndScroll()
+    toast.add({
+      severity: "info",
+      summary: "Marked No Wastage",
+      detail: "This day is marked No Wastage, so there is nothing to save. Unmark it under the Wastage Date to record wastage.",
+      life: 5000,
+    })
+    return
+  }
+
   if (!validateAndScroll()) {
     toast.add({
       severity: "error",
@@ -516,6 +632,48 @@ const handleReasonBlur = (item) => {
               <p v-if="form.errors.wastage_date" class="text-sm text-red-600">
                 {{ form.errors.wastage_date }}
               </p>
+
+              <!-- No Wastage for the Day -->
+              <div class="pt-1">
+                <div
+                  v-if="noWastage.declared"
+                  class="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+                >
+                  <CircleCheck class="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div class="flex-1">
+                    <p class="font-semibold">Marked No Wastage for this day</p>
+                    <p class="text-xs">
+                      By {{ noWastage.declared.by }} on {{ noWastage.declared.at }}. It is already saved: no wastage items can be recorded for this day.
+                    </p>
+                    <p class="mt-2 text-xs">
+                      Marked by mistake?
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="ml-1 h-7 border-amber-500 bg-white px-2 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                        :disabled="markingNoWastage"
+                        @click="unmarkNoWastage"
+                      >
+                        {{ markingNoWastage ? 'Unmarking...' : 'Unmark' }}
+                      </Button>
+                    </p>
+                  </div>
+                </div>
+                <template v-else>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="border-emerald-500 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                    :disabled="!canMarkNoWastage"
+                    @click="markNoWastage"
+                  >
+                    <CircleCheck class="w-4 h-4 mr-2" />
+                    {{ markingNoWastage ? 'Saving...' : 'No Wastage for the Day' }}
+                  </Button>
+                  <p v-if="noWastageHint" class="mt-1 text-xs text-gray-500">{{ noWastageHint }}</p>
+                </template>
+              </div>
             </div>
 
             <!-- Remarks -->
@@ -570,6 +728,16 @@ const handleReasonBlur = (item) => {
             </Alert>
           </div>
 
+          <div v-if="isMarkedNoWastage" class="mb-4">
+            <Alert class="border-emerald-300 bg-emerald-50">
+              <CircleCheck class="w-4 h-4 text-emerald-600" />
+              <AlertDescription class="text-emerald-800">
+                This day is marked No Wastage for {{ getSelectedBranchName() }}, so no items can be added.
+                Unmark it under the Wastage Date if it was marked by mistake.
+              </AlertDescription>
+            </Alert>
+          </div>
+
           <!-- Item Search and Add -->
           <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6 item-search-container">
             <!-- Item Search -->
@@ -579,15 +747,14 @@ const handleReasonBlur = (item) => {
                 v-model="selectedAutoCompleteItem"
                 :sending-store-id="parseInt(form.store_branch_id)"
                 search-route="wastage.items.search"
-                placeholder="Type an item or a product, at least 3 characters..."
-                no-results-label="items or products"
+                placeholder="Type an item or a Sub-Prep, at least 3 characters..."
+                no-results-label="items or Sub-Preps"
                 :dropdown-max-width="480"
-                :disabled="!form.store_branch_id || isLoading"
+                :disabled="!form.store_branch_id || isLoading || isMarkedNoWastage"
                 @item-selected="handleAutoCompleteItemSelect"
-                @items-selected="addRecipeToCart"
               />
               <p class="text-xs text-gray-500">
-                Search by item code or item name. To waste a product, type its POS code or product name: a Sub-Prep is added as itself, and any other product lists its recipe's ingredients.
+                Search by item code or item name. A Sub-Prep is found by its POS code or name and is added as itself.
               </p>
             </div>
 
@@ -595,7 +762,7 @@ const handleReasonBlur = (item) => {
             <div class="space-y-2 md:col-span-4 flex items-end">
               <Button
                 @click="addToCart"
-                :disabled="!selectedAutoCompleteItem || !form.store_branch_id"
+                :disabled="!selectedAutoCompleteItem || !form.store_branch_id || isMarkedNoWastage"
                 class="w-full h-10 bg-green-600 hover:bg-green-700"
               >
                 <Plus class="w-4 h-4 mr-2" />
@@ -786,8 +953,17 @@ const handleReasonBlur = (item) => {
             </div>
           </div>
 
+          <!-- A marked day: the mark is already saved, nothing else to save -->
+          <Alert v-if="isMarkedNoWastage" class="mb-4 border-emerald-300 bg-emerald-50">
+            <CircleCheck class="h-4 w-4 text-emerald-600" />
+            <AlertDescription class="text-emerald-800">
+              This day is already saved as No Wastage. There is nothing else to save.
+              <span v-if="!isCartEmpty">Clear the cart, or unmark the day to save these items.</span>
+            </AlertDescription>
+          </Alert>
+
           <!-- Empty Cart Alert -->
-          <Alert v-if="isCartEmpty" class="mb-4 border-yellow-200 bg-yellow-50">
+          <Alert v-else-if="isCartEmpty" class="mb-4 border-yellow-200 bg-yellow-50">
             <AlertTriangle class="h-4 w-4 text-yellow-600" />
             <AlertDescription class="text-yellow-800">
               Please add at least one item to the cart before saving.
@@ -806,7 +982,7 @@ const handleReasonBlur = (item) => {
           <div class="flex flex-col sm:flex-row gap-3">
             <Button
               @click="submit"
-              :disabled="form.processing"
+              :disabled="form.processing || isMarkedNoWastage"
               class="flex-1"
               size="lg"
             >

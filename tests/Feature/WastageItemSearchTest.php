@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\WastageController;
+use App\Http\Services\WastageApprovalSettingsService;
 use App\Models\Entity;
+use App\Models\POSMasterfile;
 use App\Models\POSMasterfileBOM;
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
@@ -10,8 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The wastage item search also finds a POS product by its code or description, and
- * offers the ingredients of its recipe - never the product itself, which holds no stock.
+ * The wastage item search finds SAP items, and a Sub-Prep by its POS code or description.
+ * A finished product (any other POS product) is not listed, nor are its ingredients.
  *
  * The controller is called directly: every test HTTP request disconnects the database
  * on terminate(), which rolls back RefreshDatabase's transaction.
@@ -72,46 +74,32 @@ function wastageSearch(StoreBranch $store, string $search): array
         ->getData(true);
 }
 
-it('lists the ingredients of a product found by its POS code, in the unit the recipe uses', function () {
+
+function wastageSearchSubPrep(string $posCode, string $posDescription, array $lines): void
+{
+    POSMasterfile::create([
+        'POSCode' => $posCode, 'POSDescription' => $posDescription, 'Category' => 'Sub-Prep', 'UOM' => 'Gm', 'SRP' => 0, 'is_active' => true,
+    ]);
+    wastageSearchRecipe($posCode, $posDescription, $lines);
+}
+
+it('lists neither a finished product found by its POS code nor its ingredients', function () {
     $f = wastageSearchFixture();
 
     $result = wastageSearch($f['store'], 'SP-0001');
 
-    expect($result['more_products'])->toBeFalse()
-        ->and(array_column($result['items'], 'item_code'))->toBe(['RM-COCOA', 'RM-SUGAR'])
-        ->and($result['items'][0])->toMatchArray([
-            // The recipe unit, with the item's two lines added up and its 2 Bag shown as grams.
-            'id' => $f['sap']['RM-COCOA|Gm'], 'alt_uom' => 'Gm', 'recipe_qty' => 150, 'recipe_uom' => 'Gm', 'stock' => 2000,
-            'product' => ['code' => 'SP-0001', 'description' => 'Chocolate Mix'],
-        ])
-        ->and($result['items'][1])->toMatchArray([
-            // Gm is not a unit SAP gives the sugar, so it is offered in the unit its stock is kept in.
-            'id' => $f['sap']['RM-SUGAR|Kg'], 'alt_uom' => 'Kg', 'recipe_qty' => 100, 'recipe_uom' => 'Gm',
-        ]);
+    expect($result['items'])->toBe([])
+        ->and($result['more_products'])->toBeFalse();
 });
 
-it('finds a product by its description and lists the matching items first', function () {
+it('finds items by their description and leaves a finished product of the same name out', function () {
     $f = wastageSearchFixture();
 
     $result = wastageSearch($f['store'], 'Chocolate');
 
     expect(array_map(fn ($item) => [$item['item_code'], $item['product']['code'] ?? null], $result['items']))->toBe([
         ['RM-SYRUP', null],
-        ['RM-COCOA', 'SP-0001'],
-        ['RM-SUGAR', 'SP-0001'],
     ]);
-});
-
-it('lists an ingredient under every product that uses it and never the product itself', function () {
-    $f = wastageSearchFixture();
-
-    $result = wastageSearch($f['store'], 'Mix');
-
-    expect(array_map(fn ($item) => [$item['item_code'], $item['product']['code']], $result['items']))->toBe([
-        ['RM-COCOA', 'SP-0001'],
-        ['RM-SUGAR', 'SP-0001'],
-        ['RM-SUGAR', 'SP-0002'],
-    ])->and(array_column($result['items'], 'item_code'))->not->toContain('SP-0001', 'SP-0002');
 });
 
 it('keeps an item search as it was', function () {
@@ -125,46 +113,52 @@ it('keeps an item search as it was', function () {
         ->and($result['more_products'])->toBeFalse();
 });
 
-it('does not list the products of another entity', function () {
+it('still finds a Sub-Prep by its POS code, as itself', function () {
+    $f = wastageSearchFixture();
+    wastageSearchSubPrep('SP-0100', 'Hazelnut Base', [['RM-SUGAR', 5, 'Gm']]);
+
+    $result = wastageSearch($f['store'], 'SP-0100');
+
+    expect($result['items'])->toHaveCount(1)
+        ->and($result['items'][0])->toMatchArray(['sub_prep' => true, 'item_code' => 'SP-0100'])
+        ->and($result['items'][0]['product'])->toMatchArray(['code' => 'SP-0100', 'sub_prep' => true]);
+});
+
+it('does not list the Sub-Preps of another entity', function () {
     $f = wastageSearchFixture();
 
     $other = Entity::create(['name' => 'Other Entity', 'code' => 'OE'.uniqid(), 'is_active' => true]);
     app(EntityContext::class)->set($other->id);
-    wastageSearchRecipe('SP-9999', 'Hazelnut Mix', [['RM-SUGAR', 5, 'Gm']]);
+    wastageSearchSubPrep('SP-9999', 'Hazelnut Mix', [['RM-SUGAR', 5, 'Gm']]);
     app(EntityContext::class)->set($f['entity']->id);
 
     expect(wastageSearch($f['store'], 'Hazelnut')['items'])->toBe([]);
 });
 
-it('lists every ingredient of a product, however many it has', function () {
-    $f = wastageSearchFixture();
-
-    $codes = [];
-    foreach (range(1, 25) as $n) {
-        $codes[] = $code = sprintf('RM-BIG-%02d', $n);
-        SAPMasterfile::create([
-            'ItemCode' => $code, 'ItemDescription' => 'Platter Part '.$n,
-            'AltUOM' => 'Pc', 'BaseUOM' => 'Pc', 'AltQty' => 1, 'BaseQty' => 1, 'is_active' => true,
-        ]);
-    }
-    wastageSearchRecipe('SP-BIG', 'Big Party Tray', array_map(fn ($code) => [$code, 1, 'Pc'], $codes));
-
-    $result = wastageSearch($f['store'], 'Big Party Tray');
-
-    expect(array_column($result['items'], 'item_code'))->toBe($codes)
-        ->and($result['more_products'])->toBeFalse();
-});
-
-it('lists ten products at most and says more matched', function () {
+it('lists ten Sub-Preps at most and says more matched', function () {
     $f = wastageSearchFixture();
 
     foreach (range(1, 11) as $n) {
-        wastageSearchRecipe(sprintf('BD-%02d', $n), sprintf('Bulk Drink %02d', $n), [['RM-SUGAR', $n, 'Gm']]);
+        wastageSearchSubPrep(sprintf('BD-%02d', $n), sprintf('Bulk Base %02d', $n), [['RM-SUGAR', $n, 'Gm']]);
     }
 
-    $result = wastageSearch($f['store'], 'Bulk Drink');
+    $result = wastageSearch($f['store'], 'Bulk Base');
 
     expect($result['more_products'])->toBeTrue()
         ->and(array_map(fn ($item) => $item['product']['code'], $result['items']))
         ->toBe(array_map(fn ($n) => sprintf('BD-%02d', $n), range(1, 10)));
+});
+
+it('says whether out-of-stock items may be added, as the active entity set it in Wastage Settings', function () {
+    $f = wastageSearchFixture();
+    $settings = app(WastageApprovalSettingsService::class);
+
+    expect(wastageSearch($f['store'], 'Sugar')['allow_out_of_stock'])->toBeFalse();
+
+    $settings->setAllowOutOfStockItems(true);
+
+    $other = Entity::create(['name' => 'Other Entity', 'code' => 'OE'.uniqid(), 'is_active' => true]);
+
+    expect(wastageSearch($f['store'], 'Sugar')['allow_out_of_stock'])->toBeTrue()
+        ->and($settings->allowsOutOfStockItems($other->id))->toBeFalse();
 });

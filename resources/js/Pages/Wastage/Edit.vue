@@ -288,12 +288,7 @@ const cartLineFor = (item, id) => {
     reason: 'Spoilage',
     images: [], // Per-item images
     existing_image_urls: [], // Per-item existing image urls
-    // An item found through a product keeps what that product's recipe uses, as a guide for the quantity
-    recipe_note: item.sub_prep
-      ? 'Sub-Prep: its raw materials are deducted on approval'
-      : (item.product && item.recipe_qty
-        ? `${item.product.description || item.product.code} recipe uses ${item.recipe_qty} ${item.recipe_uom}`
-        : null),
+    recipe_note: item.sub_prep ? 'Sub-Prep: its raw materials are deducted on approval' : null,
   }
 }
 
@@ -322,32 +317,6 @@ const addToCart = () => {
   selectedAutoCompleteItem.value = null
   Object.keys(productDetails).forEach((key) => {
     productDetails[key] = null
-  })
-}
-
-// "Add all" on a product in the search: every ingredient of its recipe that has stock goes
-// into the cart at once, skipping the ones already there. The search leaves out the
-// ingredients with no stock and says how many (outOfStock).
-const addRecipeToCart = ({ product, items, outOfStock = 0 }) => {
-  const fresh = items.filter(item => !cartItems.value.some(line => isSameItem(line, item)))
-  const now = Date.now()
-
-  cartItems.value.unshift(...fresh.map((item, index) => cartLineFor(item, -(now + index))))
-
-  const name = product?.description || product?.code
-  const skipped = items.length - fresh.length
-  const notAdded = outOfStock ? ` ${outOfStock} out of stock ${outOfStock === 1 ? 'was' : 'were'} not added.` : ''
-
-  toast.add({
-    severity: fresh.length ? 'success' : 'info',
-    summary: fresh.length ? 'Ingredients added' : 'Already in the cart',
-    detail: fresh.length
-      ? `${fresh.length} ${fresh.length === 1 ? 'ingredient' : 'ingredients'} of ${name} added to the cart.`
-        + (skipped ? ` ${skipped} already in the cart.` : '')
-        + notAdded
-        + ' Enter the quantity wasted for each.'
-      : `Every ingredient of ${name} that has stock is already in the cart.` + notAdded,
-    life: 5000,
   })
 }
 
@@ -617,15 +586,14 @@ const handleReasonBlur = (item) => {
                 v-model="selectedAutoCompleteItem"
                 :sending-store-id="parseInt(form.store_branch_id)"
                 search-route="wastage.items.search"
-                placeholder="Type an item or a product, at least 3 characters..."
-                no-results-label="items or products"
+                placeholder="Type an item or a Sub-Prep, at least 3 characters..."
+                no-results-label="items or Sub-Preps"
                 :dropdown-max-width="480"
                 :disabled="!form.store_branch_id || isLoading"
                 @item-selected="handleAutoCompleteItemSelect"
-                @items-selected="addRecipeToCart"
               />
               <p class="text-xs text-gray-500">
-                Search by item code or item name. To waste a product, type its POS code or product name: a Sub-Prep is added as itself, and any other product lists its recipe's ingredients.
+                Search by item code or item name. A Sub-Prep is found by its POS code or name and is added as itself.
               </p>
             </div>
 

@@ -40,7 +40,7 @@ const props = defineProps({
     }
 })
 
-const emit = defineEmits(['update:modelValue', 'item-selected', 'items-selected'])
+const emit = defineEmits(['update:modelValue', 'item-selected'])
 
 // Component state
 const searchInput = ref('')
@@ -48,6 +48,8 @@ const isDropdownOpen = ref(false)
 const searchResults = ref([])
 const searchedTerm = ref('')
 const moreProducts = ref(false)
+// The search answers whether an item with no stock on hand may still be picked (Wastage Settings)
+const allowOutOfStock = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const highlightedIndex = ref(-1)
@@ -55,11 +57,13 @@ const inputRef = ref(null)
 const dropdownRef = ref(null)
 const listRef = ref(null)
 
-// An item with no stock on hand is listed, so it is clear why it is missing, but cannot be picked.
-// Nor can a Sub-Prep the server blocked - its `stock` is what its raw materials cover.
-const canPick = (item) => !item.blocked_reason && Number(item.stock) > 0
+// An item with no stock on hand is listed, so it is clear why it is missing, but cannot be picked -
+// unless the search said out-of-stock items are allowed. A Sub-Prep the server blocked never can;
+// its `stock` is what its raw materials cover.
+const isOutOfStock = (item) => !(Number(item.stock) > 0)
+const canPick = (item) => !item.blocked_reason && (allowOutOfStock.value || !isOutOfStock(item))
 
-// Rows found through a POS product carry it; they are listed under that product's heading.
+// A Sub-Prep row carries its POS product and is listed under that product's heading.
 // The index is the row's place in searchResults, which the keyboard moves through.
 const resultGroups = computed(() => {
     const groups = []
@@ -67,13 +71,10 @@ const resultGroups = computed(() => {
         const key = item.product?.code ?? ''
         let group = groups[groups.length - 1]
         if (!group || group.key !== key) {
-            group = { key, product: item.product ?? null, subPrep: Boolean(item.product?.sub_prep), rows: [], pickable: [] }
+            group = { key, product: item.product ?? null, rows: [] }
             groups.push(group)
         }
         group.rows.push({ item, index })
-        if (canPick(item)) {
-            group.pickable.push(item)
-        }
     })
     return groups
 })
@@ -190,6 +191,7 @@ const debouncedSearch = debounce(async (searchTerm) => {
         searchResults.value = response.data.items || []
         searchedTerm.value = searchTerm
         moreProducts.value = Boolean(response.data.more_products)
+        allowOutOfStock.value = Boolean(response.data.allow_out_of_stock)
         // Stays open with nothing found, so the "nothing found" message answers the search
         isDropdownOpen.value = true
         highlightedIndex.value = -1
@@ -249,16 +251,6 @@ const selectItem = (item) => {
     emit('item-selected', item)
     isDropdownOpen.value = false
     highlightedIndex.value = -1
-}
-
-// Hand over every ingredient of one product that has stock, at once
-const selectGroup = (group) => {
-    emit('items-selected', {
-        product: group.product,
-        items: group.pickable,
-        outOfStock: group.rows.length - group.pickable.length,
-    })
-    clearSelection()
 }
 
 const showProducts = () => {
@@ -412,7 +404,7 @@ if (props.modelValue && typeof props.modelValue === 'object') {
             }"
         >
             <template v-for="group in resultGroups" :key="group.key">
-                <!-- A POS product is a heading over its recipe's ingredients, never a choice itself -->
+                <!-- A Sub-Prep is listed under the heading of its POS product -->
                 <div
                     v-if="group.product"
                     data-product-heading
@@ -420,24 +412,13 @@ if (props.modelValue && typeof props.modelValue === 'object') {
                 >
                     <div class="min-w-0">
                         <div class="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                            {{ group.subPrep ? 'Sub-Prep' : 'Ingredients of' }}
+                            Sub-Prep
                         </div>
                         <div class="text-sm font-semibold text-gray-900 truncate" :title="`${group.product.code} - ${group.product.description || ''}`">
                             <Highlight :text="group.product.code" />
                             <span v-if="group.product.description"> · <Highlight :text="group.product.description" /></span>
                         </div>
                     </div>
-                    <button
-                        v-if="!group.subPrep && group.rows.length > 1 && group.pickable.length > 0"
-                        type="button"
-                        class="shrink-0 px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-                        @click.stop="selectGroup(group)"
-                    >
-                        {{ group.pickable.length === group.rows.length ? `Add all ${group.rows.length}` : `Add ${group.pickable.length} in stock` }}
-                    </button>
-                    <span v-else-if="!group.subPrep && group.rows.length > 1" class="shrink-0 text-xs font-medium text-red-600">
-                        All out of stock
-                    </span>
                 </div>
                 <div
                     v-else-if="productGroupCount > 0"
@@ -445,7 +426,7 @@ if (props.modelValue && typeof props.modelValue === 'object') {
                 >
                     <span>Items</span>
                     <button type="button" class="font-medium normal-case tracking-normal text-amber-700 hover:underline" @click.stop="showProducts">
-                        {{ productGroupCount }} matching {{ productGroupCount === 1 ? 'product' : 'products' }} below ↓
+                        {{ productGroupCount }} matching {{ productGroupCount === 1 ? 'Sub-Prep' : 'Sub-Preps' }} below ↓
                     </button>
                 </div>
 
@@ -476,31 +457,36 @@ if (props.modelValue && typeof props.modelValue === 'object') {
                                 <span v-if="item.sub_prep" class="text-amber-700">
                                     · Wasted as itself
                                 </span>
-                                <span v-else-if="item.recipe_qty" class="text-amber-700">
-                                    · Recipe uses {{ item.recipe_qty }} {{ item.recipe_uom }}
-                                </span>
                             </div>
                         </div>
 
                         <!-- A Sub-Prep has no stock of its own: what counts is what its raw materials cover -->
                         <div v-if="item.sub_prep" class="ml-2 text-right max-w-[45%]">
-                            <template v-if="canPick(item)">
+                            <template v-if="canPick(item) && !isOutOfStock(item)">
                                 <div class="text-sm font-medium text-green-600">
                                     Enough for {{ item.stock }} {{ item.alt_uom }}
                                 </div>
                                 <div class="text-xs text-green-500">Available</div>
                             </template>
+                            <template v-else-if="canPick(item)">
+                                <div class="text-sm font-medium text-amber-600">{{ item.stock_note || 'Out of stock' }}</div>
+                                <div class="text-xs text-amber-700">Can still be added</div>
+                            </template>
                             <template v-else>
                                 <div class="text-sm font-medium text-red-600">Cannot be added</div>
-                                <div class="text-xs text-red-500">{{ item.blocked_reason }}</div>
+                                <div class="text-xs text-red-500">{{ item.blocked_reason || 'Out of stock' }}</div>
                             </template>
                         </div>
                         <div v-else class="ml-2 text-right">
-                            <div class="text-sm font-medium" :class="item.stock > 0 ? 'text-green-600' : 'text-red-600'">
+                            <div class="text-sm font-medium" :class="isOutOfStock(item) ? (canPick(item) ? 'text-amber-600' : 'text-red-600') : 'text-green-600'">
                                 {{ stockLabel }}: {{ item.stock }}
                             </div>
-                            <div v-if="item.stock > 0" class="text-xs text-green-500">
+                            <div v-if="!isOutOfStock(item)" class="text-xs text-green-500">
                                 Available
+                            </div>
+                            <div v-else-if="canPick(item)" class="text-xs text-amber-600">
+                                Out of stock
+                                <div class="text-amber-700">Can still be added</div>
                             </div>
                             <div v-else class="text-xs text-red-500">
                                 Out of stock

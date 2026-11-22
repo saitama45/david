@@ -60,10 +60,39 @@ class WastageController extends Controller
         );
         $approvalConfig = app(WastageApprovalSettingsService::class)->sharedConfig();
 
+        // The No Wastage Days view: what stores stated with "No Wastage for the Day", for accounting.
+        $filters['tab'] = $request->get('tab') === 'no_wastage' ? 'no_wastage' : 'records';
+        $filters['no_wastage_store'] = $request->get('no_wastage_store');
+        $filters['no_wastage_date'] = $request->get('no_wastage_date');
+        $noWastageDays = \App\Models\NoWastageDay::standing()->whereIn('store_branch_id', $assignedStoreIds);
+        $noWastageCount = (clone $noWastageDays)->count();
+
+        if ($filters['tab'] === 'no_wastage') {
+            $noWastageDays = $noWastageDays
+                ->with(['storeBranch:id,name,branch_code', 'declarer:id,first_name,last_name'])
+                ->when($filters['no_wastage_store'], fn ($q, $storeId) => $q->where('store_branch_id', (int) $storeId))
+                ->when($filters['no_wastage_date'], fn ($q, $date) => $q->whereDate('wastage_date', $date))
+                ->orderByDesc('wastage_date')
+                ->orderBy('store_branch_id')
+                ->paginate(15, ['*'], 'no_wastage_page')
+                ->withQueryString()
+                ->through(fn ($day) => [
+                    'id' => $day->id,
+                    'store' => $day->storeBranch ? "{$day->storeBranch->name} ({$day->storeBranch->branch_code})" : 'Unknown Store',
+                    'wastage_date' => $day->wastage_date?->toDateString(),
+                    'declared_by' => trim(($day->declarer?->first_name ?? '') . ' ' . ($day->declarer?->last_name ?? '')) ?: 'Unknown user',
+                    'declared_at' => $day->declared_at?->format('m/d/Y h:i A'),
+                ]);
+        } else {
+            $noWastageDays = null;
+        }
+
         return Inertia::render('Wastage/Index', [
             'wastages' => $wastages,
             'statistics' => $statistics,
             'filters' => $filters,
+            'noWastageDays' => $noWastageDays,
+            'noWastageCount' => $noWastageCount,
             'statusOptions' => collect([['value' => 'all', 'label' => 'All Statuses', 'color' => 'text-gray-600', 'bg_color' => 'bg-gray-100']])
                 ->concat(collect(WastageStatus::cases())->filter(
                     fn($status) => $approvalConfig['show_level2'] || $status !== WastageStatus::APPROVED_LVL1
@@ -104,7 +133,19 @@ class WastageController extends Controller
             ->toArray();
 
         $branches = StoreBranch::whereIn('id', $assignedStoreIds)->get();
+
+        // Opened from an unmarked No Wastage day ("Record wastage for this day"): its store and
+        // date are filled in, if the store is the user's and the date is not in the future.
+        $prefillStore = (int) request('store_branch_id');
+        $prefillDate = (string) request('wastage_date');
+        $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $prefillDate) && strtotime($prefillDate) !== false
+            && $prefillDate <= \Carbon\Carbon::now('Asia/Manila')->toDateString();
+
         return Inertia::render('Wastage/Create', [
+            'prefill' => [
+                'store_branch_id' => in_array($prefillStore, array_map('intval', $assignedStoreIds), true) ? $prefillStore : null,
+                'wastage_date' => $validDate ? $prefillDate : null,
+            ],
             'branches' => $branches->map(fn($branch) => [
                 'value' => $branch->id,
                 'label' => $branch->name . ' (' . $branch->branch_code . ')',
@@ -680,40 +721,29 @@ class WastageController extends Controller
             $limit = $search ? 50 : 100;
             $candidates = $query->limit($limit * 4)->get();
 
-            // A search also finds POS products by code or description; their recipe's
-            // ingredients are offered after the items, never the product itself.
-            [$recipeLines, $moreProducts] = $search ? $this->recipeLinesMatching($search) : [collect(), false];
+            // A search also finds a Sub-Prep by its POS code or description; it is wasted as
+            // itself, the one row of its group. Any other POS product - a finished good - is not
+            // listed, nor are its ingredients: a store wastes the item itself.
+            [$subPreps, $moreProducts] = $search ? $this->subPrepsMatching($search) : [collect(), false];
+            $subPrepRecipes = $subPreps->map(fn ($posItem) => \App\Support\SubPrepRecipe::ingredients($posItem));
 
             // Each item's SOH sits on its SAP base-unit row; every unit shows it converted.
-            $sapRows = SAPMasterfile::whereIn('ItemCode', $candidates->pluck('ItemCode')->merge($recipeLines->pluck('ItemCode'))->unique()->values()->all())
+            $sapRows = SAPMasterfile::whereIn('ItemCode', $candidates->pluck('ItemCode')->unique()->values()->all())
                 ->orderBy('id')->get();
             $stockUnits = $sapRows->groupBy('ItemCode')
                 ->map(fn ($rows) => \App\Support\ItemStockUnit::fromRows($rows));
             $wastable = fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)
                 && $stockUnits->get($item->ItemCode)?->factor($item->AltUOM);
 
+            // A plain collection: an empty Eloquent one would merge stock row ids as models.
             $items = \App\Support\ItemStockUnit::onePerUnit($candidates)
                 ->filter($wastable)
                 ->sortBy(fn ($item) => [$item->ItemDescription, $item->ItemCode, $item->id])
                 ->take($limit)
-                ->values();
-            $recipeItems = $this->recipeIngredientRows(
-                $recipeLines,
-                \App\Support\ItemStockUnit::onePerUnit($sapRows->where('is_active', true))->filter($wastable),
-                $stockUnits
-            );
-            $recipeRows = $recipeItems->pluck('row');
+                ->values()
+                ->toBase();
 
-            // A Sub-Prep is wasted as itself: it is the one row of its group. Its raw materials
-            // are not listed; they only decide whether it can be added.
-            $productKey = fn ($posCode) => strtoupper(trim((string) $posCode));
-            $subPreps = $recipeLines->isEmpty() ? collect() : POSMasterfile::whereIn('POSCode', $recipeLines->pluck('POSCode')->unique()->values()->all())
-                ->get()
-                ->filter(fn ($posItem) => $posItem->isSubPrep())
-                ->keyBy(fn ($posItem) => $productKey($posItem->POSCode));
-            $subPrepRecipes = $subPreps->map(fn ($posItem) => \App\Support\SubPrepRecipe::ingredients($posItem));
-
-            $itemIds = $items->concat($recipeRows)
+            $itemIds = $items
                 ->map(fn ($item) => $stockUnits->get($item->ItemCode)?->stockRowFor($item->AltUOM)?->id)
                 ->merge($subPrepRecipes->flatten(1)->map(fn ($ingredient) => $ingredient['stock_row']?->id))
                 ->filter()->unique()->values()->all();
@@ -733,7 +763,7 @@ class WastageController extends Controller
                 ->get()
                 ->keyBy('product_inventory_id');
 
-            $supplierCosts = \App\Support\SupplierUnitCost::forItems($items->pluck('ItemCode')->merge($recipeRows->pluck('ItemCode')));
+            $supplierCosts = \App\Support\SupplierUnitCost::forItems($items->pluck('ItemCode'));
 
             $present = function ($item) use ($stockByProductId, $stockUnits, $supplierCosts) {
                 $stockUnit = $stockUnits->get($item->ItemCode);
@@ -753,31 +783,20 @@ class WastageController extends Controller
                 ];
             };
 
-            $recipeItemsByProduct = $recipeItems->groupBy(fn ($recipeItem) => $productKey($recipeItem['product']['code']));
+            // Wastage Settings, per entity: whether an item with no stock on hand may be added.
+            $allowOutOfStock = app(WastageApprovalSettingsService::class)->allowsOutOfStockItems();
 
-            $productRows = $recipeLines->groupBy(fn ($line) => $productKey($line->POSCode))
-                ->flatMap(function ($lines, $posCode) use ($recipeItemsByProduct, $subPreps, $subPrepRecipes, $stockByProductId, $present) {
-                    $subPrep = $subPreps->get($posCode);
-                    $product = ['code' => $lines->first()->POSCode, 'description' => $lines->first()->POSDescription]
-                        + ($subPrep ? ['sub_prep' => true, 'uom' => $subPrep->UOM] : []);
+            $subPrepRows = $subPreps->map(fn ($subPrep, $posCode) => $this->subPrepRow($subPrep, $subPrepRecipes->get($posCode), $stockByProductId, $allowOutOfStock) + [
+                'product' => ['code' => $subPrep->POSCode, 'description' => $subPrep->POSDescription, 'sub_prep' => true, 'uom' => $subPrep->UOM],
+            ]);
 
-                    if ($subPrep) {
-                        return [$this->subPrepRow($subPrep, $subPrepRecipes->get($posCode), $stockByProductId) + ['product' => $product]];
-                    }
-
-                    return $recipeItemsByProduct->get($posCode, collect())->map(fn ($recipeItem) => $present($recipeItem['row']) + [
-                        'product' => $product,
-                        'recipe_qty' => $recipeItem['recipe_qty'],
-                        'recipe_uom' => $recipeItem['recipe_uom'],
-                    ])->values()->all();
-                });
-
-            $processedItems = $items->map($present)->concat($productRows)->values();
+            $processedItems = $items->map($present)->concat($subPrepRows->values())->values();
 
             return response()->json([
                 'items' => $processedItems,
                 'total_items' => $processedItems->count(),
                 'more_products' => $moreProducts,
+                'allow_out_of_stock' => $allowOutOfStock,
             ]);
 
         } catch (\Exception $e) {
@@ -792,42 +811,55 @@ class WastageController extends Controller
     }
 
     /**
-     * The BOM lines of the POS products whose code or description matches the search, and
-     * whether more products matched than the ones returned.
+     * The Sub-Preps whose POS code or description matches the search, keyed by upper-case POS
+     * code, and whether more matched than the ones returned. Any other POS product is a finished
+     * good, which the wastage search does not list.
      *
-     * @return array{0: \Illuminate\Support\Collection, 1: bool}
+     * @return array{0: \Illuminate\Support\Collection<string, POSMasterfile>, 1: bool}
      */
-    private function recipeLinesMatching(string $search, int $maxProducts = 10): array
+    private function subPrepsMatching(string $search, int $maxProducts = 10): array
     {
+        $subPrepCodes = POSMasterfile::query()
+            ->select('POSCode')
+            ->whereRaw('UPPER(LTRIM(RTRIM([Category]))) = ?', [POSMasterfile::SUB_PREP_CATEGORY]);
+
+        // Matched on the BOM, so a Sub-Prep with no recipe is not offered.
         $posCodes = POSMasterfileBOM::query()
             ->where(function ($q) use ($search) {
                 $q->where('POSCode', 'like', "%{$search}%")
                   ->orWhere('POSDescription', 'like', "%{$search}%");
             })
+            ->whereIn('POSCode', $subPrepCodes)
             ->groupBy('POSCode')
             ->orderByRaw('MIN(POSDescription)')
             ->orderBy('POSCode')
             ->limit($maxProducts + 1)
             ->pluck('POSCode');
 
-        $lines = POSMasterfileBOM::whereIn('POSCode', $posCodes->take($maxProducts)->all())
-            ->orderBy('POSDescription')
-            ->orderBy('POSCode')
+        $key = fn ($posCode) => strtoupper(trim((string) $posCode));
+        $byCode = POSMasterfile::whereIn('POSCode', $posCodes->take($maxProducts)->all())
             ->orderBy('id')
-            ->get(['id', 'POSCode', 'POSDescription', 'ItemCode', 'BOMQty', 'BOMUOM']);
+            ->get()
+            ->filter(fn ($posItem) => $posItem->isSubPrep())
+            ->keyBy(fn ($posItem) => $key($posItem->POSCode));
 
-        return [$lines, $posCodes->count() > $maxProducts];
+        $subPreps = $posCodes->take($maxProducts)
+            ->mapWithKeys(fn ($posCode) => [$key($posCode) => $byCode->get($key($posCode))])
+            ->filter();
+
+        return [$subPreps, $posCodes->count() > $maxProducts];
     }
 
     /**
      * The row that adds a Sub-Prep to a wastage record. It holds no stock of its own, so
      * `stock` is how many of its units the raw materials on hand cover, and it cannot be
-     * added (`blocked_reason`) while one of them is out or cannot be deducted.
+     * added (`blocked_reason`) while one of them is out or cannot be deducted. With out-of-stock
+     * items allowed (Wastage Settings), an out-of-stock raw material is only noted (`stock_note`).
      *
      * @param  \Illuminate\Support\Collection  $ingredients  as SubPrepRecipe::ingredients() returns them
      * @param  \Illuminate\Support\Collection  $stockByProductId  stock on hand per SAP stock row id
      */
-    private function subPrepRow(POSMasterfile $subPrep, $ingredients, $stockByProductId): array
+    private function subPrepRow(POSMasterfile $subPrep, $ingredients, $stockByProductId, bool $allowOutOfStock = false): array
     {
         $outOfStock = [];
         $unconverted = [];
@@ -859,7 +891,7 @@ class WastageController extends Controller
             blank($subPrep->UOM) => 'No UOM in the POS Masterlist',
             $ingredients->isEmpty() => 'Its BOM has no quantities',
             $unconverted !== [] => 'No unit conversion in the SAP Masterlist for ' . implode(', ', $unconverted),
-            $outOfStock !== [] => 'Out of stock: ' . implode(', ', $outOfStock),
+            $outOfStock !== [] && ! $allowOutOfStock => 'Out of stock: ' . implode(', ', $outOfStock),
             default => null,
         };
 
@@ -873,51 +905,10 @@ class WastageController extends Controller
             'alt_uom' => $subPrep->UOM,
             // Its Cost on the Supplier Items list for this unit, not its SRP.
             'cost_per_quantity' => \App\Support\SubPrepRecipe::unitCost($subPrep),
-            'stock' => $blockedReason === null ? round((float) $covers, 4) : 0,
+            'stock' => $blockedReason === null ? round(max(0.0, (float) $covers), 4) : 0,
             'blocked_reason' => $blockedReason,
+            'stock_note' => $blockedReason === null && $outOfStock !== [] ? 'Out of stock: ' . implode(', ', $outOfStock) : null,
         ];
-    }
-
-    /**
-     * One wastable SAP row per ingredient of each product: in the unit the recipe uses, or -
-     * a recipe unit SAP does not give the item - in the unit its stock is kept in. A repeated
-     * ingredient is listed once with its BOM quantities added up.
-     *
-     * @param  \Illuminate\Support\Collection  $unitRows  the wastable rows, one per ItemCode + unit
-     * @return \Illuminate\Support\Collection<int, array{row: object, product: array, recipe_qty: float, recipe_uom: string}>
-     */
-    private function recipeIngredientRows($recipeLines, $unitRows, $stockUnits)
-    {
-        $key = fn ($value) => strtoupper(trim((string) $value));
-        $unitRowsByCode = $unitRows->groupBy(fn ($row) => $key($row->ItemCode));
-        $ingredients = collect();
-
-        foreach ($recipeLines->groupBy(fn ($line) => $key($line->POSCode)) as $lines) {
-            $product = ['code' => $lines->first()->POSCode, 'description' => $lines->first()->POSDescription];
-            $listed = [];
-
-            foreach ($lines->groupBy(fn ($line) => $key($line->ItemCode) . '|' . $key($line->BOMUOM)) as $sameUnit) {
-                $line = $sameUnit->first();
-                $rows = $unitRowsByCode->get($key($line->ItemCode), collect());
-                $row = $rows->first(fn ($row) => $key($row->AltUOM) === $key($line->BOMUOM))
-                    ?? $rows->first(fn ($row) => $row->id === $stockUnits->get($row->ItemCode)?->stockRow()?->id)
-                    ?? $rows->first();
-
-                if (! $row || isset($listed[$row->id])) {
-                    continue;
-                }
-
-                $listed[$row->id] = true;
-                $ingredients->push([
-                    'row' => $row,
-                    'product' => $product,
-                    'recipe_qty' => round((float) $sameUnit->sum('BOMQty'), 7),
-                    'recipe_uom' => trim((string) $line->BOMUOM),
-                ]);
-            }
-        }
-
-        return $ingredients;
     }
 
     /**

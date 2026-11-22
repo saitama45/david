@@ -135,10 +135,12 @@ class SupplierItemsImport implements ToCollection, WithHeadingRow, WithChunkRead
                 continue;
             }
 
-            // 3. SAP Validation: Check if ItemCode and AltUOM (from Excel's UNIT) exist in sap_masterfiles
-            // Use case-insensitive comparison for both ItemCode and AltUOM
+            // 3. SAP Validation: the UNIT must be a unit SAP gives the item, as an AltUOM or as
+            // a BaseUOM (case-insensitive). TC's SAP Masterlist writes "1000 Gm = 1 Bag" with no
+            // Bag / Bag row, and its ordering unit (Bag) was refused while only AltUOM counted.
             $sapMasterfileExists = SAPMasterfile::whereRaw('UPPER(ItemCode) = ?', [strtoupper($itemCode)])
-                                                ->whereRaw('UPPER(AltUOM) = ?', [strtoupper($unit)])
+                                                ->where(fn ($q) => $q->whereRaw('UPPER(AltUOM) = ?', [strtoupper($unit)])
+                                                    ->orWhereRaw('UPPER(BaseUOM) = ?', [strtoupper($unit)]))
                                                 ->exists();
 
             if (!$sapMasterfileExists) {

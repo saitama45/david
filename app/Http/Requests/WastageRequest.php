@@ -157,6 +157,12 @@ class WastageRequest extends FormRequest
                         $fail($problem);
                     }
                 },
+                // Not a day the store marked No Wastage for the Day (unmark it first).
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($problem = app(\App\Http\Services\NoWastageDayService::class)->recordProblem((int) $this->input('store_branch_id'), $value)) {
+                        $fail($problem);
+                    }
+                },
             ];
             $rules['cartItems'] = [
                 'required',

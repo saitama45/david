@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, Trash2 } from 'lucide-vue-next'
+import { Search, Filter, RotateCcw, Download, Plus, Eye, Edit, Trash2, CircleCheck } from 'lucide-vue-next'
 import WastageStatusBadge from './components/WastageStatusBadge.vue'
 import MobileTableContainer from '@/components/table/MobileTableContainer.vue'
 import MobileTableRow from '@/components/table/MobileTableRow.vue'
@@ -34,18 +34,43 @@ const props = defineProps({
   statusOptions: Array,
   storeOptions: Array,
   permissions: Object,
-  approvalConfig: Object
+  approvalConfig: Object,
+  // "No Wastage for the Day" statements of the user's stores; only sent on that tab
+  noWastageDays: { type: Object, default: null },
+  noWastageCount: { type: Number, default: 0 },
 })
 
 // Local state
 const search = ref(props.filters.search || '')
 const status = ref(props.filters.status || 'pending')
 const dateRange = ref('')
+const tab = ref(props.filters.tab === 'no_wastage' ? 'no_wastage' : 'records')
+const noWastageStore = ref(props.filters.no_wastage_store ? String(props.filters.no_wastage_store) : 'all')
+const noWastageDate = ref(props.filters.no_wastage_date || '')
 
 // Watch for status changes to apply filters
 watch(status, () => {
   applyFilters()
 })
+
+watch([noWastageStore, noWastageDate], () => {
+  applyFilters()
+})
+
+const switchTab = (value) => {
+  if (tab.value === value) return
+  tab.value = value
+  applyFilters()
+}
+
+const hasNoWastageFilters = computed(() => noWastageStore.value !== 'all' || !!noWastageDate.value)
+
+const clearNoWastageFilters = () => {
+  noWastageStore.value = 'all'
+  noWastageDate.value = ''
+}
+
+const formatDay = (date) => date ? dayjs(date).format('MM/DD/YYYY') : 'N/A'
 
 // Computed properties
 const hasActiveFilters = computed(() => {
@@ -76,9 +101,11 @@ const applyFilters = () => {
   if (search.value) params.search = search.value
   if (status.value) params.status = status.value
   if (dateRange.value) params.date_range = dateRange.value
-
-  console.log('Applying filters with params:', params)
-  console.log('Current status.value:', status.value)
+  if (tab.value === 'no_wastage') {
+    params.tab = 'no_wastage'
+    if (noWastageStore.value !== 'all') params.no_wastage_store = noWastageStore.value
+    if (noWastageDate.value) params.no_wastage_date = noWastageDate.value
+  }
 
   router.get(route('wastage.index'), params, {
     preserveState: true,
@@ -204,6 +231,133 @@ let searchTimeout
       </Card>
     </div>
 
+    <!-- Wastage records, or the days stores marked "No Wastage for the Day" -->
+    <div class="mb-4 inline-flex flex-wrap gap-1 rounded-lg border bg-white p-1" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'records'"
+        class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
+        :class="tab === 'records' ? 'bg-primary text-primary-foreground' : 'text-gray-600 hover:bg-gray-100'"
+        @click="switchTab('records')"
+      >
+        Wastage Records
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'no_wastage'"
+        class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+        :class="tab === 'no_wastage' ? 'bg-primary text-primary-foreground' : 'text-gray-600 hover:bg-gray-100'"
+        @click="switchTab('no_wastage')"
+      >
+        No Wastage Days
+        <span
+          class="rounded-full px-2 py-0.5 text-xs font-semibold"
+          :class="tab === 'no_wastage' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-700'"
+        >{{ noWastageCount }}</span>
+      </button>
+    </div>
+
+    <!-- No Wastage Days: filters and list -->
+    <template v-if="tab === 'no_wastage'">
+      <Card class="mb-6">
+        <CardHeader>
+          <CardTitle class="text-lg">Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Select v-model="noWastageStore">
+              <SelectTrigger>
+                <SelectValue placeholder="All Stores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stores</SelectItem>
+                <SelectItem v-for="store in storeOptions" :key="store.value" :value="String(store.value)">
+                  {{ store.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input v-model="noWastageDate" type="date" aria-label="Wastage date" />
+
+            <div class="flex gap-2">
+              <Button variant="outline" @click="clearNoWastageFilters" :disabled="!hasNoWastageFilters">
+                <RotateCcw class="w-4 h-4 mr-2" />
+                Clear
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>No Wastage Days</CardTitle>
+          <p class="text-sm text-muted-foreground">
+            Days a store marked "No Wastage for the Day" on Create Wastage Record. No wastage can be recorded for a marked day. A day marked by mistake is unmarked with Edit, and leaves this list.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div v-if="noWastageDays?.data?.length" class="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Wastage Date</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead>Marked By</TableHead>
+                  <TableHead>Marked On</TableHead>
+                  <TableHead v-if="canCreateRecord" class="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="day in noWastageDays.data" :key="day.id">
+                  <TableCell class="font-medium">{{ formatDay(day.wastage_date) }}</TableCell>
+                  <TableCell>{{ day.store }}</TableCell>
+                  <TableCell>{{ day.declared_by }}</TableCell>
+                  <TableCell>{{ day.declared_at }}</TableCell>
+                  <TableCell v-if="canCreateRecord" class="text-right">
+                    <Button variant="ghost" size="sm" title="Edit: unmark this day" @click="router.get(route('wastage.no-wastage.edit', day.id))">
+                      <Edit class="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+
+          <MobileTableContainer v-if="noWastageDays?.data?.length" class="md:hidden">
+            <div v-for="day in noWastageDays.data" :key="day.id" class="border-b last:border-b-0 p-4 space-y-1 text-sm">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 font-semibold">
+                  <CircleCheck class="w-4 h-4 text-emerald-600" />
+                  {{ formatDay(day.wastage_date) }}
+                </div>
+                <Button v-if="canCreateRecord" variant="ghost" size="sm" title="Edit: unmark this day" @click="router.get(route('wastage.no-wastage.edit', day.id))">
+                  <Edit class="w-4 h-4" />
+                </Button>
+              </div>
+              <div>{{ day.store }}</div>
+              <div class="text-xs text-muted-foreground">Marked by {{ day.declared_by }} on {{ day.declared_at }}</div>
+            </div>
+          </MobileTableContainer>
+
+          <div v-if="!noWastageDays?.data?.length" class="text-center py-12">
+            <CircleCheck class="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 class="text-lg font-medium mb-2">No days marked No Wastage</h3>
+            <p class="text-muted-foreground">
+              {{ hasNoWastageFilters ? 'Try adjusting your filters' : 'A store marks a day on Create Wastage Record, under the Wastage Date.' }}
+            </p>
+          </div>
+
+          <div v-if="noWastageDays?.data?.length" class="mt-6">
+            <Pagination :data="noWastageDays" />
+          </div>
+        </CardContent>
+      </Card>
+    </template>
+
+    <template v-else>
     <!-- Filters and Search -->
     <Card class="mb-6">
       <CardHeader>
@@ -418,6 +572,7 @@ let searchTimeout
         </div>
       </CardContent>
     </Card>
+    </template>
   </Layout>
 </template>
 

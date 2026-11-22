@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import PrimeDialog from 'primevue/dialog'
-import { AlertTriangle, ShieldCheck } from 'lucide-vue-next'
+import { AlertTriangle, PackageOpen, ShieldCheck } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -14,12 +14,33 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  // The entity the out-of-stock setting belongs to: it is saved per entity
+  entityName: {
+    type: String,
+    default: null,
+  },
 })
 
 const form = useForm({
   required_levels: String(props.config.required_levels || 2),
   allow_negative_stock: props.config.allow_negative_stock ?? true,
+  allow_out_of_stock_items: props.config.allow_out_of_stock_items ?? false,
 })
+
+const entityLabel = computed(() => props.entityName || 'this entity')
+
+const outOfStockOptions = computed(() => [
+  {
+    value: false,
+    title: 'In-stock items only',
+    description: 'A store can add only items it has stock on hand (SOH) of. Out-of-stock items are listed but cannot be added.',
+  },
+  {
+    value: true,
+    title: 'Allow out-of-stock items',
+    description: `Stores of ${entityLabel.value} can add an item even with no stock on hand. Use it while stock is not yet complete in the system.`,
+  },
+])
 
 const { toast } = useToast()
 
@@ -43,6 +64,7 @@ const negativeStockOptions = [
 
 const hasInFlightLevel2Records = computed(() => Boolean(props.config.has_in_flight_level2_records))
 const negativeStockChanged = computed(() => form.allow_negative_stock !== (props.config.allow_negative_stock ?? true))
+const outOfStockChanged = computed(() => form.allow_out_of_stock_items !== (props.config.allow_out_of_stock_items ?? false))
 
 const isConfirmOpen = ref(false)
 
@@ -54,6 +76,7 @@ const confirmSave = () => {
   form.transform((data) => ({
     required_levels: Number(data.required_levels),
     allow_negative_stock: Boolean(data.allow_negative_stock),
+    allow_out_of_stock_items: Boolean(data.allow_out_of_stock_items),
   })).post(route('wastage-settings.update'), {
     preserveScroll: true,
     onFinish: () => {
@@ -149,6 +172,59 @@ const confirmSave = () => {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle>Out-of-Stock Items on Create</CardTitle>
+              <p class="mt-1 text-sm text-muted-foreground">For {{ entityLabel }} only. Switch entity to set it for another.</p>
+            </div>
+            <span
+              class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide"
+              :class="form.allow_out_of_stock_items ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-700'"
+            >
+              {{ form.allow_out_of_stock_items ? 'On - out-of-stock items allowed' : 'Off - in-stock items only' }}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent class="space-y-5">
+          <div role="radiogroup" aria-label="Out-of-stock items on create" class="grid gap-3 sm:grid-cols-2">
+            <button
+              v-for="option in outOfStockOptions"
+              :key="String(option.value)"
+              type="button"
+              role="radio"
+              :aria-checked="form.allow_out_of_stock_items === option.value"
+              class="rounded-lg border-2 p-4 text-left transition-colors"
+              :class="form.allow_out_of_stock_items === option.value
+                ? (option.value ? 'border-amber-500 bg-amber-50' : 'border-blue-500 bg-blue-50')
+                : 'border-gray-200 hover:border-gray-300'"
+              @click="form.allow_out_of_stock_items = option.value"
+            >
+              <span class="flex items-center gap-2 font-semibold" :class="option.value ? 'text-amber-800' : 'text-gray-900'">
+                <PackageOpen v-if="option.value" class="h-4 w-4" />
+                <ShieldCheck v-else class="h-4 w-4" />
+                {{ option.title }}
+              </span>
+              <span class="mt-1 block text-sm text-gray-600">{{ option.description }}</span>
+            </button>
+          </div>
+
+          <div v-if="form.allow_out_of_stock_items" class="flex gap-3 rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+            <div class="space-y-1">
+              <p class="font-bold">Meant to be temporary.</p>
+              <p>
+                Approving such a wastage takes the item's stock on hand below zero, so it follows
+                <strong>Negative Stock on Approval</strong> above:
+                {{ form.allow_negative_stock ? 'approvers confirm the items going negative.' : 'while that is off, these wastages cannot be approved.' }}
+                Switch this off once the stores' stock is complete in the system.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div class="flex justify-end">
         <Button :disabled="form.processing" @click="save">
           {{ form.processing ? 'Saving...' : 'Save Changes' }}
@@ -190,6 +266,12 @@ const confirmSave = () => {
 
         <p v-if="negativeStockChanged" class="font-medium text-gray-900">
           This changes the negative stock setting for every store.
+        </p>
+
+        <p v-if="outOfStockChanged" class="font-medium text-gray-900">
+          Stores of {{ entityLabel }}
+          <strong>{{ form.allow_out_of_stock_items ? 'will be able to add out-of-stock items' : 'will add in-stock items only' }}</strong>
+          to a wastage record.
         </p>
       </div>
 

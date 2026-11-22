@@ -88,7 +88,7 @@ const handleCreate = () => {
 
                 <InputContainer>
                     <Label>Unit</Label>
-                    <Input v-model="form.uom" placeholder="An Alt UOM of the item in SAP" />
+                    <Input v-model="form.uom" placeholder="An Alt UOM or Base UOM of the item in SAP" />
                     <FormError>{{ form.errors.uom }}</FormError>
                 </InputContainer>
 

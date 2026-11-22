@@ -301,6 +301,11 @@ class WastageService
             // Get store branch
             $storeBranch = StoreBranch::findOrFail($data['store_branch_id']);
 
+            // A day marked No Wastage takes no record until it is unmarked.
+            if ($problem = app(NoWastageDayService::class)->recordProblem((int) $data['store_branch_id'], $data['wastage_date'] ?? now('Asia/Manila')->toDateString())) {
+                throw new Exception($problem);
+            }
+
             // Get product
             $product = SAPMasterfile::findOrFail($data['sap_masterfile_id']);
 
@@ -337,6 +342,11 @@ class WastageService
         try {
             $createdRecords = [];
             $storeBranch = StoreBranch::findOrFail($data['store_branch_id']);
+
+            // A day marked No Wastage takes no record until it is unmarked.
+            if ($problem = app(NoWastageDayService::class)->recordProblem((int) $data['store_branch_id'], $data['wastage_date'] ?? now('Asia/Manila')->toDateString())) {
+                throw new Exception($problem);
+            }
 
             // Generate ONE wastage number for the entire transaction
             $wastageNo = $this->generateWastageNumber($storeBranch);

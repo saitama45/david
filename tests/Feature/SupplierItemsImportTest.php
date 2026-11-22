@@ -19,7 +19,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  * and refusals the upload form has to show. Runs on an isolated test database; the controller
  * is called directly. Nothing here deletes a record.
  */
-function supplierImportFixture(array $assign = ['TGI', 'DTS', 'GSI']): Entity
+function supplierImportFixture(array $assign = ['TGI', 'DTS', 'GSI'], bool $bagBaseRow = true): Entity
 {
     // Fresh migrations add a UNIQUE index on sap_masterfiles.ItemCode that the live schema
     // does not have (one row per AltUOM); 721A2H needs two rows.
@@ -34,9 +34,11 @@ function supplierImportFixture(array $assign = ['TGI', 'DTS', 'GSI']): Entity
         Supplier::create(['supplier_code' => $code, 'name' => $code, 'is_active' => true]);
     }
 
-    foreach ([['721A2H', 'Bag', 1], ['721A2H', 'Gm', 1000], ['789A2H', 'Cylinder', 1], ['735A2H', 'Pack', 1]] as [$code, $unit, $altQty]) {
-        SAPMasterfile::create(['ItemCode' => $code, 'ItemDescription' => $code, 'AltQty' => $altQty, 'BaseQty' => 1,
-            'AltUOM' => $unit, 'BaseUOM' => $code === '721A2H' ? 'Bag' : $unit, 'is_active' => true]);
+    // TC's own SAP Masterlist states 1000 Gm = 1 Bag with no Bag / Bag row ($bagBaseRow false).
+    $rows = [['721A2H', 'Bag', 1], ['721A2H', 'Gm', 1000], ['789A2H', 'Cylinder', 1], ['735A2H', 'Pack', 1]];
+    foreach ($bagBaseRow ? $rows : array_slice($rows, 1) as [$code, $unit, $altQty]) {
+        SAPMasterfile::create(['ItemCode' => $code, 'ItemDescription' => $code === '721A2H' ? 'TC ESPRESSO BLEND (1KG)' : $code,
+            'AltQty' => $altQty, 'BaseQty' => 1, 'AltUOM' => $unit, 'BaseUOM' => $code === '721A2H' ? 'Bag' : $unit, 'is_active' => true]);
     }
 
     $user = User::factory()->create();
@@ -146,4 +148,45 @@ it('reports a failed import on the upload form', function () {
 
     expect($errors['products_file'][0] ?? '')->toStartWith('Import failed: No active entity')
         ->and(SupplierItems::withoutGlobalScopes()->count())->toBe(0);
+});
+
+it('imports a unit SAP gives only as the BaseUOM, as TC\'s 1000 Gm = 1 Bag with no Bag / Bag row', function () {
+    supplierImportFixture(bagBaseRow: false);
+
+    supplierImportUpload(supplierImportWorkbook());
+
+    expect(session('import_summary.processed_count'))->toBe(4)
+        ->and(collect(supplierImportRows())->map(fn ($row) => $row[0].' '.$row[1])->all())
+        ->toContain('721A2H Bag', '721A2H Gm');
+});
+
+it('adds an item one by one in a unit SAP gives only as the BaseUOM, and still refuses a unit SAP does not give', function () {
+    supplierImportFixture(bagBaseRow: false);
+    $store = fn (string $unit) => app(SupplierItemsController::class)->store(Request::create('/SupplierItems-list', 'POST', [
+        'SupplierCode' => 'TGI', 'ItemCode' => '721A2H', 'uom' => $unit, 'cost' => 1381.38, 'is_active' => true,
+    ]));
+
+    $store('bag');
+
+    expect(SupplierItems::where('ItemCode', '721A2H')->get()->map(fn ($item) => [$item->uom, $item->item_name])->all())
+        ->toBe([['Bag', 'TC ESPRESSO BLEND (1KG)']])
+        ->and(supplierImportErrors(fn () => $store('Case'))['uom'][0] ?? '')
+        ->toBe("'Case' is not a unit of 721A2H in the SAP Masterfile. Use one of: Gm, Bag.");
+});
+
+it('finds the SAP row of a supplier item in a unit SAP gives only as the BaseUOM, for its name on order lists', function () {
+    $entity = supplierImportFixture(bagBaseRow: false);
+    supplierImportUpload(supplierImportWorkbook());
+
+    $bag = SupplierItems::where('ItemCode', '721A2H')->where('uom', 'Bag')->first();
+    $joined = DB::query()->fromSub(SAPMasterfile::singleRowPerJoinKey($entity->id), 'sm')
+        ->where('ItemCode', '721A2H')->orderBy('AltUOM')->get(['AltUOM', 'BaseUOM', 'ItemDescription']);
+
+    expect($bag->sap_masterfile?->BaseUOM)->toBe('Bag')
+        ->and($bag->load('sapMasterfiles')->sap_masterfile?->BaseUOM)->toBe('Bag')
+        // One row per unit: Bag stands in as 1 Bag = 1 Bag, Gm keeps its own row.
+        ->and($joined->map(fn ($row) => [$row->AltUOM, $row->BaseUOM, $row->ItemDescription])->all())->toBe([
+            ['Bag', 'Bag', 'TC ESPRESSO BLEND (1KG)'],
+            ['Gm', 'Bag', 'TC ESPRESSO BLEND (1KG)'],
+        ]);
 });

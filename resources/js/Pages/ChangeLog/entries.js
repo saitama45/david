@@ -15,6 +15,89 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 22, 2026
+    {
+        date: '2026-11-22',
+        module: 'Wastage Record',
+        type: 'new',
+        title: 'No Wastage for the Day: mark a day the store had no wastage, listed under No Wastage Days',
+        summary:
+            'Before, a store with nothing to waste simply made no record, and accounting could not tell a day with no wastage from a record not yet made, so they followed it up. Now the store clicks No Wastage for the Day on Create Wastage Record. The mark is saved at once, no items can be recorded for that day, and the day is listed for accounting under the No Wastage Days tab of Wastage Records.',
+        steps: [
+            'Open Wastage Record and click New Wastage Record.',
+            'Select the Store Branch and the Wastage Date.',
+            'Click No Wastage for the Day under the Wastage Date, then Yes, no wastage. The mark is saved right away; there is no need to click Save Wastage Record.',
+            'The page shows "Marked No Wastage for this day" with who marked it and when, and Search Items, Add Items and Save Wastage Record are locked for that day.',
+            'If the day was marked by mistake, click Unmark, then Yes, unmark. The items can then be added and saved as usual.',
+            'Accounting opens Wastage Records and clicks the No Wastage Days tab, filtering by store or date.',
+            'A day can also be unmarked from that list: click Edit on its row, then Unmark. The Edit page then offers Record wastage for this day, which opens Create Wastage Record with the store and date filled in.',
+        ],
+        rules: [
+            'A day is marked for one store and one Wastage Date at a time, only for a store assigned to you.',
+            'A day cannot be marked while the store has a wastage record dated that day. A cancelled record does not count.',
+            'The cart must be empty. A store that has items in the cart saves them as a wastage record instead.',
+            'A future date cannot be marked, nor a date the store closed with a final approved month end count.',
+            'No wastage record can be saved for a marked day. The system refuses it with "This store is marked No Wastage for" the date, until the day is unmarked.',
+            'An unmarked day leaves the No Wastage Days list. It can be marked again later if it still has no wastage record.',
+            'Marking and unmarking a day need the same permission as creating a wastage record.',
+        ],
+        affects: 'Store users who record wastage, and accounting who monitor it.',
+    },
+    {
+        date: '2026-11-22',
+        module: 'Wastage Settings',
+        type: 'new',
+        title: 'Out-of-Stock Items on Create: let stores add an item with no stock to a wastage record',
+        summary:
+            'Before, Search Items on Create Wastage Record listed an item with no stock on hand as "Out of stock, Cannot be added". Wastage Settings now has an Out-of-Stock Items on Create switch. While it is on, such an item shows "Out of stock, Can still be added" and goes into the cart like any other.',
+        steps: [
+            'Open Wastage Settings while working in the entity to change, for example TC.',
+            'Under Out-of-Stock Items on Create, choose Allow out-of-stock items, click Save Changes, then Yes, save settings.',
+            'On Create Wastage Record, an item with no stock can now be added.',
+            'Once the stores\' stock is complete in the system, choose In-stock items only and save again.',
+        ],
+        rules: [
+            'The switch is set per entity. Turning it on for TC leaves Nono\'s and Coffee Bean Tea Leaf as they were.',
+            'It starts off, so every entity keeps the in-stock rule until someone turns it on.',
+            'A Sub-Prep whose raw materials are out of stock can also be added while it is on. One that is inactive, has no UOM or has no unit conversion still cannot.',
+            'Approving such a wastage takes the item\'s stock on hand below zero, so it follows Negative Stock on Approval: the approver confirms the items going negative, and while that setting is off these wastages cannot be approved.',
+        ],
+        affects: 'Store users recording wastage in an entity whose stock is not yet complete, such as TC, and the administrators who manage Wastage Settings.',
+    },
+    {
+        date: '2026-11-22',
+        module: 'Wastage Record',
+        type: 'removed',
+        title: 'Search Items no longer lists the ingredients of a finished product',
+        summary:
+            'Before, typing part of a product name in Search Items on Create Wastage Record also listed the recipe ingredients of every matching POS product under "Ingredients of", with an Add all button. Searching "oat" filled the list with the ingredients of every drink with Oat in its name. Now only the items themselves are listed, and a Sub-Prep, which is still wasted as itself.',
+        rules: [
+            'Search Items finds items by item code or item name, as before.',
+            'A Sub-Prep is found by its POS code or name and added as itself. Its raw materials are deducted on approval, as before.',
+            'Any other POS product, a finished good, is not listed, and neither are its ingredients. To waste what went into it, search each item.',
+        ],
+        affects: 'Store users who record wastage on Create Wastage Record and Edit Wastage Record.',
+    },
+    {
+        date: '2026-11-22',
+        module: 'Supplier Items',
+        type: 'improved',
+        title: 'Update List and Create Supplier Item accept the Base UOM of the item, such as Bag or Case',
+        summary:
+            'Before, a Unit was accepted only if the SAP Masterlist gave it as an Alt UOM. TC\'s SAP Masterlist states its packs as "1,000 Gm = 1 Bag", where Bag appears only as the Base UOM, so only the smallest units (Gm, Ml, Pc) uploaded and stores had to order in them. Now a Unit that is the item\'s Base UOM is accepted too, so stores can order in Bag, Case or Bottle.',
+        steps: [
+            'Open Supplier Items and click Update List, or Create New Item for one item.',
+            'Give the item its Unit as the SAP Masterlist spells it, either an Alt UOM or the Base UOM, for example Bag for "1,000 Gm per Bag".',
+            'Rows listing a Unit the item does not have in the SAP Masterlist are still skipped and listed in the skipped rows.',
+        ],
+        rules: [
+            'The Unit must be an Alt UOM or the Base UOM of the item code in the SAP Masterlist. Capital and small letters do not matter.',
+            'Create Supplier Item lists the units that are accepted when you type one that is not, for example "Use one of: Gm, Bag."',
+            'A store order in Bag shows the item name in receiving and in CS Mass Commits as for any other unit, and Add Unlisted Item accepts it too.',
+            'To keep stores from ordering in the smallest unit, set that row\'s ACTIVE to 0 or leave it out of the upload.',
+        ],
+        affects: 'Users who upload supplier item lists, most of all for TC, and the stores ordering from them.',
+    },
     // ---------------------------------------------------------------- November 21, 2026
     {
         date: '2026-11-21',

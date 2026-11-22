@@ -133,7 +133,8 @@ class SupplierItemsController extends Controller
 
     /**
      * Add one catalog item by hand, under the same rules as the import: the supplier
-     * must be assigned to the user, and ItemCode + unit must be a row of the SAP masterfile.
+     * must be assigned to the user, and the unit must be an AltUOM or a BaseUOM of the ItemCode
+     * in the SAP masterfile.
      */
     public function store(Request $request)
     {
@@ -164,8 +165,10 @@ class SupplierItemsController extends Controller
             'SupplierCode.in' => 'You can only add items for suppliers assigned to you.',
         ]);
 
-        $sapRows = SAPMasterfile::where('ItemCode', $validated['ItemCode'])->get(['AltUOM', 'ItemDescription']);
-        $sapRow = $sapRows->first(fn ($row) => strtoupper(trim((string) $row->AltUOM)) === strtoupper($validated['uom']));
+        $sapRows = SAPMasterfile::where('ItemCode', $validated['ItemCode'])->orderBy('id')->get(['AltUOM', 'BaseUOM', 'ItemDescription']);
+        // An AltUOM or a BaseUOM: TC's "1000 Gm = 1 Bag" gives Bag only as a BaseUOM.
+        $sapUnits = SAPMasterfile::unitsOf($sapRows);
+        $sapUnit = $sapUnits[strtoupper($validated['uom'])] ?? null;
 
         if ($sapRows->isEmpty()) {
             throw ValidationException::withMessages([
@@ -173,15 +176,15 @@ class SupplierItemsController extends Controller
             ]);
         }
 
-        if (! $sapRow) {
+        if ($sapUnit === null) {
             throw ValidationException::withMessages([
                 'uom' => "'{$validated['uom']}' is not a unit of {$validated['ItemCode']} in the SAP Masterfile. Use one of: "
-                    . $sapRows->pluck('AltUOM')->map(fn ($uom) => trim((string) $uom))->unique()->implode(', ') . '.',
+                    . implode(', ', $sapUnits) . '.',
             ]);
         }
 
         // Stored in SAP's spelling, so joins and comparisons on the unit keep matching.
-        $validated['uom'] = trim((string) $sapRow->AltUOM);
+        $validated['uom'] = $sapUnit;
 
         $exists = SupplierItems::where('ItemCode', $validated['ItemCode'])
             ->where('SupplierCode', $validated['SupplierCode'])
@@ -200,7 +203,7 @@ class SupplierItemsController extends Controller
         }
 
         SupplierItems::create(array_merge($validated, [
-            'item_name' => ($validated['item_name'] ?? null) ?: (string) $sapRow->ItemDescription,
+            'item_name' => ($validated['item_name'] ?? null) ?: (string) $sapRows->first()->ItemDescription,
             'config' => $validated['config'] ?? 0,
             'srp' => $validated['srp'] ?? 0,
             'sort_order' => $validated['sort_order'] ?? 0,

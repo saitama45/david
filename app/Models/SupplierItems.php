@@ -167,6 +167,8 @@ class SupplierItems extends Model implements Auditable
     /**
      * Custom accessor to get the specific SAPMasterfile entry that matches
      * both the ItemCode and the SupplierItem's 'uom' (AltUOM).
+     * A unit SAP gives only as a BaseUOM (1000 Gm = 1 Bag, no Bag / Bag row) falls back to
+     * the row it is the BaseUOM of.
      * Optimized to prevent N+1 queries by preferring loaded relationships.
      */
     public function getSapMasterfileAttribute()
@@ -175,19 +177,18 @@ class SupplierItems extends Model implements Auditable
             return null;
         }
 
-        $supplierItemUomUpper = strtoupper($this->uom);
+        $supplierItemUomUpper = strtoupper(trim($this->uom));
 
         // Check if the 'sapMasterfiles' relationship has already been loaded
         if ($this->relationLoaded('sapMasterfiles')) {
-            return $this->sapMasterfiles->first(function ($sapMasterfile) use ($supplierItemUomUpper) {
-                return strtoupper($sapMasterfile->AltUOM) === $supplierItemUomUpper;
-            });
+            $unitOf = fn (string $column) => fn ($sapMasterfile) => strtoupper(trim((string) $sapMasterfile->{$column})) === $supplierItemUomUpper;
+
+            return $this->sapMasterfiles->first($unitOf('AltUOM'))
+                ?? $this->sapMasterfiles->sortBy('id')->first($unitOf('BaseUOM'));
         }
 
         // Fallback: perform a single optimized query
-        return SAPMasterfile::where('ItemCode', $this->ItemCode)
-            ->where(DB::raw('UPPER(AltUOM)'), $supplierItemUomUpper)
-            ->first();
+        return SAPMasterfile::forUnit($this->ItemCode, $this->uom)->first();
     }
 }
 

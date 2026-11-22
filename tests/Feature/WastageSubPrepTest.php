@@ -142,15 +142,10 @@ it('offers a Sub-Prep as the only row of its group, at its Supplier Items cost, 
         ->and($rows[0]['product'])->toBe(['code' => 'SP-0001', 'description' => 'Chocolate Mix', 'sub_prep' => true, 'uom' => 'ml']);
 });
 
-it('keeps the ingredients of any other product addable', function () {
+it('lists neither a finished product nor its ingredients', function () {
     $f = subPrepFixture();
 
-    $rows = subPrepSearch($f, 'Mocha Latte');
-
-    expect($rows)->toHaveCount(1)
-        ->and($rows[0]['item_code'])->toBe('RM-COCOA')
-        ->and($rows[0])->not->toHaveKey('sub_prep')
-        ->and($rows[0]['product'])->toBe(['code' => 'FG-0001', 'description' => 'Mocha Latte']);
+    expect(subPrepSearch($f, 'Mocha Latte'))->toBe([]);
 });
 
 it('blocks a Sub-Prep while a raw material is out of stock, and one with no UOM', function () {
@@ -158,6 +153,20 @@ it('blocks a Sub-Prep while a raw material is out of stock, and one with no UOM'
 
     expect(subPrepSearch($f, 'SP-0001')[0])->toMatchArray(['stock' => 0, 'blocked_reason' => 'Out of stock: Sugar - Brown']);
 
+    $f['subPrep']->update(['UOM' => null]);
+
+    expect(subPrepSearch($f, 'SP-0001')[0]['blocked_reason'])->toBe('No UOM in the POS Masterlist');
+});
+
+it('lets an out-of-stock Sub-Prep be added while Wastage Settings allows out-of-stock items, noting what is out', function () {
+    $f = subPrepFixture(['RM-COCOA' => 2, 'RM-SUGAR' => 0]);
+    app(\App\Http\Services\WastageApprovalSettingsService::class)->setAllowOutOfStockItems(true);
+
+    expect(subPrepSearch($f, 'SP-0001')[0])->toMatchArray([
+        'stock' => 0, 'blocked_reason' => null, 'stock_note' => 'Out of stock: Sugar - Brown',
+    ]);
+
+    // What is not about stock still blocks it.
     $f['subPrep']->update(['UOM' => null]);
 
     expect(subPrepSearch($f, 'SP-0001')[0]['blocked_reason'])->toBe('No UOM in the POS Masterlist');

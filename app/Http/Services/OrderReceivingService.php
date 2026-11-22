@@ -815,10 +815,9 @@ class OrderReceivingService extends StoreOrderService
 
         // confirmReceive() needs both of these to convert the receipt into base UOM, and it
         // only logs a warning when they are missing — the receipt would silently never reach
-        // stock. Fail here instead, while the user can still act on it.
-        $orderedMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
-            ->whereRaw('UPPER(AltUOM) = ?', [strtoupper($uom)])
-            ->first();
+        // stock. Fail here instead, while the user can still act on it. A unit SAP gives only as
+        // a BaseUOM (TC's 1000 Gm = 1 Bag) is a unit of the item too.
+        $orderedMasterfile = SAPMasterfile::forUnit($itemCode, $uom)->first();
 
         if (! $orderedMasterfile) {
             throw new \Exception("{$itemCode} has no SAP masterfile entry for UOM {$uom}, so the quantity could not be converted to stock.");

@@ -12,6 +12,9 @@ class WastageApprovalSettingsService
 
     public const ALLOW_NEGATIVE_STOCK_KEY = 'wastage.approval_allow_negative_stock';
 
+    /** Per entity: the stored key ends in `.entity_<id>`. */
+    public const ALLOW_OUT_OF_STOCK_KEY = 'wastage.create_allow_out_of_stock';
+
     public function requiredLevels(): int
     {
         $levels = (int) Setting::get(self::REQUIRED_LEVELS_KEY, 2);
@@ -39,6 +42,29 @@ class WastageApprovalSettingsService
         Setting::set(self::ALLOW_NEGATIVE_STOCK_KEY, $allow ? 'true' : 'false', 'boolean');
     }
 
+    /**
+     * Whether a store may add an item with no stock on hand (SOH) to a wastage record. Off unless
+     * switched on in Wastage Settings, and set per entity: TC switched it on while its stores were
+     * not yet receiving through the system, which must not open it for every other entity.
+     * Approving such a line still follows Negative Stock on Approval.
+     */
+    public function allowsOutOfStockItems(?int $entityId = null): bool
+    {
+        return (bool) Setting::get($this->outOfStockKey($entityId), false);
+    }
+
+    public function setAllowOutOfStockItems(bool $allow, ?int $entityId = null): void
+    {
+        Setting::set($this->outOfStockKey($entityId), $allow ? 'true' : 'false', 'boolean');
+    }
+
+    private function outOfStockKey(?int $entityId): string
+    {
+        $entityId ??= app(\App\Support\EntityContext::class)->id();
+
+        return self::ALLOW_OUT_OF_STOCK_KEY . ($entityId ? ".entity_{$entityId}" : '');
+    }
+
     public function isOneLevelMode(): bool
     {
         return $this->requiredLevels() === 1;
@@ -50,9 +76,10 @@ class WastageApprovalSettingsService
 
         return [
             'wastage' => [
-                'rule' => $oneLevel
+                'rule' => ($oneLevel
                     ? 'Create a wastage record with the actual quantities, reasons and required evidence. Submit it for Level 1 final approval.'
-                    : 'Create a wastage record with the actual quantities, reasons and required evidence. Submit it for Level 1 review, followed by Level 2 final approval.',
+                    : 'Create a wastage record with the actual quantities, reasons and required evidence. Submit it for Level 1 review, followed by Level 2 final approval.')
+                    .' A store with no wastage that day marks it with No Wastage for the Day instead.',
             ],
             'wastage_1' => [
                 'label' => $oneLevel ? 'Review wastage Level 1 (final approval)' : 'Review wastage Level 1',
@@ -89,6 +116,7 @@ class WastageApprovalSettingsService
             'has_in_flight_level2_records' => $this->hasInFlightLevel2Records(),
             'show_level2' => $this->shouldShowLevel2(),
             'allow_negative_stock' => $this->allowsNegativeStock(),
+            'allow_out_of_stock_items' => $this->allowsOutOfStockItems(),
         ];
     }
 }

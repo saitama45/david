@@ -334,23 +334,47 @@ Since 2026-10-16 (`IntercoReceivingService`):
 ## Wastage item search
 
 `/wastage/create` and `/wastage/edit` search through `WastageController::getAvailableItems()`
-(`wastage.items.search`). A term matches SAP items by ItemCode / ItemDescription and, since
-2026-10-05, POS products by `pos_masterfiles_bom.POSCode` / `POSDescription`. **A product is never a
-result, unless it is a Sub-Prep** (stock lives on SAP items; see [Sub-Prep wastage](#sub-prep-wastage)):
-`recipeIngredientRows()` turns each matched product (10 at most;
-`more_products` flags the rest) into one SAP row per ingredient. That row is the item's BOM UOM row,
-or its stock-unit row when SAP gives the item no such unit, and it carries `product {code,
-description}`, `recipe_qty` (that product's BOMQty lines for the item + unit, summed) and
-`recipe_uom`. Direct item rows come first, one per unit as before, with no `product` key.
+(`wastage.items.search`). A term matches SAP items by ItemCode / ItemDescription, one row per unit,
+and Sub-Preps by `pos_masterfiles_bom.POSCode` / `POSDescription` (`subPrepsMatching()`: only POS
+codes whose `pos_masterfiles.Category` is Sub-Prep; 10 at most, `more_products` flags the rest).
+**Any other POS product - a finished good - is not listed, and neither are its ingredients**
+(since 2026-11-22, at the business's request: searching "oat" listed the ingredients of every Oat
+drink). From 2026-10-05 to 2026-11-21 a matched product listed one SAP row per ingredient under an
+"Ingredients of" heading with an "Add all" button; that code (`recipeIngredientRows()`,
+`items-selected`, `recipe_qty`) is gone.
 
-`ItemAutoComplete.vue` (shared with Interco, whose rows never carry `product`) groups rows by
-`product` under an "Ingredients of" heading. "Add all" emits `items-selected`; the page adds the
-lines its cart does not hold yet. **A row with stock <= 0 is listed but cannot be picked**
-(`canPick()`: click, keyboard and "Add all" skip it; the button then reads "Add N in stock"). That
-block is in the search box only: `store` / `update` do not check stock, which is still checked at
-approval (`approvalStockProblem()`). Quantity stays 1: the recipe quantity is a guide only
-(`recipe_note`, client-side, never posted). The search row on both pages is always stacked — their
-scoped `.grid-cols-1` rule outranks `md:grid-cols-12` — so do not add a `col-span` child to it.
+`ItemAutoComplete.vue` (shared with Interco, whose rows never carry `product`) lists a Sub-Prep under
+its product heading. **A row with stock <= 0 is listed but cannot be picked** (`canPick()`), unless
+the search answered `allow_out_of_stock: true`: Wastage Settings' "Out-of-Stock Items on Create",
+**set per entity** (`settings` key `wastage.create_allow_out_of_stock.entity_<id>`, default off,
+`WastageApprovalSettingsService::allowsOutOfStockItems()`). Then the row reads "Can still be added",
+and a Sub-Prep whose raw material is out is not blocked (`stock_note` names it; other block reasons
+stay). Interco never gets the flag. The block is in the search box only: `store` / `update` do not
+check stock, which is still checked at approval (`approvalStockProblem()`), so an out-of-stock line
+needs Negative Stock on Approval on to be approved. The search row on both pages is always stacked
+- their scoped `.grid-cols-1` rule outranks `md:grid-cols-12` - so do not add a `col-span` child to it.
+
+## No Wastage for the Day
+
+A store states it had no wastage on a date, so accounting can tell that from a record not yet made
+(2026-11-22, TC's request). `no_wastage_days` holds one row per store + date (unique), with
+`declared_by/_at`; `NoWastageDayService` owns the rules and `NoWastageDayController` the four routes
+(`wastage.no-wastage.store`, `.unmark`, `.status`, `.edit`, all behind `create wastage record`, store must be assigned).
+
+- **Refused** (`problem()`): a future date, a date closed by a final MEC approval
+  (`MonthEndClosedPeriodService::problem()`), a store that has a non-cancelled wastage record dated
+  that day, or a day already marked.
+- **A marked day takes no wastage record** (user rule, 2026-11-22): the mark is saved at once, so
+  `recordProblem()` refuses a record for that store + date in `WastageRequest` and in both create
+  paths of `WastageService`. Create Wastage Record locks Search Items, Add Items and Save while marked.
+- **Unmark, never delete.** A mistaken mark is undone with Unmark (`wastage.no-wastage.unmark`,
+  `unmarkProblem()`: must be marked, date not closed), which sets `withdrawn_at/_by`; items can then be
+  recorded. Marking again later reuses the row. Lists read `NoWastageDay::standing()`.
+- **Where it shows.** Create Wastage Record: the button under Wastage Date (disabled while the cart has
+  items), or a green "Marked No Wastage for this day" with Unmark. Wastage Records: the "No Wastage Days" tab, whose
+  Edit opens `wastage.no-wastage.edit` (Unmark, then "Record wastage for this day" = Create with `?store_branch_id=&wastage_date=`)
+  (`?tab=no_wastage`, filters `no_wastage_store` / `no_wastage_date`, page name `no_wastage_page`),
+  the user's assigned stores only. Nothing else (reports, MEC, notifications) reads it yet.
 
 ## Sub-Prep wastage
 
@@ -370,8 +394,9 @@ a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM
 - **Search.** A Sub-Prep group is the Sub-Prep row alone (`sub_prep`, `pos_masterfile_id`,
   `cost_per_quantity` = that Supplier Items cost); its raw materials are not listed. Its `stock` is how many units its raw materials cover (the minimum of
   on-hand / BOM Qty), and `blocked_reason` says why it cannot be added: inactive, no UOM, a BOM unit
-  that does not convert, or a raw material at stock <= 0 (named in the reason). A raw material is
-  wasted on its own by searching it directly.
+  that does not convert, or a raw material at stock <= 0 (named in the reason; only noted in
+  `stock_note` while the entity allows out-of-stock items). A raw material is wasted on its own by
+  searching it directly.
 - **Approval.** `WastageService::buildFinalApprovalDeductions()` turns a Sub-Prep line into deductions
   on each raw material's stock row (quantity x BOM Qty x factor; ledger cost = BOM Qty x BOM Unit
   Cost), so the negative-stock check and confirmation work per raw material. No BOM, or a unit that

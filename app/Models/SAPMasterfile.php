@@ -113,6 +113,42 @@ class SAPMasterfile extends Model implements Auditable
             ->whereColumn('sita.item_code', 'sap_masterfiles.ItemCode');
     }
 
+    /**
+     * Every unit SAP gives an item, keyed by its upper-case spelling: each AltUOM, then each
+     * BaseUOM. A BaseUOM is a unit of the item whether or not the file states it on a row of
+     * its own: TC's SAP Masterlist writes "1000 Gm = 1 Bag" with no Bag / Bag row, so Bag -
+     * the unit a store orders in - is only ever a BaseUOM there.
+     *
+     * @param  iterable<object>  $rows  sap_masterfiles rows of one item
+     * @return array<string, string>  UPPER unit => the unit as SAP spells it
+     */
+    public static function unitsOf(iterable $rows): array
+    {
+        $units = [];
+
+        foreach (['AltUOM', 'BaseUOM'] as $column) {
+            foreach ($rows as $row) {
+                $label = trim((string) $row->{$column});
+                if ($label !== '') {
+                    $units[strtoupper($label)] ??= $label;
+                }
+            }
+        }
+
+        return $units;
+    }
+
+    /** Rows of the item that state $unit, as its AltUOM or its BaseUOM - the AltUOM row first. */
+    public function scopeForUnit(Builder $query, ?string $itemCode, ?string $unit): Builder
+    {
+        $unit = strtoupper(trim((string) $unit));
+
+        return $query->where('ItemCode', $itemCode)
+            ->where(fn ($q) => $q->whereRaw('UPPER(AltUOM) = ?', [$unit])->orWhereRaw('UPPER(BaseUOM) = ?', [$unit]))
+            ->orderByRaw('CASE WHEN UPPER(AltUOM) = ? THEN 0 ELSE 1 END', [$unit])
+            ->orderBy('id');
+    }
+
     public function getBaseQTYAttribute()
     {
         return $this->attributes['BaseQty'];
@@ -126,12 +162,16 @@ class SAPMasterfile extends Model implements Auditable
      * driving row out: every joined row is duplicated and any SUM over it is
      * multiplied. See SupplierItems::singleRowPerJoinKey() for the same guard on
      * the supplier catalog, where legacy NULL-entity rows made this concrete.
+     *
+     * A unit SAP gives only as a BaseUOM (1000 Gm = 1 Bag, no Bag / Bag row) has a row here
+     * too: the 1 = 1 row the file left out, ranked after any row that states the unit, so an
+     * order line in Bag still finds its item name.
      */
     public static function singleRowPerJoinKey(?int $entityId = null): \Illuminate\Database\Query\Builder
     {
         $entityId = $entityId ?? app(\App\Support\EntityContext::class)->id();
 
-        $tieBreak = '[is_active] DESC, [id] DESC';
+        $tieBreak = '[implied], [is_active] DESC, [id] DESC';
         $bindings = [];
 
         if ($entityId !== null) {
@@ -139,11 +179,21 @@ class SAPMasterfile extends Model implements Auditable
             $bindings[] = $entityId;
         }
 
-        $ranked = \Illuminate\Support\Facades\DB::table('sap_masterfiles')
-            ->select([
-                'id', 'ItemCode', 'ItemDescription', 'AltUOM', 'BaseUOM',
-                'AltQty', 'BaseQty', 'is_active', 'entity_id',
-            ])
+        $columns = ['id', 'ItemCode', 'ItemDescription', 'AltUOM', 'BaseUOM', 'AltQty', 'BaseQty', 'is_active', 'entity_id'];
+
+        $stated = \Illuminate\Support\Facades\DB::table('sap_masterfiles')
+            ->select($columns)
+            ->selectRaw('0 as [implied]');
+
+        $baseUnits = \Illuminate\Support\Facades\DB::table('sap_masterfiles')
+            ->select(['id', 'ItemCode', 'ItemDescription'])
+            ->selectRaw('[BaseUOM] as [AltUOM], [BaseUOM], 1 as [AltQty], 1 as [BaseQty], [is_active], [entity_id], 1 as [implied]')
+            ->whereNotNull('BaseUOM')
+            ->where('BaseUOM', '!=', '');
+
+        $ranked = \Illuminate\Support\Facades\DB::query()
+            ->fromSub($stated->unionAll($baseUnits), 'sap_units')
+            ->select($columns)
             ->selectRaw(
                 'ROW_NUMBER() OVER (PARTITION BY [ItemCode], [AltUOM] ORDER BY ' . $tieBreak . ') as rn',
                 $bindings
