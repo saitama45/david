@@ -41,6 +41,9 @@ class MonthEndStockAdjustmentTest extends TestCase
             'product_inventory_stock_managers' => ['product_inventory_id','store_branch_id','quantity','action','transaction_date','unit_cost','total_cost','is_stock_adjustment','is_stock_adjustment_approved','remarks'],
             'month_end_schedules' => ['calculated_date','month','year','status'],
             'month_end_count_items' => ['month_end_schedule_id','branch_id','sap_masterfile_id','status','total_qty','uom'],
+            // Level 2 approval looks up which counted items are Sub-Preps (prep mixes) to break down.
+            'pos_masterfiles' => ['POSCode','POSDescription','Category','UOM'],
+            'pos_masterfiles_bom' => ['POSCode','ItemCode','ItemDescription','BOMUOM','BOMQty','UnitCost'],
         ] as $table => $columns) {
             Schema::create($table, function (Blueprint $t) use ($columns) {
                 $t->id(); $t->integer('entity_id');

@@ -246,7 +246,16 @@ class MECApproval2Controller extends Controller
                 return $item->sapMasterfile !== null;
             })->groupBy('sapMasterfile.ItemCode');
 
+            // A counted Sub-Prep (prep mix) holds no stock: its contents go to the raw materials
+            // counted with it, after their own counts, and its row is brought to 0 (SubPrepCountStock).
+            $subPrepStock = app(\App\Services\SubPrepCountStock::class);
+            $subPrepPlan = $subPrepStock->plan($branch, $countItems);
+
             foreach ($groupedItems as $itemCode => $items) {
+                if (in_array(strtoupper(trim((string) $itemCode)), $subPrepPlan['mix_codes'], true)) {
+                    continue;
+                }
+
                 // Stock lives on the item's SAP base-unit row; each counted unit converts into it.
                 $stockUnit = \App\Support\ItemStockUnit::forItem($itemCode, (int) $branch->entity_id);
                 $countsByRow = [];
@@ -275,6 +284,8 @@ class MECApproval2Controller extends Controller
                     );
                 }
             }
+            $subPrepStock->post($subPrepPlan, $schedule, $branch, $effectiveDate);
+
             // 5. After processing all groups, update the status of all original items.
             foreach ($countItems as $item) {
                 $item->update([

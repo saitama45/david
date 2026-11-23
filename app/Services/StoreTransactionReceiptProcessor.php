@@ -8,6 +8,7 @@ use App\Models\ProductInventoryStockManager;
 use App\Models\SAPMasterfile;
 use App\Support\BomConsumptions;
 use App\Support\ItemStockUnit;
+use App\Support\SubPrepBreakdown;
 use App\Models\StoreBranch;
 use App\Models\StoreTransaction;
 use App\Models\User;
@@ -107,6 +108,7 @@ class StoreTransactionReceiptProcessor
                     foreach (['qty','base_qty','discount','line_total','net_total'] as $field) $items[$itemKey][$field] += (float) $row[$field];
                 }
                 $ingredients = [];
+                $subPreps = $this->subPreps((int) $branch->entity_id);
                 foreach ($items as $itemKey => $item) {
                     if (abs($item['qty']) > 2147483647 || abs($item['base_qty']) > 2147483647) throw new \InvalidArgumentException('Aggregated quantity exceeds supported range.');
                     $pos = $item['pos'];
@@ -116,22 +118,36 @@ class StoreTransactionReceiptProcessor
                         throw new \InvalidArgumentException("Missing BOM for {$pos->POSCode}. Configure its recipe or explicitly classify it as non-inventory.");
                     }
                     foreach ($bom as $recipe) {
-                        // Stock lives on the item's SAP base-unit row; the recipe unit converts into it.
-                        $stockUnit = ItemStockUnit::forItem($recipe->ItemCode, (int) $branch->entity_id);
-                        $sap = $stockUnit->stockRowFor($recipe->BOMUOM);
-                        if (!$sap) throw new \InvalidArgumentException("Missing base-stock masterfile: {$recipe->ItemCode}.");
-                        $factor = $stockUnit->factor($recipe->BOMUOM);
-                        if (!$factor) throw new \InvalidArgumentException("Missing unit conversion from {$recipe->BOMUOM} to a stock unit for {$recipe->ItemCode}.");
                         // A negative BOM Qty is an item each sale adds back to stock (a "No Whip" add-on).
                         if (!is_numeric($recipe->BOMQty) || (float) $recipe->BOMQty == 0 || !is_finite((float) $recipe->BOMQty)) {
                             throw new \InvalidArgumentException("Invalid BOM quantity for {$recipe->ItemCode}.");
                         }
-                        $qty = (float) $recipe->BOMQty * $factor * $item['qty'];
-                        $cost = (float) $recipe->UnitCost / $factor;
-                        if (!is_finite($qty) || !is_finite($cost) || $cost < 0) throw new \InvalidArgumentException('Invalid ingredient quantity or cost.');
-                        $ingredients[] = ['sap' => $sap, 'qty' => $qty, 'cost' => $cost, 'pos' => $pos->POSCode,
-                            'bom_qty' => $recipe->BOMQty, 'bom_uom' => $recipe->BOMUOM, 'returned' => $item['qty'] < 0,
-                            'item_key' => $itemKey, 'bom_line_id' => $recipe->id, 'item_code' => $recipe->ItemCode, 'units' => $item['qty']];
+                        // A Sub-Prep (a prep mix) holds no stock: the sale uses the raw materials on its BOM.
+                        $uses = [['item_code' => $recipe->ItemCode, 'unit' => $recipe->BOMUOM, 'bom_qty' => $recipe->BOMQty,
+                            'unit_cost' => (float) $recipe->UnitCost, 'sub_prep_code' => null, 'sub_prep_description' => null]];
+                        if ($subPreps->isSubPrep((int) $branch->entity_id, $recipe->ItemCode)) {
+                            $uses = $subPreps->breakDown((int) $branch->entity_id, $recipe->ItemCode, $recipe->BOMUOM, (float) $recipe->BOMQty);
+                            if ($uses === null) {
+                                $unit = $subPreps->posUnit((int) $branch->entity_id, $recipe->ItemCode) ?: 'the unit of its BOM';
+                                throw new \InvalidArgumentException("Missing unit conversion from {$recipe->BOMUOM} to {$unit} for Sub-Prep {$recipe->ItemCode}.");
+                            }
+                            $uses = array_map(fn (array $use) => ['bom_qty' => $use['qty']] + $use, $uses);
+                        }
+                        foreach ($uses as $use) {
+                            // Stock lives on the item's SAP base-unit row; the recipe unit converts into it.
+                            $stockUnit = ItemStockUnit::forItem($use['item_code'], (int) $branch->entity_id);
+                            $sap = $stockUnit->stockRowFor($use['unit']);
+                            if (!$sap) throw new \InvalidArgumentException("Missing base-stock masterfile: {$use['item_code']}.");
+                            $factor = $stockUnit->factor($use['unit']);
+                            if (!$factor) throw new \InvalidArgumentException("Missing unit conversion from {$use['unit']} to a stock unit for {$use['item_code']}.");
+                            $qty = (float) $use['bom_qty'] * $factor * $item['qty'];
+                            $cost = (float) $use['unit_cost'] / $factor;
+                            if (!is_finite($qty) || !is_finite($cost) || $cost < 0) throw new \InvalidArgumentException('Invalid ingredient quantity or cost.');
+                            $ingredients[] = ['sap' => $sap, 'qty' => $qty, 'cost' => $cost, 'pos' => $pos->POSCode,
+                                'bom_qty' => $use['bom_qty'], 'bom_uom' => $use['unit'], 'returned' => $item['qty'] < 0,
+                                'item_key' => $itemKey, 'bom_line_id' => $recipe->id, 'item_code' => $use['item_code'], 'units' => $item['qty'],
+                                'sub_prep_code' => $use['sub_prep_code'], 'sub_prep_description' => $use['sub_prep_description']];
+                        }
                     }
                 }
                 if ($this->preview) return new StoreTransaction;
@@ -158,11 +174,15 @@ class StoreTransactionReceiptProcessor
                         $ingredient['returned'] => '; returned, negative BOM Qty taken back out',
                         default => '',
                     };
+                    $bomQty = is_float($ingredient['bom_qty'])
+                        ? rtrim(rtrim(number_format($ingredient['bom_qty'], 7, '.', ''), '0'), '.')
+                        : $ingredient['bom_qty'];
+                    $via = $ingredient['sub_prep_code'] !== null ? " via Sub-Prep {$ingredient['sub_prep_code']}" : '';
                     $movement = ProductInventoryStockManager::create(['product_inventory_id' => $ingredient['sap']->id,
                         'store_branch_id' => $branch->id, 'cost_center_id' => null, 'quantity' => $quantity,
                         'action' => $adds ? 'add' : 'out', 'unit_cost' => $ingredient['cost'], 'total_cost' => $quantity * $ingredient['cost'],
                         'transaction_date' => $date,
-                        'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$ingredient['bom_qty']} {$ingredient['bom_uom']}".$note]);
+                        'remarks' => "Sale #{$transaction->id}, terminal {$terminal}, receipt {$receipt}; {$ingredient['pos']}: BOM {$bomQty} {$ingredient['bom_uom']}{$via}".$note]);
                     $snapshots[] = (array) DB::table('product_inventory_stock_managers')->where('id', $movement->id)
                         ->first(['id','entity_id','product_inventory_id','store_branch_id','quantity','action','unit_cost','total_cost','transaction_date','remarks']);
                     // What this line used, frozen: reports read it instead of today's BOM.
@@ -174,7 +194,8 @@ class StoreTransactionReceiptProcessor
                         'bom_line_id' => $ingredient['bom_line_id'], 'item_code' => $ingredient['item_code'],
                         'bom_uom' => $ingredient['bom_uom'], 'bom_qty' => $ingredient['bom_qty'], 'units' => $ingredient['units'],
                         'qty' => (float) $ingredient['bom_qty'] * $ingredient['units'], 'stock_row_id' => $ingredient['sap']->id,
-                        'stock_qty' => $ingredient['qty'], 'unit_cost' => $ingredient['cost'], 'movement_id' => $movement->id]);
+                        'stock_qty' => $ingredient['qty'], 'unit_cost' => $ingredient['cost'], 'movement_id' => $movement->id,
+                        'sub_prep_code' => $ingredient['sub_prep_code'], 'sub_prep_description' => $ingredient['sub_prep_description']]);
                 }
                 DB::table('sales_postings')->insert(['entity_id' => $branch->entity_id, 'store_branch_id' => $branch->id,
                     'business_date' => $date, 'receipt_key' => $key, 'store_transaction_id' => $transaction->id,
@@ -190,6 +211,14 @@ class StoreTransactionReceiptProcessor
             $this->addSkippedGroup($rows, $e->getMessage());
             return null;
         }
+    }
+
+    /** @var array<int, SubPrepBreakdown> the entity's Sub-Preps, read once per import */
+    private array $subPreps = [];
+
+    private function subPreps(int $entityId): SubPrepBreakdown
+    {
+        return $this->subPreps[$entityId] ??= SubPrepBreakdown::forEntities([$entityId]);
     }
 
     protected function addSkippedGroup(Collection $rows, string $reason): void

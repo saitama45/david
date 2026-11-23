@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Enums\WastageStatus;
 use App\Models\MonthEndSchedule;
+use App\Support\SubPrepBreakdown;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -64,7 +65,7 @@ class InventoryMovementDetailService
             return $this->supplies($sapRows, $branchId, $filters, $result);
         }
 
-        $base = $this->source($metric, $itemCode, $branchId, $filters);
+        $base = $this->withSubPreps($metric, $itemCode, $branchId, $filters);
 
         if ($base === null) {
             return $result;
@@ -109,6 +110,74 @@ class InventoryMovementDetailService
             ->all();
 
         return $result;
+    }
+
+    /**
+     * The item's own lines, then the lines filed under each Sub-Prep (prep mix) the item is
+     * in - a count of the mix, a sale whose BOM named it - as the quantity of this item they
+     * stand for. The report breaks a Sub-Prep down the same way (SubPrepBreakdown), so the
+     * lines still add up to its figure. via names the Sub-Prep a line came through.
+     */
+    private function withSubPreps(string $metric, string $itemCode, int $branchId, array $filters): ?Builder
+    {
+        $own = $this->source($metric, $itemCode, $branchId, $filters);
+        $entityId = InventoryMovementService::entitiesOf([$branchId])[$branchId] ?? null;
+        $subPreps = SubPrepBreakdown::forEntities([$entityId]);
+        $columns = 'd.tx_date, d.ref_no, d.ref_id, d.d1, d.d2'
+            . (in_array($metric, ['ordered', 'committed', 'received', 'interco_in', 'interco_out', 'interco_pending'], true) ? ', d.kind, d.batch' : '');
+        $text = fn (string $value) => "N'" . str_replace("'", "''", $value) . "'";
+        $number = fn (float $value) => "CAST('" . sprintf('%.17G', $value) . "' AS float)";
+        $through = [];
+
+        // A count of a mix adds to an item only when the item was counted itself (see the report).
+        if ($metric === 'beg_bal' && ($own === null || ! DB::query()->fromSub($own, 'd')->exists())) {
+            return $own;
+        }
+
+        foreach ($subPreps->codesOf($entityId) as $code) {
+            // How much of this item one unit of what the mix's BOM is for holds, per BOM unit.
+            $perUnit = collect($subPreps->breakDown($entityId, $code, null, 1.0) ?? [])
+                ->filter(fn (array $line) => strcasecmp(trim((string) $line['item_code']), trim($itemCode)) === 0)
+                ->groupBy(fn (array $line) => strtoupper(trim((string) $line['unit'])))
+                ->map(fn (Collection $lines) => (float) $lines->sum('qty'));
+
+            // Only a mix that has lines here: the item's own query then stays exactly as it was.
+            if ($perUnit->isEmpty() || ($source = $this->source($metric, $code, $branchId, $filters)) === null
+                || ! DB::query()->fromSub($source, 'd')->exists()) {
+                continue;
+            }
+
+            // A line in a unit the mix's SAP rows convert; the blank unit is its BOM's own.
+            $factors = $subPreps->unitFactors($entityId, $code) + ['' => 1.0];
+            $converts = implode(', ', array_map($text, array_keys($factors)));
+            $via = $text(trim($subPreps->description($entityId, $code) . ' (' . $code . ')'));
+
+            foreach ($perUnit as $unit => $perPosUnit) {
+                $qty = 'CASE d.unit ' . implode(' ', array_map(
+                    fn (string $from, float $factor) => "WHEN {$text($from)} THEN d.qty * {$number($factor * $perPosUnit)}",
+                    array_keys($factors), $factors
+                )) . ' ELSE d.qty END';
+
+                $through[] = DB::query()->fromSub($source, 'd')->selectRaw(
+                    "{$columns}, CAST(CASE WHEN d.unit IN ({$converts}) THEN {$text((string) $unit)} ELSE d.unit + N' of ' + {$text($code)} END AS nvarchar(255)) as unit, "
+                    . "{$qty} as qty, CAST({$via} AS nvarchar(255)) as via"
+                );
+            }
+        }
+
+        if ($through === []) {
+            return $own;
+        }
+
+        $all = $own === null ? array_shift($through) : DB::query()->fromSub($own, 'd')->selectRaw(
+            "{$columns}, d.unit, d.qty, " . ($metric === 'sales' ? 'd.via' : 'CAST(NULL AS nvarchar(255))') . ' as via'
+        );
+
+        foreach ($through as $query) {
+            $all->unionAll($query);
+        }
+
+        return $all;
     }
 
     /**
@@ -173,15 +242,17 @@ class InventoryMovementDetailService
                 ->selectRaw($columns('so.interco_number', 'CAST(so.id AS varchar(20))', 'other.name', 'CONVERT(varchar(10), oird.received_date, 23)', 'soi.uom', 'COALESCE(oird.quantity_received, 0)')),
 
             // One line per receipt and product: what the sale used, frozen when it was posted,
-            // under the POS code and name it had then. A sale not frozen yet reads today's BOM,
-            // matched within the product's entity.
+            // under the POS code and name it had then (and the Sub-Prep it came through, when the
+            // product's BOM used a mix). A sale not frozen yet reads today's BOM, matched within
+            // the product's entity.
             'sales' => InventoryMovementService::frozenConsumption(\App\Support\BomConsumptions::SALE)
                 ->join('store_transactions as st', 'bc.store_transaction_id', '=', 'st.id')
                 ->where('bc.store_branch_id', $branchId)
                 ->whereBetween('bc.business_date', [$from, $to])
                 ->where('bc.item_code', $itemCode)
-                ->groupBy('st.id', 'st.order_date', 'st.receipt_number', 'bc.pos_code', 'bc.pos_description', DB::raw($unit('bc.bom_uom')))
-                ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, CAST(bc.pos_code AS nvarchar(255)) as d1, CAST(bc.pos_description AS nvarchar(255)) as d2, {$unit('bc.bom_uom')} as unit, SUM(bc.qty) as qty")
+                ->groupBy('st.id', 'st.order_date', 'st.receipt_number', 'bc.pos_code', 'bc.pos_description', DB::raw($unit('bc.bom_uom')), 'bc.sub_prep_code', 'bc.sub_prep_description')
+                ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, CAST(bc.pos_code AS nvarchar(255)) as d1, CAST(bc.pos_description AS nvarchar(255)) as d2, {$unit('bc.bom_uom')} as unit, SUM(bc.qty) as qty, "
+                    . "CAST(CASE WHEN bc.sub_prep_code IS NULL THEN NULL ELSE COALESCE(bc.sub_prep_description, '') + ' (' + bc.sub_prep_code + ')' END AS nvarchar(255)) as via")
                 ->unionAll(DB::table('store_transaction_items as sti')
                     ->join('store_transactions as st', 'sti.store_transaction_id', '=', 'st.id')
                     ->join('pos_masterfiles as pm', 'sti.product_id', '=', 'pm.id')
@@ -197,7 +268,7 @@ class InventoryMovementDetailService
                     ->tap(InventoryMovementService::notFrozen('st'))
                     ->where('bom.ItemCode', $itemCode)
                     ->groupBy('st.id', 'st.order_date', 'st.receipt_number', 'pm.POSCode', 'pm.POSDescription', DB::raw($unit('bom.BOMUOM')))
-                    ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, CAST(pm.POSCode AS nvarchar(255)) as d1, CAST(pm.POSDescription AS nvarchar(255)) as d2, {$unit('bom.BOMUOM')} as unit, SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)) as qty")),
+                    ->selectRaw("st.order_date as tx_date, st.receipt_number as ref_no, CAST(st.id AS varchar(20)) as ref_id, CAST(pm.POSCode AS nvarchar(255)) as d1, CAST(pm.POSDescription AS nvarchar(255)) as d2, {$unit('bom.BOMUOM')} as unit, SUM(COALESCE(sti.quantity, 0) * COALESCE(bom.BOMQty, 0)) as qty, CAST(NULL AS nvarchar(255)) as via")),
 
             // Filed for the item itself, then what a wasted Sub-Prep used of it through its BOM.
             'wastage' => DB::table('wastages as w')
@@ -407,6 +478,14 @@ class InventoryMovementDetailService
     }
 
     private function describe(string $metric, object $row): string
+    {
+        $words = $this->describeLine($metric, $row);
+
+        // A line filed under a prep mix, or a sale whose BOM used one: this item is in the mix.
+        return filled($row->via ?? null) ? trim($words . ' · through Sub-Prep ' . trim($row->via), ' ·') : $words;
+    }
+
+    private function describeLine(string $metric, object $row): string
     {
         $status = fn ($value) => ucwords(str_replace('_', ' ', strtolower((string) $value)));
         $day = fn ($value) => $value ? Carbon::parse($value)->format('M j, Y') : null;

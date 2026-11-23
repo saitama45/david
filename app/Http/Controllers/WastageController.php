@@ -717,6 +717,14 @@ class WastageController extends Controller
                 });
             }
 
+            // A Sub-Prep's own SAP rows (TC lists its mixes there to count them) are not wasted as
+            // an item: the mix holds no stock. It is wasted as the Sub-Prep below, by its raw materials.
+            $storeEntityId = \App\Http\Services\InventoryMovementService::entitiesOf([(int) $storeId])[(int) $storeId] ?? null;
+            $subPrepCodes = \App\Support\SubPrepBreakdown::forEntities([$storeEntityId])->codesOf($storeEntityId);
+            if ($subPrepCodes !== []) {
+                $query->whereNotIn('ItemCode', $subPrepCodes);
+            }
+
             // Every unit SAP defines is wastable (Gm too, with no Gm/Gm row), once per unit.
             $limit = $search ? 50 : 100;
             $candidates = $query->limit($limit * 4)->get();

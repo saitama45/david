@@ -413,6 +413,53 @@ a sale reads it** (`StoreTransactionReceiptProcessor`): 5 ml wasted x 100 Gm BOM
 Approval reads the BOM as it is at that moment and freezes what it used (next section), so editing a
 BOM afterwards no longer changes the wastage's figures in the report.
 
+## Sub-Prep breakdown
+
+"Not a SAP item" stopped being true for TC (2026-11-23, Rachelle: "dapat walang lalabas na subprep mix sa
+inventory movement"). TC lists its mixes on the SAP Masterlist and its MEC template (SP-0001 Matcha Prep
+Mix: `430 Gm = 1 Batch` beside Gm/Gm, Item Type SUB-PREP) so stores count them, and drink BOMs name them.
+Those quantities landed on the mix's own code, and the report listed the mix with its own Beg Bal / Sales /
+Actual MEC, while its raw materials missed them. Wasting the POS Sub-Prep was the only path ever broken down.
+
+- **One rule, `App\Support\SubPrepBreakdown`.** A Sub-Prep is a POS item of Category SUB-PREP **with BOM
+  lines**, per entity (one without a BOM stays an item of its own). `breakDown(entity, code, unit, qty)`
+  converts the quantity into the POS UOM (`posUnitsPer()`: 1 for that unit or blank, else through the mix's
+  own SAP rows via `ItemStockUnit`; null when they do not link), multiplies by each BOM line, follows a
+  mix inside a mix (5 levels), and tags each line with the outer Sub-Prep.
+- **Sales posting.** `StoreTransactionReceiptProcessor` posts a BOM line naming a Sub-Prep as its raw
+  materials (stock movements on their rows, remarks "via Sub-Prep SP-0001"); `bom_consumptions` lines keep
+  `sub_prep_code` / `sub_prep_description`. A unit that does not convert skips the receipt. Sales posted
+  before 2026-11-23 keep their stock movements on the mix.
+- **Report.** `InventoryMovementService::breakDownSubPreps()` runs on every metric's rows after the queries:
+  a row under a Sub-Prep code (MEC count, old frozen sale line, wastage against its SAP row, an order) becomes
+  raw-material rows; an unconvertible unit is kept as `"<UNIT> of <code>"` so it lands in `unconverted_units`.
+  `sub_prep_parts[metric]` (code, description, quantity in the display unit) also takes frozen sale lines
+  that carry `sub_prep_code`; the page shows them as "Sub-Prep" lines under Beg Bal, Sales, Wastage and
+  Actual MEC. A Sub-Prep code is never output. The item filter always adds the entity's Sub-Prep codes.
+- **Popup.** `InventoryMovementDetailService::withSubPreps()` unions each Sub-Prep that holds the item and has
+  lines for the metric, its source query wrapped with a `CASE` on the unit (factor x BOM Qty), `via` naming it.
+- **Item list.** `InventoryMovementReportController::reportItems()` (page and both exports) leaves Sub-Prep
+  codes out and lists the raw materials of a Sub-Prep that moved (`applyMovementFilter(..., $alsoItems)`).
+- **Qty / Cost Variance.** `MonthEndStockVariance::rows()` drops counted Sub-Prep rows; their count is in the
+  raw materials' Actual. A raw material counted only inside a mix gets no row (the drill-down is by count line id).
+- **Wastage search.** The mix's SAP rows are not offered; the Sub-Prep row is.
+- **Counted mixes: only raw materials counted with them.** Making a mix posts nothing, so an uncounted raw
+  material's book already holds what is inside the mix. A mix count therefore adds only to raw materials
+  counted in the same count. `MECApproval2Controller::approveLevel2()` (both Level 2 routes go through it)
+  skips the mix's own count movement and calls `App\Services\SubPrepCountStock`. `plan()` lists the in-mix
+  quantity per counted raw stock row and the mix rows; `post()` runs after the counts and adds the in-mix part
+  as a separate `add` movement (`||SUBPREP_REF::<schedule>,<branch>`), then sets each mix row to 0. The remark
+  avoids "month end" / "MEC", so `MonthEndHistoryRepair` / `stock:repair-month-end` (which rebuild a count
+  movement from the item's own lines) treat it as an ordinary later movement and keep it. The report applies the
+  same rule to Beg Bal / Actual MEC (`breakDownSubPreps()`), as does the popup's beg_bal.
+- **Counts approved before 2026-11-23:** `php artisan stock:break-down-sub-preps` (dry run; `--apply`). Per store it
+  reads the latest final-approved count of its mixes, runs the same plan dated on the approval day, and skips a
+  store already marked with `SUBPREP_REF::` or whose mix row has moved since. On prod (dry run, 2026-11-23) it was
+  Glorietta 1's October count (schedule 82): +41.144 Gm 751A2H, +1,172.615 Gm 545A2A, +198.7 Gm 802A2C,
+  +1,218.25 Gm 304A2A, and SP-0001..SP-0004 to 0.
+- **Prod data (2026-11-23):** no product BOM names a Sub-Prep and no sale ever posted to one; the mixes reached
+  stock only through that Level 2 approval. Counts and old sales are broken down with today's Sub-Prep BOM.
+
 ## Frozen BOM consumption and the BOM change history
 
 Since 2026-11-11 a sale and an approved Sub-Prep wastage keep the ingredients they used.

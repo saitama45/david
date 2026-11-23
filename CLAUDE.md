@@ -467,6 +467,18 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   item must add that breakdown. Any other POS product (a finished good) is never a line, and since
   2026-11-22 the search does not list it or its ingredients at all (the business asked for it gone).
   Detail: [Data-Flows.md](docs/knowledge/Data-Flows.md#sub-prep-wastage).
+- **A Sub-Prep is broken down into its BOM wherever its code appears, and is never a report row** (since 2026-11-23).
+  TC also lists its mixes on the SAP Masterlist and the MEC template (SP-0001 Matcha Prep Mix, 430 Gm = 1 Batch), and
+  drinks' BOMs name them. `App\Support\SubPrepBreakdown` (POS Category SUB-PREP **with** a BOM; BOM Qty per POS UOM,
+  converted through the mix's own SAP rows, nested mixes followed) is the one rule: a sale posts the raw materials
+  (frozen lines carry `bom_consumptions.sub_prep_code`), and `InventoryMovementService::breakDownSubPreps()` moves
+  counts, old sales lines, SAP-row wastage and orders filed under the code onto the raw materials (`sub_prep_parts`).
+  The popup (`withSubPreps()`), the report's item list (`reportItems()`), the Qty / Cost Variance rows and the wastage
+  search follow. The mix's SAP rows only convert units: never post stock to them. **A counted mix adds only to raw
+  materials counted in the same count** (an uncounted one's book already holds it): MEC Level 2 posts that part as
+  its own `SUBPREP_REF::` movement and sets the mix row to 0 (`SubPrepCountStock`), and the report's Beg Bal /
+  Actual MEC follow the same rule. Counts approved before: `stock:break-down-sub-preps` (dry run; `--apply`). Detail:
+  [Data-Flows.md](docs/knowledge/Data-Flows.md#sub-prep-breakdown).
 - **Wastage's out-of-stock block is in the search box only, and an entity can switch it off.** Wastage
   Settings' "Out-of-Stock Items on Create" is per entity (`settings` key
   `wastage.create_allow_out_of_stock.entity_<id>`, default off); the search answers `allow_out_of_stock`

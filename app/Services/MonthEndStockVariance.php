@@ -6,6 +6,7 @@ use App\Http\Services\InventoryMovementService;
 use App\Models\MonthEndSchedule;
 use App\Models\SAPMasterfile;
 use App\Support\ItemStockUnit;
+use App\Support\SubPrepBreakdown;
 use App\Support\SupplierUnitCost;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -90,6 +91,12 @@ class MonthEndStockVariance
                     DB::raw("CONCAT(sb.name, ' (', sb.branch_code, ')') as store_name")
                 )
                 ->get());
+
+        // A counted Sub-Prep (a prep mix) is not a row: its count is the raw materials on its BOM,
+        // which the Inventory Movement Report adds to their Actual MEC.
+        $entityOf = InventoryMovementService::entitiesOf($counted->pluck('branch_id')->all());
+        $subPreps = SubPrepBreakdown::forEntities(array_values($entityOf));
+        $counted = $counted->reject(fn ($line) => $subPreps->isSubPrep($entityOf[(int) $line->branch_id] ?? null, (string) $line->item_code))->values();
 
         if ($counted->isEmpty()) {
             return collect();

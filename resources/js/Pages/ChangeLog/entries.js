@@ -18,6 +18,82 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 23, 2026
     {
         date: '2026-11-23',
+        module: 'MEC Approval 2nd Level',
+        type: 'improved',
+        title: 'Approve at MEC Approval 2nd Level puts a counted Sub-Prep into the stock of its raw materials, not into the Sub-Prep',
+        summary:
+            'When a count with a Sub-Prep (such as SP-0001 Matcha Prep Mix) was approved at Level 2, the stock of the Sub-Prep itself was set to the quantity counted, and the raw materials inside it were set to what was found loose only. A Sub-Prep holds no stock of its own, so the quantity inside it now goes to its raw materials, and the Sub-Prep\'s stock is set to 0.',
+        steps: [
+            'The store counts its Sub-Preps in the month end count as before, for example 1.0286 Batch of Matcha Prep Mix.',
+            'The approver clicks Approve in MEC Approval 2nd Level.',
+            'Each raw material counted in the same count is set to what was found loose, plus what is inside the Sub-Preps counted. With 40 Gm of matcha powder in 1 Batch of Matcha Prep Mix, 100 Gm of powder found loose and 1.0286 Batch of mix counted make 141.144 Gm of powder.',
+            'The Sub-Prep\'s own stock is set to 0.',
+        ],
+        rules: [
+            'The quantity inside a Sub-Prep is added only to the raw materials counted in the same count. A raw material that was not counted keeps its stock as it is, which already includes what went into the Sub-Prep, since preparing a mix takes nothing out of stock.',
+            'The part inside the Sub-Preps shows in the stock history as its own line after the raw material\'s count, naming the Sub-Preps it came from.',
+            'Approval stops with a message when a Sub-Prep is counted in a unit that cannot be converted to the unit of its BOM.',
+            'A count approved before this change is corrected the same way, dated on the day it was approved.',
+        ],
+        affects: 'MEC Level 2 approvers, and stores that count their own mixes.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Inventory Movement Report',
+        type: 'improved',
+        title: 'A Sub-Prep such as Matcha Prep Mix is no longer listed: its counts, sales and wastage are shown in the raw materials on its BOM',
+        summary:
+            'A prep mix the store makes itself (a Sub-Prep, such as SP-0001 Matcha Prep Mix) was listed as an item of its own, with its own Beg Bal Qty, Sales Qty and Actual MEC, because it is on the SAP Masterlist and the month end count. A Sub-Prep holds no stock of its own, so it is now never listed. Everything recorded under it is shown in the raw materials it is made of, using its BOM in the BOM List.',
+        rules: [
+            'The BOM Qty of a Sub-Prep is for one unit of the Sub-Prep, the UOM of its POS item. For example, if 1 Batch of Matcha Prep Mix is 30 Gm of matcha powder and 400 Gm of sugar, a count of 2 Batch adds 60 Gm to the matcha powder and 800 Gm to the sugar.',
+            'A quantity of the Sub-Prep in another unit is converted through its SAP Masterlist units first. With 430 Gm = 1 Batch, 215 Gm counted is 0.5 Batch.',
+            'This applies to Beg Bal Qty and Actual MEC (the Sub-Prep was counted), Sales Qty (a product whose BOM uses the Sub-Prep was sold) and Wastage Qty (wastage recorded against the Sub-Prep).',
+            'A count of a Sub-Prep is added to Beg Bal Qty and Actual MEC only for the raw materials counted in the same count, the same rule MEC Approval 2nd Level uses for stock.',
+            'Under each such figure a line marked Sub-Prep shows how much of it came from which Sub-Prep. Clicking the figure lists those transactions too, marked "through Sub-Prep".',
+            'A quantity of the Sub-Prep in a unit its SAP Masterlist units do not convert is left out of the figures and shown under the UOM as excluded, for example "Excl. PC of SP-0001".',
+            'A raw material whose only movement in the period came through a Sub-Prep sold or wasted is now listed.',
+            'Only a Sub-Prep that has a BOM in the BOM List is broken down. A Sub-Prep without a BOM is still listed as an item of its own.',
+        ],
+        affects: 'Users of the Inventory Movement Report, and stores that prepare their own mixes.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Store Transactions',
+        type: 'improved',
+        title: 'A sale of a product whose BOM uses a Sub-Prep deducts the raw materials of the Sub-Prep',
+        summary:
+            'A product\'s BOM may list a Sub-Prep instead of its raw materials, for example a drink using 43 Gm of Matcha Prep Mix. Such a sale would have deducted the Sub-Prep itself, so its stock went below zero while the matcha powder it is made of was never deducted. Each sale now deducts the raw materials on the Sub-Prep\'s BOM instead, and the Sub-Prep\'s own stock is not touched.',
+        rules: [
+            'The raw materials are deducted in proportion. With 1 Batch = 430 Gm made of 30 Gm of matcha powder, 2 cups using 43 Gm each use 0.2 Batch, so 6 Gm of matcha powder is deducted.',
+            'A Sub-Prep made with another Sub-Prep is broken down until only raw materials are left.',
+            'A sale is skipped, with the reason in the skipped rows, when the unit in the product\'s BOM cannot be converted to the unit of the Sub-Prep\'s BOM.',
+            'Returns add the same raw materials back.',
+        ],
+        affects: 'Stores whose products use a prep mix, and anyone reading stock on hand.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Wastage Record',
+        type: 'improved',
+        title: 'The item search lists a Sub-Prep only once, as the Sub-Prep, and no longer as a SAP Masterlist item',
+        summary:
+            'A Sub-Prep that is also on the SAP Masterlist (such as SP-0001 Matcha Prep Mix) appeared twice in the item search: as the Sub-Prep and as a plain item. Wasting the plain item deducted the mix itself instead of what it is made of. Now only the Sub-Prep row is offered, and approving its wastage deducts the raw materials on its BOM, as before.',
+        affects: 'Store users who record wastage, and wastage approvers.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Qty Variance / Cost Variance Report',
+        type: 'improved',
+        title: 'A counted Sub-Prep is no longer a row: its count is in the Actual Inventory of its raw materials',
+        summary:
+            'A Sub-Prep counted in the month end count (such as SP-0001 Matcha Prep Mix) was a row of its own. It is now left out, and what was counted is added to the Actual Inventory of the raw materials on its BOM, the same figures as the Inventory Movement Report.',
+        rules: [
+            'A raw material is listed when it was counted itself. Its Actual Inventory includes what is inside the Sub-Preps counted.',
+        ],
+        affects: 'Users of the Qty Variance / Cost Variance Report.',
+    },
+    {
+        date: '2026-11-23',
         module: 'Inbound Orders',
         type: 'improved',
         title: 'Upload Image and Attach Image make a large phone photo of the delivery receipt smaller automatically',

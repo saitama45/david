@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Models\MonthEndSchedule;
 use App\Models\Supplier;
 use App\Models\SupplierItems;
+use App\Support\SubPrepBreakdown;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -69,11 +70,19 @@ class InventoryMovementService
         // As strings: a numeric code ("213") turns into an integer array key, and SQL Server
         // then casts the whole ItemCode column to int and fails on the first lettered code.
         $sapItemCodes = $itemsByCode->keys()->map(fn ($itemCode) => (string) $itemCode)->all();
+
+        // A Sub-Prep (a prep mix) holds no stock: whatever is filed under its code is charged to
+        // the raw materials on its BOM below, so its rows are read even when it is not listed.
+        $entityOf = self::entitiesOf($branchIds);
+        $subPreps = SubPrepBreakdown::forEntities(array_values($entityOf));
+
         // A long item list is not sent to SQL Server: binding it costs about half a
         // millisecond per code in every query of every request (a month's items took seconds),
         // and it can exceed the 2100 parameter limit. Each query is already narrowed to the
         // branches and the period, and rows of other items are never looked up below.
-        $itemFilter = count($sapItemCodes) > self::ITEM_FILTER_LIMIT ? null : $sapItemCodes;
+        $itemFilter = count($sapItemCodes) > self::ITEM_FILTER_LIMIT
+            ? null
+            : array_values(array_unique(array_merge($sapItemCodes, $subPreps->codes())));
         $onlyItems = fn (string $column) => fn ($query) => $itemFilter === null ? $query : $query->whereIn($column, $itemFilter);
         $selectedSupplier = !empty($filters['supplier_code']) && $filters['supplier_code'] !== 'all'
             ? Supplier::where('supplier_code', $filters['supplier_code'])->first()
@@ -201,12 +210,13 @@ class InventoryMovementService
 
             // 2. Sales (dated by the POS sales date, not the import timestamp): what each sale
             // used, frozen when it was posted, so a BOM changed later moves no past figure.
+            // A line that came through a Sub-Prep keeps its name, for the part the report marks.
             $totals['sales'] = $totals['sales']->merge(self::frozenConsumption(\App\Support\BomConsumptions::SALE)
                 ->whereIn('bc.store_branch_id', $branchChunk)
                 ->whereBetween('bc.business_date', [$dateFrom, $dateTo])
                 ->tap($onlyItems('bc.item_code'))
-                ->select($unitSum('bc.store_branch_id', 'bc.item_code', 'bc.bom_uom', 'bc.qty'))
-                ->groupBy('bc.store_branch_id', 'bc.item_code', DB::raw($unitKey('bc.bom_uom')))
+                ->select(array_merge($unitSum('bc.store_branch_id', 'bc.item_code', 'bc.bom_uom', 'bc.qty'), ['bc.sub_prep_code', 'bc.sub_prep_description']))
+                ->groupBy('bc.store_branch_id', 'bc.item_code', DB::raw($unitKey('bc.bom_uom')), 'bc.sub_prep_code', 'bc.sub_prep_description')
                 ->get());
 
             // A sale with no frozen lines (posted before they were kept, not yet frozen by
@@ -308,8 +318,16 @@ class InventoryMovementService
             }
         }
 
+        // Everything filed under a Sub-Prep's own code - a count of the mix, a sale whose BOM
+        // named it, wastage against its SAP row - becomes the raw materials it is made of.
+        $subPrepParts = collect();
+        foreach ($totals as $metric => $rows) {
+            $totals[$metric] = $this->breakDownSubPreps($rows, $subPreps, $entityOf, $metric, $subPrepParts);
+        }
+
         $totals = array_map(fn ($rows) => $rows->groupBy(['branch_id', 'item_code']), $totals);
         $subPrepWastage = $subPrepWastage->groupBy(['branch_id', 'item_code']);
+        $subPrepParts = $subPrepParts->groupBy(['branch_id', 'item_code', 'metric']);
 
         // The units belong to the item, whichever branch holds it.
         $units = $itemsByCode->map(fn ($rows) => $this->itemUnits($rows));
@@ -318,6 +336,11 @@ class InventoryMovementService
             $branchTotals = array_map(fn ($byBranch) => $byBranch->get($branchId, collect()), $totals);
 
             foreach ($itemsByCode as $itemCode => $rows) {
+                // A Sub-Prep is never a row: its quantities are its raw materials'.
+                if ($subPreps->isSubPrep($entityOf[$branchId] ?? null, (string) $itemCode)) {
+                    continue;
+                }
+
                 [$displayUnit, $unitSizes, $blankUnit] = $units[$itemCode];
                 $unconverted = [];
                 $values = [];
@@ -353,7 +376,7 @@ class InventoryMovementService
 
                 // The part of the wastage that came from wasted Sub-Preps, per Sub-Prep, in the
                 // display unit. A unit that does not convert is already under unconverted_units.
-                $subPreps = [];
+                $wastedSubPreps = [];
                 foreach ($subPrepWastage->get($branchId, collect())->get($itemCode, []) as $row) {
                     $size = $unitSizes[$row->unit === '' ? $blankUnit : $row->unit] ?? null;
 
@@ -361,14 +384,30 @@ class InventoryMovementService
                         continue;
                     }
 
-                    $subPreps[$row->pos_code] ??= [
+                    $wastedSubPreps[$row->pos_code] ??= [
                         'code' => $row->pos_code,
                         'description' => $row->pos_description,
                         'uom' => trim((string) $row->pos_uom),
                         'wasted_qty' => (float) $row->wasted,
                         'quantity' => 0.0,
                     ];
-                    $subPreps[$row->pos_code]['quantity'] = round($subPreps[$row->pos_code]['quantity'] + (float) $row->qty * $size, 6);
+                    $wastedSubPreps[$row->pos_code]['quantity'] = round($wastedSubPreps[$row->pos_code]['quantity'] + (float) $row->qty * $size, 6);
+                }
+
+                // The part of each figure that came through a Sub-Prep's own code (a count of
+                // the mix, a sale whose BOM used it), per Sub-Prep, in the display unit.
+                $parts = [];
+                foreach ($subPrepParts->get($branchId, collect())->get($itemCode, collect()) as $metric => $partRows) {
+                    foreach ($partRows as $part) {
+                        $size = $unitSizes[$part->unit === '' ? $blankUnit : $part->unit] ?? null;
+
+                        if ($size === null) {
+                            continue;
+                        }
+
+                        $parts[$metric][$part->code] ??= ['code' => $part->code, 'description' => $part->description, 'quantity' => 0.0];
+                        $parts[$metric][$part->code]['quantity'] = round($parts[$metric][$part->code]['quantity'] + (float) $part->qty * $size, 6);
+                    }
                 }
 
                 $theoretical = $values['beg_bal'] + $values['received'] + $values['interco_in']
@@ -397,7 +436,10 @@ class InventoryMovementService
                     'sales_qty' => $values['sales'],
                     'wastage_qty' => $values['wastage'],
                     // Which wasted Sub-Preps are in that figure, and how much of it each is.
-                    'wastage_sub_preps' => array_values($subPreps),
+                    'wastage_sub_preps' => array_values($wastedSubPreps),
+                    // The part of a figure that is a Sub-Prep's own quantity broken down: metric
+                    // (beg_bal, sales, wastage, actual_mec, ...) => [code, description, quantity].
+                    'sub_prep_parts' => array_map('array_values', $parts),
                     'supplies_qty' => $supplies,
                     'supplies_type' => $suppliesType,
                     'supplies_counted' => $suppliesCounted,
@@ -417,6 +459,83 @@ class InventoryMovementService
         }
 
         return $movementData;
+    }
+
+    /**
+     * Replaces each row filed under a Sub-Prep's code with the raw materials it is made of
+     * (SubPrepBreakdown), and notes every such part, and every frozen sale line that came
+     * through a Sub-Prep, in $parts for the report to mark. A unit the Sub-Prep's SAP rows do
+     * not convert is left on its raw materials as a unit that does not convert, so it shows
+     * under unconverted_units instead of disappearing with the Sub-Prep's row.
+     *
+     * @param  array<int, int>  $entityOf  branch id => entity id
+     */
+    private function breakDownSubPreps(\Illuminate\Support\Collection $rows, SubPrepBreakdown $subPreps, array $entityOf, string $metric, \Illuminate\Support\Collection $parts): \Illuminate\Support\Collection
+    {
+        if ($subPreps->isEmpty()) {
+            return $rows;
+        }
+
+        $key = fn ($branchId, $itemCode) => (int) $branchId.'|'.strtoupper(trim((string) $itemCode));
+        // A count of a mix adds to a raw material only when it was counted itself, as Level 2
+        // approval posts it (SubPrepCountStock): an uncounted one's book still holds the mix.
+        $counted = in_array($metric, ['beg_bal', 'actual_mec'], true)
+            ? $rows->reject(fn ($row) => $subPreps->isSubPrep($entityOf[(int) $row->branch_id] ?? null, (string) $row->item_code))
+                ->mapWithKeys(fn ($row) => [$key($row->branch_id, $row->item_code) => true])->all()
+            : null;
+        $keeps = fn ($row, $itemCode) => $counted === null || isset($counted[$key($row->branch_id, $itemCode)]);
+
+        return $rows->flatMap(function ($row) use ($subPreps, $entityOf, $metric, $parts, $keeps) {
+            $entityId = $entityOf[(int) $row->branch_id] ?? null;
+
+            if (! empty($row->sub_prep_code)) {
+                $parts->push((object) ['metric' => $metric, 'branch_id' => $row->branch_id, 'item_code' => $row->item_code,
+                    'unit' => $row->unit, 'qty' => $row->qty, 'code' => $row->sub_prep_code, 'description' => $row->sub_prep_description]);
+            }
+
+            if (! $subPreps->isSubPrep($entityId, (string) $row->item_code)) {
+                return [$row];
+            }
+
+            $lines = $subPreps->breakDown($entityId, (string) $row->item_code, $row->unit, (float) $row->qty);
+
+            if ($lines === null) {
+                $unit = ($row->unit === '' ? '(blank)' : $row->unit) . ' of ' . $row->item_code;
+
+                return array_map(fn ($code) => (object) ['branch_id' => $row->branch_id, 'item_code' => $code, 'unit' => $unit, 'qty' => 0.0],
+                    array_values(array_filter($subPreps->ingredientCodes($entityId, [(string) $row->item_code]), fn ($code) => $keeps($row, $code))));
+            }
+
+            $lines = array_values(array_filter($lines, fn (array $line) => $keeps($row, $line['item_code'])));
+
+            return array_map(function (array $line) use ($row, $metric, $parts) {
+                $broken = (object) ['branch_id' => $row->branch_id, 'item_code' => $line['item_code'],
+                    'unit' => strtoupper(trim((string) $line['unit'])), 'qty' => $line['qty']];
+                $parts->push((object) ['metric' => $metric, 'branch_id' => $row->branch_id, 'item_code' => $line['item_code'],
+                    'unit' => $broken->unit, 'qty' => $line['qty'], 'code' => $line['sub_prep_code'], 'description' => $line['sub_prep_description']]);
+
+                return $broken;
+            }, $lines);
+        })->values();
+    }
+
+    /**
+     * The entity of each branch: a Sub-Prep and its BOM belong to one.
+     *
+     * @param  array<int, int>  $branchIds
+     * @return array<int, int> branch id => entity id
+     */
+    public static function entitiesOf(array $branchIds): array
+    {
+        $entityOf = [];
+
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $branchIds))), 1000) as $chunk) {
+            foreach (DB::table('store_branches')->whereIn('id', $chunk)->whereNotNull('entity_id')->pluck('entity_id', 'id') as $branchId => $entityId) {
+                $entityOf[(int) $branchId] = (int) $entityId;
+            }
+        }
+
+        return $entityOf;
     }
 
     /**

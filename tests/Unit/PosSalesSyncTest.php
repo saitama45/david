@@ -43,7 +43,8 @@ class PosSalesSyncTest extends TestCase
         DB::table('store_orders')->insert(['entity_id' => 1, 'store_branch_id' => 1, 'variant' => 'mass regular', 'created_at' => '2026-09-01 12:00:00']);
         foreach ([
             'store_branches' => ['location_code', 'is_active', 'branch_code'],
-            'pos_masterfiles' => ['POSCode', 'POSDescription'],
+            // Category and UOM: posting looks up which BOM items are Sub-Preps (prep mixes) to break down.
+            'pos_masterfiles' => ['POSCode', 'POSDescription', 'Category', 'UOM'],
             'pos_masterfiles_bom' => ['POSCode', 'ItemCode', 'ItemDescription', 'BOMUOM', 'BOMQty', 'UnitCost'],
             'sap_masterfiles' => ['ItemCode', 'ItemDescription', 'BaseUOM', 'AltUOM'],
             'store_transactions' => ['store_branch_id', 'order_date', 'posted', 'tim_number', 'receipt_number', 'bom_frozen_at'],
@@ -64,6 +65,7 @@ class PosSalesSyncTest extends TestCase
         (require base_path('database/migrations/2026_09_20_000004_add_fingerprint_to_pos_sync_exceptions.php'))->up();
         // Posting freezes each sale's ingredient lines next to its stock movements.
         (require base_path('database/migrations/2026_11_11_120000_create_bom_consumptions_table.php'))->up();
+        (require base_path('database/migrations/2026_11_23_130000_add_sub_prep_to_bom_consumptions.php'))->up();
         DB::table('store_branches')->insert(['id' => 1, 'entity_id' => 1, 'location_code' => 'TEST', 'is_active' => 1, 'branch_code' => 'TEST']);
         DB::table('pos_masterfiles')->insert(['id' => 10, 'entity_id' => 1, 'POSCode' => 'COFFEE', 'POSDescription' => 'Coffee']);
         DB::table('sap_masterfiles')->insert(['id' => 20, 'entity_id' => 1, 'ItemCode' => 'BEANS', 'ItemDescription' => 'Beans', 'BaseUOM' => 'KG', 'AltUOM' => 'KG']);

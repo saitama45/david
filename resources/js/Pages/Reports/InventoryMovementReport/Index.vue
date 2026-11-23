@@ -322,6 +322,12 @@ const formatDate = (dateString) => {
 
 // Every quantity, amount and percentage prints with four decimals, as on all the reports.
 const formatNumber = formatReportNumber;
+
+// The part of a figure that is a Sub-Prep (a prep mix) broken down into this raw material:
+// the mix was counted, a drink's BOM used it, or it was wasted against its own code.
+const subPrepParts = (item, metric) => item.sub_prep_parts?.[metric] || [];
+const subPrepPartTitle = (item, part) =>
+    `${formatNumber(part.quantity)} ${item.uom} of this figure is ${part.description || part.code} (${part.code}), broken down into this item through its BOM.`;
 </script>
 
 <template>
@@ -676,8 +682,20 @@ const formatNumber = formatReportNumber;
                                     {{ formatNumber(source.quantity) }} {{ source.uom }}
                                 </div>
                             </td>
-                            <td class="px-1.5 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'beg_bal')">{{ formatNumber(item.beg_bal_qty) }}</button></td>
-                            <td class="px-1.5 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30"><button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'sales')">{{ formatNumber(item.sales_qty) }}</button></td>
+                            <td class="px-1.5 py-4 text-center font-medium text-emerald-600 border-r border-gray-100 bg-emerald-50/30">
+                                <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'beg_bal')">{{ formatNumber(item.beg_bal_qty) }}</button>
+                                <div v-for="part in subPrepParts(item, 'beg_bal')" :key="`beg-${part.code}`" class="mt-1 text-[10px] font-normal text-amber-800" :title="subPrepPartTitle(item, part)">
+                                    <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
+                                    {{ formatNumber(part.quantity) }} from {{ part.description || part.code }}
+                                </div>
+                            </td>
+                            <td class="px-1.5 py-4 text-center font-medium text-red-600 border-r border-gray-100 bg-red-50/30">
+                                <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'sales')">{{ formatNumber(item.sales_qty) }}</button>
+                                <div v-for="part in subPrepParts(item, 'sales')" :key="`sales-${part.code}`" class="mt-1 text-[10px] font-normal text-amber-800" :title="subPrepPartTitle(item, part)">
+                                    <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
+                                    {{ formatNumber(part.quantity) }} from {{ part.description || part.code }}
+                                </div>
+                            </td>
                             <td class="px-1.5 py-4 text-center font-medium text-orange-600 border-r border-gray-100 bg-orange-50/30">
                                 <button type="button" class="underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm" title="Show the transactions" @click="openDetails(item, 'wastage')">{{ formatNumber(item.wastage_qty) }}</button>
                                 <!-- The part that is a wasted Sub-Prep, charged to this raw material through its BOM -->
@@ -689,6 +707,10 @@ const formatNumber = formatReportNumber;
                                 >
                                     <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
                                     {{ formatNumber(subPrep.quantity) }} from {{ subPrep.description || subPrep.code }}
+                                </div>
+                                <div v-for="part in subPrepParts(item, 'wastage')" :key="`wastage-${part.code}`" class="mt-1 text-[10px] font-normal text-amber-800" :title="subPrepPartTitle(item, part)">
+                                    <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
+                                    {{ formatNumber(part.quantity) }} from {{ part.description || part.code }}
                                 </div>
                             </td>
                             <td class="px-1.5 py-4 text-center border-r border-gray-100" :class="item.supplies_type ? 'font-medium text-amber-700 bg-amber-50/30' : 'text-gray-400'">
@@ -702,6 +724,10 @@ const formatNumber = formatReportNumber;
                             <td class="px-1.5 py-4 text-center font-bold text-gray-900 border-r border-gray-100 bg-purple-50/30">{{ formatNumber(item.theoretical_qty) }}</td>
                             <td class="px-1.5 py-4 text-center font-bold border-r border-gray-100" :class="item.actual_mec !== null ? 'text-indigo-600 bg-indigo-50/30' : 'text-gray-400 font-normal italic'">
                                 {{ item.actual_mec !== null ? formatNumber(item.actual_mec) : 'Not Available' }}
+                                <div v-for="part in subPrepParts(item, 'actual_mec')" :key="`mec-${part.code}`" class="mt-1 text-[10px] font-normal text-amber-800" :title="subPrepPartTitle(item, part)">
+                                    <span class="rounded bg-amber-100 px-1 py-0.5 font-semibold">Sub-Prep</span>
+                                    {{ formatNumber(part.quantity) }} from {{ part.description || part.code }}
+                                </div>
                             </td>
                             <td class="px-1.5 py-4 text-center font-bold border-r border-gray-100" :class="item.variance_qty < 0 ? 'text-red-600' : item.variance_qty > 0 ? 'text-emerald-600' : 'text-gray-500'">
                                 {{ formatNumber(item.variance_qty) }}
@@ -756,6 +782,7 @@ const formatNumber = formatReportNumber;
                     <p class="mt-2 text-xs opacity-80">* Adjustment is entered for the store and the month of the To Date, with a reason. Enter it with a minus sign to bring a positive Variance down. It explains the Variance on this report only and does not change the stock on hand.</p>
                     <p class="mt-1 text-xs opacity-80">* Sales Qty is calculated based on BOM (Bill of Materials) linked to POS transactions.</p>
                     <p class="mt-1 text-xs opacity-80">* Wastage Qty includes the raw materials of a wasted Sub-Prep: the BOM Qty of the item for every unit of the Sub-Prep wasted. The line marked Sub-Prep under the figure shows that part and where it came from.</p>
+                    <p class="mt-1 text-xs opacity-80">* A Sub-Prep (a prep mix such as a Matcha Prep Mix) is never listed on its own. Its month end counts, the sales of products whose BOM uses it and its wastage are broken down into the raw materials on its BOM, converted through the Sub-Prep's units (for example 430 Gm = 1 Batch). A count of a Sub-Prep is added only to the raw materials counted in the same count. The line marked Sub-Prep under Beg Bal, Sales, Wastage or Actual MEC shows that part and which mix it came from.</p>
                 </div>
             </div>
         </div>

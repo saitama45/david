@@ -23,6 +23,7 @@ use App\Http\Services\InventoryMovementAdjustmentService;
 use App\Http\Services\InventoryMovementDetailService;
 use App\Http\Services\InventoryMovementService;
 use App\Http\Services\SapItemTypeService;
+use App\Support\SubPrepBreakdown;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -61,24 +62,7 @@ class InventoryMovementReportController extends Controller
             $filters['branch_id'] = $branches->first()->id;
         }
 
-        $query = SAPMasterfile::query()
-            ->where('is_active', true);
-
-        if (!empty($filters['branch_id'])) {
-            $this->applyMovementFilter($query, $filters);
-        }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function($q) use ($search) {
-                $q->where('ItemCode', 'like', "%{$search}%")
-                  ->orWhere('ItemDescription', 'like', "%{$search}%");
-            });
-        }
-
-        $this->applySupplierFilter($query, $filters);
-
-        $allSapItems = $this->withinItemTypeFilters($query->get(), $filters);
+        $allSapItems = $this->reportItems($filters);
         $allMovementData = collect($this->getMovementData($allSapItems, $filters));
 
         if (!empty($filters['sort_field'])) {
@@ -298,24 +282,7 @@ class InventoryMovementReportController extends Controller
             unset($filters['supplier_code']);
         }
 
-        $query = SAPMasterfile::query()
-            ->where('is_active', true);
-
-        if (!empty($filters['branch_id'])) {
-            $this->applyMovementFilter($query, $filters);
-        }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function($q) use ($search) {
-                $q->where('ItemCode', 'like', "%{$search}%")
-                  ->orWhere('ItemDescription', 'like', "%{$search}%");
-            });
-        }
-
-        $this->applySupplierFilter($query, $filters);
-
-        $sapItems = $this->withinItemTypeFilters($query->get(), $filters);
+        $sapItems = $this->reportItems($filters);
 
         return [
             'filters' => $filters,
@@ -328,6 +295,53 @@ class InventoryMovementReportController extends Controller
             // environment, and a bare now() then prints the report 8 hours behind.
             'generatedAt' => Carbon::now('Asia/Manila')->format('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * The SAP rows the report lists: items with a movement at the store in the period, searched,
+     * of the supplier and Item Type asked for. A Sub-Prep (a prep mix) is never one - whatever
+     * moved under its code is charged to the raw materials on its BOM - so a raw material whose
+     * only movement is a mix's (the mix was counted, a drink used it) is listed in its place.
+     */
+    private function reportItems(array $filters)
+    {
+        $query = SAPMasterfile::query()
+            ->where('is_active', true);
+
+        $entityId = !empty($filters['branch_id'])
+            ? (InventoryMovementService::entitiesOf([(int) $filters['branch_id']])[(int) $filters['branch_id']] ?? null)
+            : null;
+        $subPreps = SubPrepBreakdown::forEntities([$entityId]);
+        $subPrepCodes = $subPreps->codesOf($entityId);
+
+        if (!empty($filters['branch_id'])) {
+            $viaSubPreps = [];
+
+            if ($subPrepCodes !== []) {
+                // A count of a mix moves only raw materials counted themselves, already listed.
+                $moved = SAPMasterfile::query()->whereIn('ItemCode', $subPrepCodes);
+                $this->applyMovementFilter($moved, $filters, [], false);
+                $viaSubPreps = $subPreps->ingredientCodes($entityId, $moved->distinct()->pluck('ItemCode')->all());
+            }
+
+            $this->applyMovementFilter($query, $filters, $viaSubPreps);
+        }
+
+        if ($subPrepCodes !== []) {
+            $query->whereNotIn('ItemCode', $subPrepCodes);
+        }
+
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('ItemCode', 'like', "%{$search}%")
+                  ->orWhere('ItemDescription', 'like', "%{$search}%");
+            });
+        }
+
+        $this->applySupplierFilter($query, $filters);
+
+        return $this->withinItemTypeFilters($query->get(), $filters);
     }
 
     private function applySupplierFilter($query, $filters)
@@ -392,13 +406,17 @@ class InventoryMovementReportController extends Controller
         ])->values();
     }
 
-    private function applyMovementFilter($query, $filters)
+    /**
+     * @param  array<int, string>  $alsoItems  item codes listed whatever moved (a Sub-Prep's raw materials)
+     * @param  bool  $withCounts  whether a month end count of the item is a movement
+     */
+    private function applyMovementFilter($query, $filters, array $alsoItems = [], bool $withCounts = true)
     {
         $branchId = $filters['branch_id'];
         $dateFrom = $filters['date_from'];
         $dateTo = $filters['date_to'];
 
-        $query->where(function($q) use ($branchId, $dateFrom, $dateTo) {
+        $query->where(function($q) use ($branchId, $dateFrom, $dateTo, $alsoItems, $withCounts) {
             // Check for procurement activity (Ordered, Committed, or Received) based on order_date
             $q->whereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $sub->select(DB::raw(1))
@@ -466,9 +484,10 @@ class InventoryMovementReportController extends Controller
                     ->where('so.sending_store_branch_id', $branchId)
                     ->whereNotNull('so.interco_number')
                     ->whereBetween('so.order_date', [$dateFrom, $dateTo]);
-            })
+            });
+
             // Check for MEC Balances (Beginning or Actual)
-            ->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
+            $q->when($withCounts, fn ($counts) => $counts->orWhereExists(function($sub) use ($branchId, $dateFrom, $dateTo) {
                 $prevMonth = Carbon::parse($dateFrom)->subMonth();
                 $currMonth = Carbon::parse($dateTo);
                 
@@ -487,7 +506,12 @@ class InventoryMovementReportController extends Controller
                               ->where('mes.month', $currMonth->month);
                         });
                     });
-            });
+            }));
+
+            // The raw materials of a Sub-Prep that moved: their movement is the mix's.
+            if ($alsoItems !== []) {
+                $q->orWhereIn('sap_masterfiles.ItemCode', $alsoItems);
+            }
         });
     }
 

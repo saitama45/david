@@ -32,7 +32,8 @@ final class BomConsumptions
      * One line. Keys: entity_id, store_branch_id, business_date, source_type, origin, item_code,
      * bom_uom, bom_qty, units, qty; optional: store_transaction_id, store_transaction_item_id,
      * wastage_id, pos_masterfile_id, pos_code, pos_description, bom_line_id, stock_row_id,
-     * stock_qty, unit_cost, movement_id.
+     * stock_qty, unit_cost, movement_id, sub_prep_code, sub_prep_description (the Sub-Prep a
+     * raw material came through: the product's BOM used the mix, the line is what the mix is made of).
      *
      * @param  array<string, mixed>  $line
      */
@@ -49,7 +50,14 @@ final class BomConsumptions
     {
         $now = now();
 
-        return [
+        // Only a line that came through a Sub-Prep carries these, so a batch of other lines
+        // (bom:freeze-history inserts 80 rows at a time) stays under SQL Server's 2100 parameters.
+        $subPrep = isset($line['sub_prep_code']) ? [
+            'sub_prep_code' => mb_substr((string) $line['sub_prep_code'], 0, 255),
+            'sub_prep_description' => isset($line['sub_prep_description']) ? mb_substr((string) $line['sub_prep_description'], 0, 255) : null,
+        ] : [];
+
+        return $subPrep + [
             'entity_id' => $line['entity_id'] ?? null,
             'store_branch_id' => $line['store_branch_id'],
             'business_date' => $line['business_date'],
