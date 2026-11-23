@@ -72,6 +72,10 @@ const { backButton } = useBackButton(route("branches.index"));
                 <SpanBold>{{ branch.aom ?? "N/a" }}</SpanBold>
             </InputContainer>
             <InputContainer>
+                <InfolistLabel>Wastage Approval Email</InfolistLabel>
+                <SpanBold>{{ branch.wastage_approval_email || "N/a" }}</SpanBold>
+            </InputContainer>
+            <InputContainer>
                 <InfolistLabel>Point of Contact</InfolistLabel>
                 <SpanBold>{{ branch.point_of_contact ?? "N/a" }}</SpanBold>
             </InputContainer>

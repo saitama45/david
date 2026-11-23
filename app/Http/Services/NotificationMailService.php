@@ -3,10 +3,12 @@
 namespace App\Http\Services;
 
 use App\Mail\CommitVarianceMail;
+use App\Mail\WastageApprovedMail;
 use App\Models\Setting;
 use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\User;
+use App\Models\Wastage;
 use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
@@ -20,8 +22,11 @@ use Throwable;
  * Notifications), and the emails it sends. The SMTP account lives in the `settings` table, its
  * password encrypted, and the mailer is built from it at send time, so nothing in .env changes.
  *
- * Only notification so far: the store is told which lines CS Mass Commits committed at a quantity
- * other than the one it ordered (`sendCommitVariance()`), at the store's emails in Store Branches.
+ * Notifications:
+ *  - Commit variance: the store is told which lines CS Mass Commits committed at a quantity other
+ *    than the one it ordered (`sendCommitVariance()`), at the store's emails in Store Branches.
+ *  - Wastage approved: a wastage of the store got its final approval (`sendWastageApproved()`), at
+ *    the store's Wastage Approval Email in Store Branches only.
  */
 class NotificationMailService
 {
@@ -43,7 +48,11 @@ class NotificationMailService
         'username' => 'notification_mail.username',
         'password' => 'notification_mail.password',
         'commit_variance_enabled' => 'notification_mail.commit_variance_enabled',
+        'wastage_approval_enabled' => 'notification_mail.wastage_approval_enabled',
     ];
+
+    /** The Store Branches field that says who is emailed when a wastage of the store is approved. */
+    public const WASTAGE_APPROVAL_FIELD = 'wastage_approval_email';
 
     /**
      * The Store Branches fields that hold the store's emails ("Head Chef Email" and so on). Each may
@@ -69,13 +78,14 @@ class NotificationMailService
             'username' => (string) Setting::get(self::KEYS['username'], ''),
             'has_password' => Setting::get(self::KEYS['password']) !== null && Setting::get(self::KEYS['password']) !== '',
             'commit_variance_enabled' => (bool) Setting::get(self::KEYS['commit_variance_enabled'], false),
+            'wastage_approval_enabled' => (bool) Setting::get(self::KEYS['wastage_approval_enabled'], false),
         ];
     }
 
     /**
      * Save the page. A blank password keeps the one saved before.
      *
-     * @param  array{from_name: string, from_address: string, driver: string, host: ?string, port: ?int, encryption: string, username: ?string, password: ?string, commit_variance_enabled: bool}  $data
+     * @param  array{from_name: string, from_address: string, driver: string, host: ?string, port: ?int, encryption: string, username: ?string, password: ?string, commit_variance_enabled: bool, wastage_approval_enabled?: bool}  $data
      */
     public function save(array $data): void
     {
@@ -87,6 +97,7 @@ class NotificationMailService
         Setting::set(self::KEYS['encryption'], $data['encryption']);
         Setting::set(self::KEYS['username'], trim((string) ($data['username'] ?? '')));
         Setting::set(self::KEYS['commit_variance_enabled'], $data['commit_variance_enabled'] ? '1' : '0', 'boolean');
+        Setting::set(self::KEYS['wastage_approval_enabled'], ! empty($data['wastage_approval_enabled']) ? '1' : '0', 'boolean');
 
         if (($data['password'] ?? '') !== '') {
             Setting::set(self::KEYS['password'], Crypt::encryptString($data['password']));
@@ -98,8 +109,20 @@ class NotificationMailService
     {
         $settings = $this->settings();
 
-        return $settings['commit_variance_enabled']
-            && $settings['from_address'] !== ''
+        return $settings['commit_variance_enabled'] && $this->hasAccount($settings);
+    }
+
+    /** Whether the wastage approved email is switched on and has an account to send from. */
+    public function wastageApprovalEnabled(): bool
+    {
+        $settings = $this->settings();
+
+        return $settings['wastage_approval_enabled'] && $this->hasAccount($settings);
+    }
+
+    private function hasAccount(array $settings): bool
+    {
+        return $settings['from_address'] !== ''
             && ($settings['driver'] === self::DRIVER_LOG || $settings['host'] !== '');
     }
 
@@ -186,6 +209,23 @@ class NotificationMailService
     }
 
     /**
+     * Who is emailed when a wastage of the store is approved: its Wastage Approval Email in Store
+     * Branches, each address once. The store's other emails are not used.
+     *
+     * @return list<string>
+     */
+    public function wastageApprovalRecipientsFor(StoreBranch $branch): array
+    {
+        $addresses = [];
+
+        foreach (self::splitAddresses((string) $branch->{self::WASTAGE_APPROVAL_FIELD}) as $address) {
+            $addresses[strtolower($address)] ??= $address;
+        }
+
+        return array_values($addresses);
+    }
+
+    /**
      * The addresses in one Store Branches email field: separated by commas, semicolons or spaces,
      * keeping only valid email addresses.
      *
@@ -257,6 +297,55 @@ class NotificationMailService
         } catch (Throwable $e) {
             Log::error('Commit variance email failed.', [
                 'order_number' => $order->order_number,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Email the store's Wastage Approval Email the lines of a wastage that got its final approval.
+     * Never throws: a mail problem must not undo or block the approval, so it is logged.
+     *
+     * @param  Collection<int, Wastage>  $lines  the approved lines of one wastage, of one store
+     * @return bool whether an email was sent
+     */
+    public function sendWastageApproved(StoreBranch $branch, Collection $lines, ?User $approvedBy = null): bool
+    {
+        if ($lines->isEmpty() || ! $this->wastageApprovalEnabled()) {
+            return false;
+        }
+
+        $wastageNo = $lines->first()->wastage_no;
+        $recipients = $this->wastageApprovalRecipientsFor($branch);
+
+        if ($recipients === []) {
+            Log::info('Wastage approved email not sent: the store has no Wastage Approval Email in Store Branches.', [
+                'wastage_no' => $wastageNo,
+                'store_branch_id' => $branch->id,
+            ]);
+
+            return false;
+        }
+
+        $settings = $this->settings();
+
+        try {
+            $this->mailer()->to($recipients)->send(
+                (new WastageApprovedMail($branch, $lines, $approvedBy))->from($settings['from_address'], $settings['from_name'])
+            );
+
+            Log::info('Wastage approved email sent.', [
+                'wastage_no' => $wastageNo,
+                'recipients' => $recipients,
+                'lines' => $lines->count(),
+            ]);
+
+            return true;
+        } catch (Throwable $e) {
+            Log::error('Wastage approved email failed.', [
+                'wastage_no' => $wastageNo,
                 'error' => $e->getMessage(),
             ]);
 

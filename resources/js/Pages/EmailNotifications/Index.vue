@@ -26,6 +26,7 @@ const form = useForm({
     username: props.settings.username,
     password: "",
     commit_variance_enabled: Boolean(props.settings.commit_variance_enabled),
+    wastage_approval_enabled: Boolean(props.settings.wastage_approval_enabled),
 });
 
 const showPassword = ref(false);
@@ -188,6 +189,22 @@ const inputClass = "flex h-10 w-full rounded-md border border-gray-300 bg-white 
                             Sent to the store's
                             <strong>{{ recipientFields.join(", ") }}</strong>
                             in <strong>Store Branches</strong>. A store with none of them filled in gets no email.
+                        </span>
+                    </span>
+                </label>
+
+                <label class="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
+                    <input v-model="form.wastage_approval_enabled" type="checkbox" class="mt-1 size-4" data-testid="wastage-approval-switch" />
+                    <span class="text-sm">
+                        <span class="block font-semibold text-gray-900">Wastage approved</span>
+                        <span class="block text-gray-600">
+                            When a wastage gets its <strong>final approval</strong> (Wastage Approval 1st Level, or 2nd Level when Wastage
+                            Settings asks for two levels), an email lists what was approved: Item Code, Item Name, UOM, Approved Qty, Cost,
+                            Total Cost and Reason, with who filed and who approved it.
+                        </span>
+                        <span class="mt-2 block text-gray-600">
+                            Sent only to the store's <strong>Wastage Approval Email</strong> in <strong>Store Branches</strong>, which can hold
+                            several addresses separated by commas. A store with none gets no email.
                         </span>
                     </span>
                 </label>

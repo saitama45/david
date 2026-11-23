@@ -19,6 +19,23 @@ class StoreBranchController extends Controller
         'aom.email' => 'The AOM Email must be a valid email address.',
     ];
 
+    /**
+     * Wastage Approval Email takes several addresses, separated by commas or semicolons, and each
+     * must be an address: it is who is emailed when a wastage of the store gets its final approval.
+     */
+    private static function wastageApprovalEmailRules(): array
+    {
+        return ['nullable', 'string', 'max:1000', function (string $attribute, mixed $value, \Closure $fail) {
+            foreach (preg_split('/[\s,;]+/', trim((string) $value)) ?: [] as $part) {
+                if ($part !== '' && \Illuminate\Support\Facades\Validator::make(['e' => $part], ['e' => 'email'])->fails()) {
+                    $fail("The Wastage Approval Email must hold email addresses separated by commas: \"{$part}\" is not one.");
+
+                    return;
+                }
+            }
+        }];
+    }
+
     public function index()
     {
         $search = request('search');
@@ -141,6 +158,7 @@ class StoreBranchController extends Controller
             'vp_operations' => ['nullable', 'email', 'max:255'],
             'store_representative' => ['nullable'],
             'aom' => ['nullable', 'email', 'max:255'],
+            'wastage_approval_email' => self::wastageApprovalEmailRules(),
             'point_of_contact' => ['nullable'],
             'contact_number' => ['nullable'],
             'is_active' => ['nullable'],
@@ -167,6 +185,7 @@ class StoreBranchController extends Controller
             'vp_operations' => ['nullable', 'email', 'max:255'],
             'store_representative' => ['nullable'],
             'aom' => ['nullable', 'email', 'max:255'],
+            'wastage_approval_email' => self::wastageApprovalEmailRules(),
             'point_of_contact' => ['nullable'],
             'contact_number' => ['nullable'],
             'is_active' => ['nullable'],

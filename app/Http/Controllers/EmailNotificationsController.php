@@ -12,7 +12,7 @@ use Inertia\Response;
 
 /**
  * Administration > Email Notifications: the no-reply SMTP mailbox the system sends its
- * notification emails from, and which notifications are switched on.
+ * notification emails from, and which notifications are switched on (commit variance, wastage approved).
  */
 class EmailNotificationsController extends Controller
 {
@@ -57,6 +57,7 @@ class EmailNotificationsController extends Controller
             'username' => ['nullable', 'string', 'max:255'],
             'password' => ['nullable', 'string', 'max:255'],
             'commit_variance_enabled' => [$forTest ? 'nullable' : 'required', 'boolean'],
+            'wastage_approval_enabled' => ['nullable', 'boolean'],
             'send_test_to' => ['nullable', 'email', 'max:255'],
         ], [
             'from_address.required' => 'The Sender Email Address (the no-reply address) is required.',
@@ -66,6 +67,7 @@ class EmailNotificationsController extends Controller
         ]);
 
         $data['commit_variance_enabled'] = (bool) ($data['commit_variance_enabled'] ?? false);
+        $data['wastage_approval_enabled'] = (bool) ($data['wastage_approval_enabled'] ?? false);
 
         return $data;
     }

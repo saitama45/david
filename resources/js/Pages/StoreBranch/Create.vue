@@ -27,6 +27,7 @@ const form = useForm({
     vp_operations: "",
     store_representative: "",
     aom: "",
+    wastage_approval_email: "",
     point_of_contact: "",
     contact_number: "",
     is_active: 1, // Default to Active
@@ -207,6 +208,20 @@ const activeStatuses = ref([
                     />
                     <FormError v-if="form.errors.aom">
                         {{ form.errors.aom }}
+                    </FormError>
+                </InputContainer>
+                <InputContainer>
+                    <LabelXS>Wastage Approval Email</LabelXS>
+                    <Input
+                        v-model="form.wastage_approval_email"
+                        placeholder="e.g. approver@company.com, finance@company.com"
+                        data-testid="wastage-approval-email"
+                    />
+                    <span class="text-xs text-gray-500">
+                        Emailed when a wastage of this store gets its final approval. Separate several addresses with commas.
+                    </span>
+                    <FormError v-if="form.errors.wastage_approval_email">
+                        {{ form.errors.wastage_approval_email }}
                     </FormError>
                 </InputContainer>
                 <InputContainer>

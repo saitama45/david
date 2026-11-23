@@ -67,14 +67,25 @@ SMTP setting would email real recipients.
 (`EmailNotificationsController`, permission `manage email notifications`) saves a no-reply SMTP account in
 the `settings` table (`notification_mail.*`, password encrypted with the APP_KEY: a new key means typing it
 again), and `NotificationMailService::mailer()` builds an on-demand mailer from it (`Mail::build`). Driver
-"log" writes the email to the log instead. The only notification so far is the **commit variance email**:
-CS Mass Commits' `confirmAll()` collects the lines it committed where `quantity_commited` differs from
+"log" writes the email to the log instead. Each notification has its own switch on the page.
+
+The **commit variance email**: CS Mass Commits' `confirmAll()` collects the lines it committed where `quantity_commited` differs from
 `quantity_ordered` (4 dp) and that quantity is not yet in `store_order_items.commit_variance_notified_qty`,
 then `SendCommitVarianceEmails::dispatchAfterResponse()` mails each order's store (`CommitVarianceMail`,
 view `emails.commit-variance`) at its Store Branches `head_chef`, `director_operations`, `vp_operations`
 and `aom` (valid addresses only, comma / semicolon separated) and stamps the quantity. After the response,
 so no queue worker is needed and a mail failure is only logged. `Mail::fake()` cannot fake `Mail::build`:
 tests swap `mailer()` for the `array` mailer (`EmailNotificationsTest`).
+
+The **wastage approved email** (2026-11-23, asked for TC: Kim is told when Cali approves): switch
+`notification_mail.wastage_approval_enabled`. `WastageService::finalizeWastageApproval()`, the one path every
+final approval takes (Level 1 in one-level mode, Level 2 otherwise), dispatches `SendWastageApprovedEmail`
+after the response; the job re-reads the lines still `approved_lvl2` (an approval rolled back sends nothing)
+inside `EntityContext::runAs()` of the store's entity, and `WastageApprovedMail` (view `emails.wastage-approved`)
+goes to the store's `store_branches.wastage_approval_email` **only** (several addresses, comma / semicolon;
+Store Branches validates each), never to the four store emails above. Recipients are per store on purpose,
+not a permission: every admin gets each new permission on deploy. A Mailable's public property is view data
+and overrides a `with` key of the same name.
 
 ## Deployment platform
 

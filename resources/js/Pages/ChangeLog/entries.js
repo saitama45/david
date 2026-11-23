@@ -18,6 +18,28 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 23, 2026
     {
         date: '2026-11-23',
+        module: 'Email Notifications',
+        type: 'new',
+        title: '"Wastage approved" email: the store\'s Wastage Approval Email is told when a wastage gets its final approval',
+        summary:
+            'Nobody outside the approver was told when a wastage was approved. Email Notifications now has a "Wastage approved" switch, and Store Branches has a new Wastage Approval Email field. While the switch is on, each wastage that gets its final approval is emailed to the addresses in that field, with what was approved and its cost.',
+        steps: [
+            'Open Store Branches, edit the store and type the addresses in Wastage Approval Email. Separate several addresses with commas.',
+            'Open Email Notifications, tick "Wastage approved" and click Save Settings.',
+            'The approver approves the wastage in Wastage Approval 1st Level (or Wastage Approval 2nd Level when Wastage Settings asks for two levels).',
+            'The addresses receive a no-reply email with the Wastage #, store, Wastage Date, who filed it, who approved it and when, the remarks, the total cost, and each line: Item Code, Item Name, UOM, Approved Qty, Cost, Total Cost and Reason.',
+        ],
+        rules: [
+            'The email is sent only for the final approval. While Wastage Settings asks for two levels, the Level 1 approval sends nothing and the Level 2 approval sends the email.',
+            'The email goes only to the Wastage Approval Email of the store of the wastage. The Head Chef, Director of Operations, VP of Operations and AOM emails do not receive it.',
+            'A store with no Wastage Approval Email gets no email, and so does every store while the switch is off.',
+            'Wastage Approval Email takes email addresses only. A name or any other text is refused when the store is saved.',
+            'The approval never waits for the email. When the email cannot be sent, the wastage stays approved.',
+        ],
+        affects: 'Managers who want to know when a wastage of their stores is approved, and the administrators who set up Store Branches and Email Notifications.',
+    },
+    {
+        date: '2026-11-23',
         module: 'Mass Orders',
         type: 'improved',
         title: 'Mass Orders uses the cost of the unit ordered, also for an item listed in more than one unit',

@@ -135,6 +135,16 @@ class WastageService
                 'approved_level2_by' => $userId,
                 'approved_level2_date' => $now,
             ]);
+
+        // Email the store's Wastage Approval Email (Email Notifications > Wastage approved). After
+        // the response, so it reads the approval only once the caller's transaction has committed.
+        if (app(\App\Http\Services\NotificationMailService::class)->wastageApprovalEnabled()) {
+            \App\Jobs\SendWastageApprovedEmail::dispatchAfterResponse(
+                $relatedWastages->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
+                $storeBranchId,
+                $userId
+            );
+        }
     }
 
     private function buildFinalApprovalDeductions(Collection $relatedWastages, int $storeBranchId, string $quantityLevel): array

@@ -196,3 +196,134 @@ it('only takes email addresses in the store\'s email fields', function () {
     $update(['head_chef' => 'newchef@example.com', 'aom' => null]);
     expect($store->fresh()->head_chef)->toBe('newchef@example.com');
 });
+
+// --- Wastage approved: the store's Wastage Approval Email is told when a wastage is finally approved ---
+
+/**
+ * A store whose Wastage Approval Email holds two addresses (one repeated, one not an address), and a
+ * wastage of 2 PCK at 10 awaiting its approval, with enough stock to approve it.
+ *
+ * @return array{store: StoreBranch, approver: User, lines: Illuminate\Support\Collection}
+ */
+function wastageMailFixture(): array
+{
+    $entity = App\Models\Entity::create(['name' => 'Mail Entity', 'code' => 'ME'.uniqid(), 'is_active' => true]);
+    app(App\Support\EntityContext::class)->set($entity->id);
+
+    $encoder = User::factory()->create(['first_name' => 'Store', 'last_name' => 'Encoder']);
+    $approver = User::factory()->create(['first_name' => 'Cali', 'last_name' => 'Approver']);
+    $store = StoreBranch::create([
+        'branch_code' => 'WMAIL', 'brand_code' => 'WMAIL', 'name' => 'Mail Store', 'store_status' => 'Active', 'is_active' => 1,
+        'head_chef' => 'chef@example.com',
+        'wastage_approval_email' => 'kim@example.com; not-an-email, KIM@example.com,cfo@example.com',
+    ]);
+    $sap = App\Models\SAPMasterfile::create([
+        'ItemCode' => '265D9A', 'ItemDescription' => 'Chocolate Chip Walnut Cookies',
+        'AltUOM' => 'PCK', 'BaseUOM' => 'PCK', 'AltQty' => 1, 'BaseQty' => 1, 'is_active' => true,
+    ]);
+    App\Models\ProductInventoryStock::create([
+        'product_inventory_id' => $sap->id, 'store_branch_id' => $store->id, 'quantity' => 5, 'recently_added' => 0, 'used' => 0,
+    ]);
+    App\Models\Wastage::create([
+        'store_branch_id' => $store->id, 'wastage_no' => 'WS-MAIL-1', 'sap_masterfile_id' => $sap->id, 'wastage_date' => '2026-11-23',
+        'wastage_qty' => 2, 'cost' => 10, 'reason' => 'Expired', 'remarks' => 'Dropped tray',
+        'wastage_status' => App\Enums\WastageStatus::PENDING->value, 'created_by' => $encoder->id,
+    ]);
+
+    $lines = App\Models\Wastage::where('wastage_no', 'WS-MAIL-1')->with('sapMasterfile')->get();
+
+    return compact('store', 'approver', 'lines');
+}
+
+it('sends the wastage approved email after the final approval, only while it is switched on', function () {
+    $f = wastageMailFixture();
+    mailSettings(['wastage_approval_enabled' => true]);
+    Bus::fake();
+
+    app(App\Http\Services\WastageService::class)->finalizeWastageApproval($f['lines'], $f['store']->id, $f['approver']->id, 'level1', true);
+
+    Bus::assertDispatchedAfterResponse(App\Jobs\SendWastageApprovedEmail::class, fn ($job) => $job->lineIds === $f['lines']->pluck('id')->map(fn ($id) => (int) $id)->all()
+        && $job->storeBranchId === $f['store']->id
+        && $job->approvedById === $f['approver']->id);
+});
+
+it('does not send the wastage approved email while it is switched off', function () {
+    $f = wastageMailFixture();
+    mailSettings(['wastage_approval_enabled' => false]);
+    Bus::fake();
+
+    app(App\Http\Services\WastageService::class)->finalizeWastageApproval($f['lines'], $f['store']->id, $f['approver']->id, 'level1', true);
+
+    Bus::assertNotDispatchedAfterResponse(App\Jobs\SendWastageApprovedEmail::class);
+    expect(app(NotificationMailService::class)->settings()['wastage_approval_enabled'])->toBeFalse();
+});
+
+it('emails the approved wastage to the Wastage Approval Email of the store only', function () {
+    $f = wastageMailFixture();
+    App\Models\Wastage::whereIn('id', $f['lines']->pluck('id'))->update([
+        'wastage_status' => App\Enums\WastageStatus::APPROVED_LVL2->value, 'approverlvl1_qty' => 2, 'approverlvl2_qty' => 2,
+        'approved_level1_by' => $f['approver']->id, 'approved_level2_by' => $f['approver']->id, 'approved_level2_date' => '2026-11-23 15:05:00',
+    ]);
+    mailSettings(['wastage_approval_enabled' => true]);
+    $transport = arrayMailer();
+
+    app()->call([new App\Jobs\SendWastageApprovedEmail($f['lines']->pluck('id')->all(), $f['store']->id, $f['approver']->id), 'handle']);
+
+    $messages = $transport->messages();
+    expect($messages)->toHaveCount(1);
+    $email = $messages->first()->getOriginalMessage();
+    $html = $email->getHtmlBody();
+
+    expect(collect($email->getTo())->map->getAddress()->all())->toBe(['kim@example.com', 'cfo@example.com']) // not the Head Chef
+        ->and($email->getFrom()[0]->getAddress())->toBe('no-reply@example.com')
+        ->and($email->getSubject())->toBe('[No-Reply] Wastage WS-MAIL-1 approved - Mail Store')
+        ->and($html)->toContain('This is a no-reply email')
+        ->and($html)->toContain('265D9A')->toContain('Chocolate Chip Walnut Cookies')->toContain('PCK')
+        ->and($html)->toContain('2.0000')->toContain('20.0000')->toContain('Expired')->toContain('Dropped tray')
+        ->and($html)->toContain('Cali Approver')->toContain('Store Encoder')->toContain('Nov 23, 2026 3:05 PM')
+        ->and($html)->not->toContain('Level 1 approved by'); // one approver: no separate Level 1 line
+});
+
+it('sends no wastage approved email to a store without the email, while switched off, or for a wastage not approved', function () {
+    $f = wastageMailFixture();
+    $ids = $f['lines']->pluck('id')->all();
+    mailSettings(['wastage_approval_enabled' => true]);
+    $transport = arrayMailer();
+    $send = fn () => app()->call([new App\Jobs\SendWastageApprovedEmail($ids, $f['store']->id, $f['approver']->id), 'handle']);
+
+    $send(); // still pending: the approval was rolled back
+    expect($transport->messages())->toHaveCount(0);
+
+    App\Models\Wastage::whereIn('id', $ids)->update(['wastage_status' => App\Enums\WastageStatus::APPROVED_LVL2->value]);
+    $f['store']->update(['wastage_approval_email' => null]);
+    $send();
+    expect($transport->messages())->toHaveCount(0);
+
+    $f['store']->update(['wastage_approval_email' => 'kim@example.com']);
+    mailSettings(['wastage_approval_enabled' => false]);
+    $send();
+    expect($transport->messages())->toHaveCount(0);
+
+    mailSettings(['wastage_approval_enabled' => true]);
+    $send();
+    expect($transport->messages())->toHaveCount(1);
+});
+
+it('takes several addresses in the Wastage Approval Email, each an email address', function () {
+    [, , , , $store] = varianceFixture();
+    $this->actingAs(User::factory()->create());
+
+    $update = fn (array $values) => app(StoreBranchController::class)->update(Request::create("/branches/{$store->id}", 'PUT', array_merge([
+        'branch_code' => 'VAR-1', 'name' => 'Variance Store', 'store_status' => 'active',
+    ], $values)), $store->id);
+
+    try {
+        $update(['wastage_approval_email' => 'kim@example.com, Kim Cruz']);
+        $this->fail('A Wastage Approval Email holding a name should be refused.');
+    } catch (ValidationException $e) {
+        expect($e->errors()['wastage_approval_email'][0])->toContain('"Kim" is not one');
+    }
+
+    $update(['wastage_approval_email' => 'kim@example.com; cfo@example.com']);
+    expect($store->fresh()->wastage_approval_email)->toBe('kim@example.com; cfo@example.com');
+});

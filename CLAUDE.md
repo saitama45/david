@@ -298,7 +298,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   `settings` (`notification_mail.*`), built per send by `NotificationMailService::mailer()`. The commit variance email
   (CS Mass Commits Confirm All, lines committed at a quantity other than ordered) goes after the response to the
   store's Head Chef / Director of Operations / VP of Operations / AOM emails, once per committed quantity
-  (`store_order_items.commit_variance_notified_qty`). Detail: [Integrations.md](docs/knowledge/Integrations.md#mail).
+  (`store_order_items.commit_variance_notified_qty`). The wastage approved email goes after the response from
+  `WastageService::finalizeWastageApproval()` (every final approval) to the store's Wastage Approval Email
+  (`store_branches.wastage_approval_email`) only. Detail: [Integrations.md](docs/knowledge/Integrations.md#mail).
 - **SQL Server hands integer columns back as strings** (`"entity_id":"1"`), so `$item->committed_by !== $user->id` is
   always true. Compare ids with `(int)` or `==`.
 - **The Inbound Orders sidebar badge is the list it opens** (`OrderReceivingService::dueToday()`: `applyCommonFilters()`

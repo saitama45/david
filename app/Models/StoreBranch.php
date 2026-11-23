@@ -31,6 +31,7 @@ class StoreBranch extends Model implements Auditable
         'vp_operations',
         'store_representative',
         'aom',
+        'wastage_approval_email',
         'point_of_contact',
         'contact_number',
         'is_active'
