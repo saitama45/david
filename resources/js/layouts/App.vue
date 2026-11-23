@@ -140,12 +140,22 @@ const handleBackdropClick = (event) => {
 
 // Add and remove event listeners
 let notificationPollInterval = null;
+// The poll is an Inertia visit, and Inertia 1 cancels the visit in flight when another starts:
+// a poll landing during an upload dropped its response, so the page never showed the result.
+let visitInProgress = false;
+let removeVisitListeners = [];
 
 onMounted(() => {
     document.addEventListener('keydown', handleEscapeKey);
-    // Poll for notification updates every 30 seconds
+    removeVisitListeners = [
+        router.on('start', () => { visitInProgress = true; }),
+        router.on('finish', () => { visitInProgress = false; }),
+    ];
+    // Poll for notification updates every 30 seconds, never over a visit in flight
     notificationPollInterval = setInterval(() => {
-        router.reload({ only: ['notifications'] });
+        if (!visitInProgress) {
+            router.reload({ only: ['notifications'] });
+        }
     }, 30000);
 });
 
@@ -155,6 +165,7 @@ onUnmounted(() => {
     if (notificationPollInterval) {
         clearInterval(notificationPollInterval);
     }
+    removeVisitListeners.forEach((remove) => remove());
 });
 
 const isSalesReminderModalOpen = ref(false);

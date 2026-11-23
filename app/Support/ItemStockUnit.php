@@ -15,10 +15,15 @@ use Illuminate\Support\Collection;
  * the base row of the unit those conversions point at, the SAP base unit. A base unit
  * with no conversion to the others (Sprite's Can next to LIT) is a separate stock and
  * keeps its own base row.
+ *
+ * The SAP base unit a report shows can differ from the stock unit: TC's masterlist states
+ * a pack only as a conversion (6 Slice = 1 Loaf) beside a Slice/Slice row, with no
+ * Loaf/Loaf row, so stock stays on the Slice row while SAP's base unit is Loaf.
  */
 final class ItemStockUnit
 {
     /**
+     * @param  ?string  $sapBase  UPPER unit the primary group's conversion rows point at
      * @param  array<string, string>  $stockUnitOf  UPPER unit => UPPER stock unit of its group
      * @param  array<string, float>  $factors  stock units (of its group) per one UPPER unit
      * @param  array<string, object>  $baseRows  UPPER stock unit => its base row
@@ -26,6 +31,7 @@ final class ItemStockUnit
      */
     private function __construct(
         private readonly ?string $primary,
+        private readonly ?string $sapBase,
         private readonly array $stockUnitOf,
         private readonly array $factors,
         private readonly array $baseRows,
@@ -84,6 +90,7 @@ final class ItemStockUnit
         $factors = [];
         $primary = null;
         $primaryScore = null;
+        $primaryGroup = [];
 
         foreach (array_keys($edges) as $start) {
             if (isset($stockUnitOf[$start])) {
@@ -126,11 +133,20 @@ final class ItemStockUnit
             // stock row and the most conversions, then the most units, then the first row.
             $score = [isset($baseRows[$stock]) ? 1 : 0, $baseCounts[$stock] ?? 0, count($group)];
             if ($primaryScore === null || $score > $primaryScore) {
-                [$primary, $primaryScore] = [$stock, $score];
+                [$primary, $primaryScore, $primaryGroup] = [$stock, $score, $group];
             }
         }
 
-        return new self($primary, $stockUnitOf, $factors, $baseRows, $labels);
+        // SAP's base unit: the unit of the primary group most conversion rows point at, even
+        // with no base row of its own. A tie keeps the stock unit.
+        $sapBase = $primary;
+        foreach ($primaryGroup as $unit) {
+            if (($baseCounts[$unit] ?? 0) > ($baseCounts[$sapBase] ?? 0)) {
+                $sapBase = $unit;
+            }
+        }
+
+        return new self($primary, $sapBase, $stockUnitOf, $factors, $baseRows, $labels);
     }
 
     /**
@@ -192,6 +208,28 @@ final class ItemStockUnit
     public function factors(): array
     {
         return array_filter($this->factors, fn ($unit) => $this->stockUnitOf[$unit] === $this->primary, ARRAY_FILTER_USE_KEY);
+    }
+
+    /**
+     * The item's SAP base unit as SAP spells it - the unit its conversion rows point at, which
+     * reports show quantities in. Usually unit(); Loaf where SAP gives 6 Slice = 1 Loaf beside
+     * Slice/Slice alone, though stock stays on the Slice row. Never post stock in it.
+     */
+    public function sapBaseUnit(): string
+    {
+        return $this->sapBase === null ? '' : $this->labels[$this->sapBase];
+    }
+
+    /** @return array<string, float> SAP base units (sapBaseUnit()) per one UPPER unit of the primary group */
+    public function sapBaseFactors(): array
+    {
+        if ($this->sapBase === null) {
+            return [];
+        }
+
+        $base = $this->factors[$this->sapBase];
+
+        return array_map(fn ($factor) => $factor / $base, $this->factors());
     }
 
     private function stockUnitKey(?string $unit): ?string

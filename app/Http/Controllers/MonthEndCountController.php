@@ -17,7 +17,6 @@ use App\Models\MonthEndSchedule;
 use App\Models\ProductInventoryStock;
 use App\Models\SAPMasterfile;
 use App\Models\StoreBranch;
-use App\Support\ItemStockUnit;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -499,8 +498,9 @@ class MonthEndCountController extends Controller
         $result = [];
         foreach ($templates as $template) {
             $row = $theoretical->get($template->item_code);
+            // Sized in the report's own unit, which can differ from the stock unit.
             $size = $row
-                ? (ItemStockUnit::fromRows($rowsByCode[$template->item_code])->factors()[strtoupper(trim((string) $template->uom))] ?? null)
+                ? ($this->movements->itemUnits($rowsByCode[$template->item_code])[1][strtoupper(trim((string) $template->uom))] ?? null)
                 : null;
 
             $result[$template->id] = $size ? round($row['theoretical_qty'] / $size, 4) : 0;

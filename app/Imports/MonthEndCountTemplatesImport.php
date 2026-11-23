@@ -20,6 +20,7 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
 {
     private int $createdCount = 0;
     private int $updatedCount = 0;
+    private int $unchangedCount = 0;
     private array $skippedRows = [];
     private bool $collectionCalled = false; // New flag
 
@@ -208,17 +209,16 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
             
             $bulkUom = Arr::get($row, 'bulk_uom');
 
-            // Validate against SAPMasterfile
-            $sapExists = SAPMasterfile::where('ItemCode', $itemCode)
-                ->where('AltUOM', $bulkUom)
-                ->exists();
+            // Validate against SAPMasterfile. The Bulk UOM may be a unit SAP gives only as a
+            // BaseUOM: TC writes 250 Gm = 1 Bag with no Bag / Bag row, and Bag was refused.
+            $sapExists = SAPMasterfile::forUnit($itemCode, $bulkUom)->exists();
 
             if (!$sapExists) {
                 $this->skippedRows[] = [
                     'row_number' => $originalRowNumber,
                     'item_code' => $itemCode,
                     'uom' => $bulkUom,
-                    'reason' => "Item Code '$itemCode' and Bulk UOM '$bulkUom' do not exist in SAP Masterfile.",
+                    'reason' => "Item Code '$itemCode' has no unit '$bulkUom' in the SAP Masterlist.",
                 ];
                 Log::info('Import: Row skipped due to missing SAP Masterfile record', ['original_row_number' => $originalRowNumber, 'item_code' => $itemCode, 'uom' => $bulkUom]);
                 continue;
@@ -268,13 +268,9 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
                     $this->updatedCount++;
                     Log::info('Import: Template updated', ['original_row_number' => $originalRowNumber, 'item_code' => $itemCode]);
                 } else {
-                    $this->skippedRows[] = [
-                        'row_number' => $originalRowNumber,
-                        'item_code' => $itemCode,
-                        'bulk_uom' => $bulkUom,
-                        'reason' => 'Item code with the same Bulk UOM already exists and has no changes.',
-                    ];
-                    Log::info('Import: Row skipped due to no changes', ['original_row_number' => $originalRowNumber, 'item_code' => $itemCode]);
+                    // Already on the list as it is: imported, not skipped.
+                    $this->unchangedCount++;
+                    Log::info('Import: Row unchanged', ['original_row_number' => $originalRowNumber, 'item_code' => $itemCode]);
                 }
             } else {
                 MonthEndCountTemplate::create(array_merge($dataToCompare, [
@@ -397,6 +393,11 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
     public function getUpdatedCount(): int
     {
         return $this->updatedCount;
+    }
+
+    public function getUnchangedCount(): int
+    {
+        return $this->unchangedCount;
     }
 
     public function getSkippedRows(): array

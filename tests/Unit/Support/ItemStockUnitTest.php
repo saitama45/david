@@ -53,6 +53,32 @@ test('a base unit SAP does not link to the others stays a separate stock', funct
         ->and($unit->factors())->not->toHaveKey('CAN');
 });
 
+test('a pack SAP gives only as a conversion is the SAP base unit, while stock stays on the small unit', function () {
+    // TC: 6 Slice = 1 Loaf and Slice/Slice, with no Loaf/Loaf row; 250 Gm = 1 Bag likewise.
+    $loaf = ItemStockUnit::fromRows(sapRows([['Slice', 'Loaf', 6, 1, 27470], ['Slice', 'Slice', 1, 1, 27471]]));
+    $beans = ItemStockUnit::fromRows(sapRows([['Gm', 'Bag', 250, 1, 27534], ['Gm', 'Gm', 1, 1, 27535]]));
+
+    expect($loaf->unit())->toBe('Slice')
+        ->and($loaf->stockRow()->id)->toBe(27471)
+        ->and($loaf->sapBaseUnit())->toBe('Loaf')
+        ->and($loaf->sapBaseFactors()['SLICE'])->toEqualWithDelta(1 / 6, 1e-12)
+        ->and($loaf->sapBaseFactors()['LOAF'])->toEqualWithDelta(1.0, 1e-12)
+        ->and($beans->sapBaseUnit())->toBe('Bag')
+        ->and($beans->sapBaseFactors()['GM'] * 73)->toEqualWithDelta(0.292, 1e-12);
+});
+
+test('the SAP base unit is the stock unit whenever that unit has its own row', function () {
+    $milk = ItemStockUnit::fromRows(sapRows([
+        ['Can', 'Can', 1, 1, 27501], ['Can', 'Case', 48, 1, 27389], ['Gm', 'Case', 18720, 1, 27390], ['Case', 'Case', 1, 1, 27450],
+    ]));
+    $sachets = ItemStockUnit::fromRows(sapRows([['SACHET', 'SACHET', 1, 1], ['BOX(18)', 'SACHET', 1, 18]]));
+
+    expect($milk->sapBaseUnit())->toBe('Case')
+        ->and($milk->sapBaseFactors())->toBe($milk->factors())
+        ->and($sachets->sapBaseUnit())->toBe('SACHET')
+        ->and($sachets->sapBaseFactors())->toBe($sachets->factors());
+});
+
 test('a single base row item behaves as it always did', function () {
     $unit = ItemStockUnit::fromRows(sapRows([['PC', 'PC', 1, 1], ['PACK(50)', 'PC', 1, 50]]));
 

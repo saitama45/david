@@ -344,6 +344,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   checked AltUOM alone. Look a unit up with `SAPMasterfile::unitsOf()` / `forUnit()` (AltUOM row first, else the
   row it is the BaseUOM of), never `UPPER(AltUOM) = ?` alone; `singleRowPerJoinKey()` adds the missing 1 = 1 row
   so report joins on `AltUOM = uom` still find the item. Stock already converts it through `ItemStockUnit`.
+  The MEC template upload and the store count upload look the Bulk UOM up the same way (2026-11-23: TC's
+  64-row template list imported 9). **Stock unit is not report unit:** such an item's stock stays on the small
+  unit's row (`unit()`), but reports show `ItemStockUnit::sapBaseUnit()` / `sapBaseFactors()`, the unit its
+  conversions point at (6 Slice = 1 Loaf -> Loaf). On prod only TC differs (60 of 220 items). Never post in it.
 - **An order line can have no supplier item.** Add Unlisted Item (`/orders-receiving/show`) briefly
   (2026-10-02) took any active SAP Masterlist item, so `store_order_items` rows exist whose
   `supplierItem` is null (ordered qty 0). Read the line's own `item_code` / `uom` / `item_description`,
@@ -533,6 +537,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   own shows every toast twice. Inertia 1.3 re-creates the page on any visit without `preserveState`,
   even a redirect back to itself, so a page that toasts `flash.success` in `onMounted` already covers
   its forms and imports. Their `onSuccess` must not toast it again.
+- **Any Inertia visit cancels the one in flight (Inertia 1).** The layout's 30-second
+  `router.reload({ only: ['notifications'] })` once landed during uploads: the server finished, the page
+  dropped the response, and no result showed (MEC templates, 2026-11-23). It now skips while a visit runs
+  (`router.on('start'/'finish')` in `Layouts/App.vue`); a new background poll must do the same, or use `fetch`.
 - **Nothing shows `flash.error` unless the page does.** The layout's `<Toast />` toasts nothing by itself, so
   an Inertia form answered with `back()->with('error')` just closes: Supplier Items' Update List looked like
   "nothing happens" for a user with no supplier in the entity (fixed 2026-11-21). Refuse a form with a

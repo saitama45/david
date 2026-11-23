@@ -496,8 +496,9 @@ class InventoryMovementService
     }
 
     /**
-     * The unit the item's stock is kept in (its SAP base unit) and how many of it each
-     * of its units holds - the same resolution every stock writer uses.
+     * The item's SAP base unit - the unit its conversion rows point at - and how many of it
+     * each unit of its stock holds. Usually the unit stock is kept in, but TC states a pack
+     * only as a conversion (100 Pc = 1 Pack beside Pc/Pc), and the report shows Pack.
      *
      * @return array{0: string, 1: array<string, float>} display unit, and size per UPPER unit
      */
@@ -505,6 +506,6 @@ class InventoryMovementService
     {
         $stockUnit = \App\Support\ItemStockUnit::fromRows(collect($rows));
 
-        return [$stockUnit->unit(), $stockUnit->factors()];
+        return [$stockUnit->sapBaseUnit(), $stockUnit->sapBaseFactors()];
     }
 }

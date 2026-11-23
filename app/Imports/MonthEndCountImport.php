@@ -75,9 +75,10 @@ class MonthEndCountImport implements ToCollection, WithHeadingRow
                 $totalQty = $bulkQty + $looseQty;
             }
 
-            // Find SAP Masterfile by ItemCode and UOM (Bulk UOM)
-            $sapMasterfile = SAPMasterfile::where('ItemCode', $itemCode)
-                ->where('AltUOM', $bulkUom)
+            // Find SAP Masterfile by ItemCode and UOM (Bulk UOM). The Bulk UOM may be a unit SAP
+            // gives only as a BaseUOM (TC: 250 Gm = 1 Bag, no Bag / Bag row); the count keeps
+            // its own uom, which is what posting and the reports convert.
+            $sapMasterfile = SAPMasterfile::forUnit($itemCode, $bulkUom)
                 ->where('is_active', true)
                 ->first();
 

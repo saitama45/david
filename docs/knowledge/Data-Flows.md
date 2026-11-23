@@ -645,7 +645,9 @@ The downloaded template's **Current SOH** is the Inventory Movement Report's **T
 over the period of the count: previous month's count + approved receipts +
 interco in − sales − level 2 wastage − interco out. Both call `InventoryMovementService::movementData()`,
 so they cannot drift apart. The value is per ItemCode in the SAP base unit, restated in each template
-line's Bulk UOM through `ItemStockUnit` factors; a line with no SAP item or no conversion shows 0.
+line's Bulk UOM through the report's own unit sizes (`InventoryMovementService::itemUnits()`, i.e.
+`ItemStockUnit::sapBaseFactors()`, not the stock-unit `factors()`); a line with no SAP item or no
+conversion shows 0.
 
 **The period is per branch, not the calendar month** (`MonthEndCountReadinessService::periods()`): it
 is the period of the count the branch takes next - the last scheduled count while the branch has not
@@ -700,7 +702,8 @@ the For Final Receive All tab for that.
 store + ItemCode with a level 2 approved line. **It computes nothing itself**: `MonthEndStockVariance::rows()`
 calls `InventoryMovementService::movementDataForBranches()` and relabels the Inventory Movement Report's
 row - Actual Inventory = Actual MEC, Theoretical Inventory = Theoretical SOH (Supplies Used already
-deducted), Qty Variance = Variance, UoM = the SAP base unit (`ItemStockUnit`). The drill-down
+deducted), Qty Variance = Variance, UoM = the SAP base unit (`ItemStockUnit::sapBaseUnit()`: the unit
+the conversions point at, Loaf for TC's 6 Slice = 1 Loaf, even though its stock is kept per Slice). The drill-down
 (`getBreakdown`) returns the same row's Beg Bal / Received / Interco / Sales / Wastage / Supplies Used.
 `tests/Feature/QtyVarianceCostVarianceReportTest.php` asserts the two reports agree line for line.
 

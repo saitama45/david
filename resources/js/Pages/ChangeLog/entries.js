@@ -18,6 +18,81 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 23, 2026
     {
         date: '2026-11-23',
+        module: 'Inventory Movement Report',
+        type: 'improved',
+        title: 'Inventory Movement Report shows every item in its SAP base unit, also when SAP gives that unit only in a conversion',
+        summary:
+            'When the SAP Masterlist gives the larger unit of an item only in a conversion, such as 6 Slice = 1 Loaf or 250 Gm = 1 Bag, the report showed the item in the small unit (Slice, Pc, Gm) instead of its SAP base unit. It now shows it in the SAP base unit, as the UOM column says: 21 Slice of Lemon Loaf sold shows as 3.5000 Loaf, and 26 Pc of Filter - Coffee Filter V60 as 0.2600 Pack.',
+        rules: [
+            'The SAP base unit of an item is the unit its conversions in the SAP Masterlist point to.',
+            'Every column of the row, from Ordered to Actual MEC, Adjustment and Final Variance, is in that unit. The list behind each underlined figure and the Excel and PDF exports use the same unit.',
+            'Only the unit the figures are shown in has changed. Stock is kept as before, and no quantity changes in value.',
+        ],
+        affects: 'Office and accounting users who read the Inventory Movement Report, mostly for TC items.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Qty Variance / Cost Variance Report',
+        type: 'improved',
+        title: 'Qty Variance / Cost Variance Report shows every item in its SAP base unit, also when SAP gives that unit only in a conversion',
+        summary:
+            'The report takes its quantities from the Inventory Movement Report, so items whose SAP base unit appears only in a conversion, such as 250 Gm = 1 Bag, were shown in the small unit (Gm). They are now shown in the SAP base unit (Bag), and priced per that unit.',
+        rules: [
+            'The cost is the supplier cost of that unit, or the supplier cost of another unit of the same item converted to it.',
+        ],
+        affects: 'Office and accounting users who read the Qty Variance / Cost Variance Report, mostly for TC items.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Month End Count Templates',
+        type: 'improved',
+        title: 'Upload on Month End Count Templates accepts a Bulk UOM that SAP gives only as the base of a conversion',
+        summary:
+            'A row whose Bulk UOM appears in the SAP Masterlist only as the base unit of a conversion, such as Bag in 250 Gm = 1 Bag or Loaf in 6 Slice = 1 Loaf, was left out of the list without a word. The TC list of 64 items imported only 9 of them. Those rows are now imported.',
+        rules: [
+            'A row is imported when its Item Code has its Bulk UOM in the SAP Masterlist, either as a unit of its own or as the base unit of a conversion.',
+            'A row whose Bulk UOM is not in the SAP Masterlist for that Item Code is not imported, and the page says so.',
+            'The upload still replaces the list: an item that is not in the file is marked Inactive.',
+        ],
+        affects: 'Office users who keep the Month End Count Templates, mostly for TC.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Month End Count Templates',
+        type: 'improved',
+        title: 'Upload on Month End Count Templates lists every row it did not import, with the reason',
+        summary:
+            'After an upload, the page lists each row that was not imported with its row number, Item Code, Bulk UOM and the reason, however many there are. Before, the reasons were shown for up to 15 rows only; for more, the page showed only a count and a Download button. The message after the upload states how many templates were created, updated and unchanged, and how many rows were not imported.',
+        rules: [
+            'A row that is already on the list with the same values is counted as unchanged, not as a row that was not imported.',
+            'Download List saves the same rows and reasons to a text file. Close hides the list.',
+        ],
+        affects: 'Office users who upload the Month End Count Templates.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'Month End Count',
+        type: 'improved',
+        title: 'Upload Completed Count Sheet accepts a Bulk UOM that SAP gives only as the base of a conversion',
+        summary:
+            'A counted line whose Bulk UOM appears in the SAP Masterlist only as the base unit of a conversion, such as Bag in 250 Gm = 1 Bag, was refused as not found in the SAP Masterlist. It is now saved in that unit.',
+        rules: [
+            'The count is kept in its Bulk UOM. For 250 Gm = 1 Bag, 3 Bag and 125 Gm loose is a count of 3.5 Bag.',
+            'When MEC Approval 2nd Level approves the count, it is converted into the stock of the item: 3.5 Bag of 250 Gm is 875 Gm.',
+        ],
+        affects: 'Store users who take the count, mostly at TC stores.',
+    },
+    {
+        date: '2026-11-23',
+        module: 'General',
+        type: 'improved',
+        title: 'An upload or a save no longer loses its result message when the bell counts refresh',
+        summary:
+            'Every 30 seconds each page refreshes the counts on the bell and in the sidebar. When that refresh ran while an upload or a save was still being processed, the page stopped waiting for it: the work was done, but its result message never appeared and the window stayed open. The refresh now waits until the page is not busy.',
+        affects: 'Everyone who uploads files or saves forms, most of all uploads that take several seconds.',
+    },
+    {
+        date: '2026-11-23',
         module: 'Month End Count Templates',
         type: 'improved',
         title: 'The Category 1 column is now called Classification',

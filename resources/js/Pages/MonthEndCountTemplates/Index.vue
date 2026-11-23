@@ -32,7 +32,6 @@ const isOverwriteConfirmVisible = ref(false);
 const isLoading = ref(false);
 
 const skippedItems = ref([]);
-const persistentSkippedItemsMessage = ref('');
 
 const exportRoute = computed(() =>
     route("month-end-count-templates.export", {
@@ -161,17 +160,13 @@ const downloadSkippedItems = () => {
 onMounted(() => {
     if (page.props.flash) {
         if (page.props.flash.skippedItems && page.props.flash.skippedItems.length > 0) {
+            // Every skipped row is listed on the page with its reason, however many there are.
             skippedItems.value = page.props.flash.skippedItems;
-             if (skippedItems.value.length <= 15) {
-                persistentSkippedItemsMessage.value = formatSkippedItemsMessage(skippedItems.value);
-            } else {
-                persistentSkippedItemsMessage.value = '';
-            }
             toast.add({
                 severity: "warn",
                 summary: "Import Completed with Warnings",
-                detail: `${skippedItems.value.length} rows were skipped during the last import. Download the report for details.`,
-                life: 5000,
+                detail: `${page.props.flash.success || ''} The rows not imported are listed on the page with the reason for each.`.trim(),
+                life: 8000,
             });
         } else if (page.props.flash.success) {
             toast.add({
@@ -223,36 +218,45 @@ const formatDateTime = (dateString) => {
         :hasExcelDownload="true"
         :exportRoute="exportRoute"
     >
-        <!-- Persistent Skipped Items Message (only shown for 15 or fewer items) -->
-        <div v-if="persistentSkippedItemsMessage && skippedItems.length <= 15" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong class="font-bold">Import Warnings:</strong>
-            <span class="block sm:inline whitespace-pre-line">{{ persistentSkippedItemsMessage }}</span>
-            
-            <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" @click="persistentSkippedItemsMessage = ''">
-                <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
-            </span>
-        </div>
-
-        <!-- Download button (always shown when there are skipped items) -->
-        <div v-if="skippedItems.length > 0" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4" role="alert">
-            <strong class="font-bold">Import Summary:</strong>
-            <span class="block sm:inline"> {{ skippedItems.length }} items were skipped during import.</span>
-            
-            <button 
-                @click="downloadSkippedItems"
-                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
-            >
-                Download Skipped Items Report
-            </button>
-
-            <p class="text-sm mt-2">
-                Common reasons for skipped items:
-                <ul class="list-disc list-inside text-sm ml-4">
-                    <li>Item already exists in the database with no changes</li>
-                    <li>Missing Item Code or Item Name</li>
-                    <li>Invalid data format</li>
-                </ul>
-            </p>
+        <!-- Rows of the last upload that were not imported, each with its reason -->
+        <div v-if="skippedItems.length > 0" class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded mb-4" role="alert">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                    <strong class="font-bold">{{ skippedItems.length }} rows of the file were not imported.</strong>
+                    <span class="block text-sm">Correct them in the file and upload it again.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button
+                        @click="downloadSkippedItems"
+                        class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1 px-2 rounded text-sm"
+                    >
+                        Download List
+                    </button>
+                    <button @click="skippedItems = []" class="text-amber-700 hover:text-amber-900 text-sm font-bold px-2" aria-label="Close">
+                        Close
+                    </button>
+                </div>
+            </div>
+            <div class="mt-2 max-h-64 overflow-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left border-b border-amber-300">
+                            <th class="py-1 pr-3">Row</th>
+                            <th class="py-1 pr-3">Item Code</th>
+                            <th class="py-1 pr-3">Bulk UOM</th>
+                            <th class="py-1">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in skippedItems" :key="item.row_number" class="border-b border-amber-100 align-top">
+                            <td class="py-1 pr-3">{{ item.row_number }}</td>
+                            <td class="py-1 pr-3">{{ item.item_code || 'N/A' }}</td>
+                            <td class="py-1 pr-3">{{ item.uom || 'N/A' }}</td>
+                            <td class="py-1">{{ item.reason }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <template #header-actions v-if="hasAccess('import month end count templates')">

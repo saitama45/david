@@ -129,6 +129,7 @@ class MonthEndCountTemplateController extends Controller
 
             $createdCount = $import->getCreatedCount();
             $updatedCount = $import->getUpdatedCount();
+            $unchangedCount = $import->getUnchangedCount();
             $skippedRows = $import->getSkippedRows();
             $collectionCalled = $import->getCollectionCalled();
             $reactivatedCount = $import->getReactivatedCount();
@@ -152,6 +153,9 @@ class MonthEndCountTemplateController extends Controller
             if ($updatedCount > 0) {
                 $message[] = "{$updatedCount} templates updated.";
             }
+            if ($unchangedCount > 0) {
+                $message[] = "{$unchangedCount} templates unchanged.";
+            }
             if ($reactivatedCount > 0) {
                 $message[] = "{$reactivatedCount} templates reactivated.";
             }
@@ -162,11 +166,9 @@ class MonthEndCountTemplateController extends Controller
             $redirect = back();
 
             if (!empty($skippedRows)) {
+                // The page lists each skipped row with its reason.
                 $redirect->with('skippedItems', $skippedRows);
-                // Add a generic message if no other message is present
-                if (empty($message)) {
-                    $message[] = 'Import processed with some skipped rows.';
-                }
+                $message[] = count($skippedRows) . ' rows were not imported.';
             }
             
             if (!$collectionCalled) {
