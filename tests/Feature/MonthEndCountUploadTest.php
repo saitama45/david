@@ -37,15 +37,19 @@ function mecUploadFixture(): array
     return compact('user', 'store', 'schedule');
 }
 
-/** Uploads the store's filled-in count sheet: lines of [item code, conversion, bulk qty, loose qty]. */
-function uploadMecCount(array $f, array $lines, bool $withCurrentSoh = true)
+/**
+ * Uploads the store's filled-in count sheet: lines of [item code, conversion, bulk qty, loose qty, classification?].
+ * $classificationHeading writes that column under another heading, as a template downloaded before the rename.
+ */
+function uploadMecCount(array $f, array $lines, bool $withCurrentSoh = true, string $classificationHeading = 'Classification')
 {
     $rows = collect($lines)->map(function (array $line) use ($withCurrentSoh) {
         [$code, $conversion, $bulk, $loose] = $line;
+        $classification = $line[4] ?? '';
         SAPMasterfile::create(['ItemCode' => $code, 'ItemDescription' => $code, 'AltQty' => 1, 'BaseQty' => 1, 'AltUOM' => 'Case', 'BaseUOM' => 'Case', 'is_active' => true]);
 
         return [
-            'Item Code' => $code, 'Item Name' => $code, 'Category 1' => '', 'Area' => '', 'Category 2' => '',
+            'Item Code' => $code, 'Item Name' => $code, 'Classification' => $classification, 'Area' => '', 'Category 2' => '',
             'Packaging' => '', 'Conversion' => $conversion, 'Bulk UOM' => 'Case', 'Loose UOM' => 'Gm',
             ...($withCurrentSoh ? ['Current SOH' => 7] : []),
             'Bulk Qty' => $bulk, 'Loose Qty' => $loose, 'Remarks' => '',
@@ -53,7 +57,19 @@ function uploadMecCount(array $f, array $lines, bool $withCurrentSoh = true)
     });
 
     $path = tempnam(sys_get_temp_dir(), 'mec');
-    file_put_contents($path, Excel::raw(new MonthEndCountDownloadExport($rows, $withCurrentSoh), \Maatwebsite\Excel\Excel::XLSX));
+    $export = new class($rows, $withCurrentSoh, $classificationHeading) extends MonthEndCountDownloadExport
+    {
+        public function __construct(\Illuminate\Support\Collection $items, bool $withCurrentSoh, private string $classificationHeading)
+        {
+            parent::__construct($items, $withCurrentSoh);
+        }
+
+        public function headings(): array
+        {
+            return array_map(fn ($h) => $h === 'Classification' ? $this->classificationHeading : $h, parent::headings());
+        }
+    };
+    file_put_contents($path, Excel::raw($export, \Maatwebsite\Excel\Excel::XLSX));
 
     test()->actingAs($f['user']);
 
@@ -117,4 +133,22 @@ it('still uploads a template downloaded while it had the Current SOH column', fu
     expect(session('errors')?->get('error'))->toBeNull()
         ->and($cups->total_qty)->toBe('1.3333')
         ->and($cups->current_soh)->toEqual(7);
+});
+
+it('saves each line\'s Classification from the template', function () {
+    $f = mecUploadFixture();
+
+    uploadMecCount($f, [['RM-SUGAR', 1000, 2, 500, 'DRY GOODS']]);
+
+    expect(session('errors')?->get('error'))->toBeNull()
+        ->and(MonthEndCountItem::where('item_code', 'RM-SUGAR')->sole()->category)->toBe('DRY GOODS');
+});
+
+it('still reads the Classification of a template downloaded while the column was headed Category 1', function () {
+    $f = mecUploadFixture();
+
+    uploadMecCount($f, [['RM-SUGAR', 1000, 2, 500, 'DRY GOODS']], classificationHeading: 'Category 1');
+
+    expect(session('errors')?->get('error'))->toBeNull()
+        ->and(MonthEndCountItem::where('item_code', 'RM-SUGAR')->sole()->category)->toBe('DRY GOODS');
 });

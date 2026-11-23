@@ -104,7 +104,7 @@ const form = useForm({
                         <FormError>{{ form.errors.item_name }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <LabelXS>Category 1</LabelXS>
+                        <LabelXS>Classification</LabelXS>
                         <Input v-model="form.category" />
                         <FormError>{{ form.errors.category }}</FormError>
                     </InputContainer>

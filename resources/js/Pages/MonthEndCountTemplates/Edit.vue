@@ -109,7 +109,7 @@ const handleCancel = () => {
                         <FormError>{{ form.errors.item_name }}</FormError>
                     </InputContainer>
                     <InputContainer>
-                        <Label>Category 1</Label>
+                        <Label>Classification</Label>
                         <Input v-model="form.category" />
                         <FormError>{{ form.errors.category }}</FormError>
                     </InputContainer>

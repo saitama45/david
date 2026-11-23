@@ -198,7 +198,7 @@ class MonthEndCountTemplateController extends Controller
 
             // Add specific guidance for common issues
             if (strpos($e->getMessage(), 'heading') !== false) {
-                $errorMessage .= ' Please ensure your Excel file has the correct column headers: Item Code, Item Name, Category 1, Area, Category 2, Packaging, Conversion, Bulk UOM, Loose UOM.';
+                $errorMessage .= ' Please ensure your Excel file has the correct column headers: Item Code, Item Name, Classification, Area, Category 2, Packaging, Conversion, Bulk UOM, Loose UOM.';
             } elseif (strpos($e->getMessage(), 'required') !== false) {
                 $errorMessage .= ' Please check that Item Code and Item Name columns are not empty.';
             }
@@ -214,8 +214,8 @@ class MonthEndCountTemplateController extends Controller
         // Create a simple template file if it doesn't exist
         if (!file_exists($path)) {
             $templateData = [
-                ['Item Code', 'Item Name', 'Category 1', 'Area', 'Category 2', 'Packaging', 'Conversion', 'Bulk UOM', 'Loose UOM'],
-                ['EXAMPLE001', 'Example Item', 'Example Category 1', 'Example Area', 'Example Category 2', 'Example Packaging', '1', 'PCS', 'PCS'],
+                ['Item Code', 'Item Name', 'Classification', 'Area', 'Category 2', 'Packaging', 'Conversion', 'Bulk UOM', 'Loose UOM'],
+                ['EXAMPLE001', 'Example Item', 'Example Classification', 'Example Area', 'Example Category 2', 'Example Packaging', '1', 'PCS', 'PCS'],
             ];
 
             Excel::download(new class($templateData) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings {

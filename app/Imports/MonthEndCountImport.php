@@ -105,7 +105,8 @@ class MonthEndCountImport implements ToCollection, WithHeadingRow
                     'item_name' => $row['item_name'] ?? 'N/A',
                     'area' => $row['area'] ?? null,
                     'category2' => $row['category_2'] ?? null, // Fixed key
-                    'category' => $row['category_1'] ?? null, // Fixed key
+                    // Headed "Category 1" until 2026-11-23; templates downloaded before still upload.
+                    'category' => $row['classification'] ?? $row['category_1'] ?? null,
                     'brand' => null, // Removed 'brand' from import
                     'packaging_config' => $row['packaging'] ?? null, // Fixed key
                     'config' => $config,

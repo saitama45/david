@@ -40,7 +40,7 @@ class MonthEndCountDownloadExport implements FromCollection, WithHeadings, WithS
         return [
             'Item Code',
             'Item Name',
-            'Category 1',
+            'Classification',
             'Area',
             'Category 2',
             'Packaging',

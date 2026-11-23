@@ -301,7 +301,7 @@ const formatDateTime = (dateString) => {
                     <TH>Id</TH>
                     <TH>Item Code</TH>
                     <TH>Item Name</TH>
-                    <TH>Category 1</TH>
+                    <TH>Classification</TH>
                     <TH>Area</TH>
                     <TH>Category 2</TH>
                     <TH>Packaging</TH>
@@ -383,7 +383,7 @@ const formatDateTime = (dateString) => {
                         />
                     </MobileTableHeading>
                     <LabelXS>Item Code: {{ template.item_code }}</LabelXS>
-                    <LabelXS>Category 1: {{ template.category || 'N/A' }}</LabelXS>
+                    <LabelXS>Classification: {{ template.category || 'N/A' }}</LabelXS>
                     <LabelXS>Area: {{ template.area || 'N/A' }}</LabelXS>
                     <LabelXS>Category 2: {{ template.category_2 || 'N/A' }}</LabelXS>
                     <LabelXS>Packaging: {{ template.packaging_config || 'N/A' }}</LabelXS>

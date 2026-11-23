@@ -180,7 +180,7 @@ const branchStatus = computed(() => {
                     <TableHead class="sticky top-0 z-10 bg-gray-100">
                         <TH>Item Code</TH>
                         <TH>Item Name</TH>
-                        <TH>Category 1</TH>
+                        <TH>Classification</TH>
                         <TH>Area</TH>
                         <TH>Category 2</TH>
                         <TH>Packaging</TH>

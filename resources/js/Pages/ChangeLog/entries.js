@@ -15,6 +15,25 @@
 //   affects  who will notice the change
 
 export const changeLog = [
+    // ---------------------------------------------------------------- November 23, 2026
+    {
+        date: '2026-11-23',
+        module: 'Month End Count Templates',
+        type: 'improved',
+        title: 'The Category 1 column is now called Classification',
+        summary:
+            'The column that was headed Category 1 is now headed Classification, everywhere it appears. Only the name changed: the values already saved are kept as they are, and Category 2 keeps its name.',
+        steps: [
+            'On Month End Count Templates, the list, the Create and Edit forms, the Excel export and the upload template show Classification.',
+            'On Month End Count, the template the store downloads has a Classification column, and Month End Count Review shows it under the same name.',
+            'MEC Approval 1st Level and MEC Approval 2nd Level show the column as Classification.',
+        ],
+        rules: [
+            'A file saved before the change, with its column still headed Category 1, can still be uploaded. Its values are read as the Classification.',
+        ],
+        affects: 'Office users who keep the Month End Count Templates, store users who take the count, and the approvers of both levels.',
+    },
+
     // ---------------------------------------------------------------- November 22, 2026
     {
         date: '2026-11-22',

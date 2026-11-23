@@ -38,9 +38,11 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
     private array $columnMapping = [
         'Item Code' => 'item_code',
         'Item Name' => 'item_name',
-        'Category 1' => 'category_1',
-        'Category1' => 'category_1',
-        'category_1' => 'category_1',
+        'Classification' => 'classification',
+        'classification' => 'classification',
+        'Category 1' => 'classification',
+        'Category1' => 'classification',
+        'category_1' => 'classification',
         'Area' => 'area',
         'Category 2' => 'category_2',
         'Category2' => 'category_2',
@@ -132,7 +134,7 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
             'conversion' => 'nullable|numeric',
             'area' => 'nullable|string|max:255',
             'category_2' => 'nullable|string|max:255',
-            'category_1' => 'nullable|string|max:255',
+            'classification' => 'nullable|string|max:255',
             'packaging' => 'nullable|string|max:255',
             'bulk_uom' => 'nullable|string|max:255',
             'loose_uom' => 'nullable|string|max:255',
@@ -150,6 +152,11 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
         foreach ($rows as $rowIndex => $row) {
             $originalRowNumber = $this->startRow() + $rowIndex;
             $rowData = $row->toArray();
+
+            // Classification was headed "Category 1" until 2026-11-23; files saved before still import.
+            if (! array_key_exists('classification', $rowData) && array_key_exists('category_1', $rowData)) {
+                $rowData['classification'] = $rowData['category_1'];
+            }
             
             Log::debug('Import: Processing row', ['original_row_number' => $originalRowNumber, 'raw_data' => $rowData]);
 
@@ -238,7 +245,7 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
                 'item_name'        => $itemName,
                 'area'             => Arr::get($row, 'area'),
                 'category_2'       => Arr::get($row, 'category_2'),
-                'category'         => Arr::get($row, 'category_1'),
+                'category'         => Arr::get($rowData, 'classification'),
                 'packaging_config' => Arr::get($row, 'packaging'),
                 'config'           => $parsedConversion,
                 'loose_uom'        => Arr::get($row, 'loose_uom'),
@@ -370,7 +377,7 @@ class MonthEndCountTemplatesImport implements ToCollection, WithHeadingRow, With
         $reverseMapping = [
             'item_code' => 'Item Code',
             'item_name' => 'Item Name',
-            'category_1' => 'Category 1',
+            'classification' => 'Classification',
             'area' => 'Area',
             'category_2' => 'Category 2',
             'packaging' => 'Packaging',

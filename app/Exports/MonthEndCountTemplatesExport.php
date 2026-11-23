@@ -42,7 +42,7 @@ class MonthEndCountTemplatesExport implements FromQuery, WithHeadings, WithMappi
         return [
             'Item Code',
             'Item Name',
-            'Category 1',
+            'Classification',
             'Area',
             'Category 2',
             'Packaging',

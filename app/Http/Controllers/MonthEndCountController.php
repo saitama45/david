@@ -442,7 +442,7 @@ class MonthEndCountController extends Controller
             $row = [
                 'Item Code' => $template->item_code,
                 'Item Name' => $template->item_name,
-                'Category 1' => $template->category,
+                'Classification' => $template->category,
                 'Area' => $template->area,
                 'Category 2' => $template->category_2,
                 'Packaging' => $template->packaging_config,
