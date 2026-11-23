@@ -795,6 +795,18 @@ const addToOrdersButton = () => {
 
     if (existingItemIndex !== -1) {
         const existingItem = orderForm.orders[existingItemIndex];
+        // An order keeps one line per item, so another unit would add its quantity to this
+        // line at that unit's price (Gm at 0.19 onto a Pack line).
+        const existingUnit = String(existingItem.uom ?? existingItem.unit_of_measurement ?? "").trim();
+        if (existingUnit.toUpperCase() !== String(productDetails.uom ?? "").trim().toUpperCase()) {
+            toast.add({
+                severity: "error",
+                summary: "Validation Error",
+                detail: `${existingItem.name} is already on this order in ${existingUnit}. Change the quantity of that line instead: an order holds each item in one unit.`,
+                life: 6000,
+            });
+            return;
+        }
         const newTotalQuantity = existingItem.quantity + currentQuantity;
 
         const effectiveBaseQtyForExistingItem = Number(existingItem.base_qty) > 0 ? Number(existingItem.base_qty) : 1;
@@ -920,15 +932,17 @@ const update = () => {
     }
 };
 
-watch(productId, async (itemCode) => {
-    if (itemCode) {
+watch(productId, async (selectedValue) => {
+    if (selectedValue) {
         isLoading.value = true;
-        itemForm.item = itemCode;
 
         try {
+            // An option is one item in one unit (Pack and Gm are separate, each at its own cost).
             const selectedProduct = availableProductsOptions.value.find((option) =>
-                String(option.value) === String(itemCode)
+                String(option.value) === String(selectedValue)
             );
+            const itemCode = selectedProduct?.itemCode ?? selectedValue;
+            itemForm.item = itemCode;
             const supplierCode = selectedProduct?.supplierCode || selectedProduct?.supplier_code || orderForm.supplier_id;
 
             if (!supplierCode) {
@@ -944,7 +958,8 @@ watch(productId, async (itemCode) => {
 
             const response = await axios.get(route("SupplierItems.get-details-by-code", {
                 itemCode: itemCode,
-                supplierCode: supplierCode
+                supplierCode: supplierCode,
+                ...(selectedProduct?.uom ? { uom: selectedProduct.uom } : {}),
             }));
             const result = response.data.item;
 

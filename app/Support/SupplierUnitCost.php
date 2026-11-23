@@ -19,18 +19,28 @@ final class SupplierUnitCost
     {
         $itemCodes = collect($itemCodes)->map(fn ($itemCode) => (string) $itemCode)->unique()->values();
 
-        $costs = SupplierItems::where('is_active', true)
+        return self::fromRows(SupplierItems::where('is_active', true)
             // A whole count's item list is slow to bind and can pass SQL Server's 2100
             // parameters: every priced item is read instead, and the rest are never looked up.
             ->when($itemCodes->count() <= 200, fn ($query) => $query->whereIn('ItemCode', $itemCodes->all()))
             ->orderBy('id')
-            ->get(['ItemCode', 'uom', 'cost'])
+            ->get(['ItemCode', 'uom', 'cost']));
+    }
+
+    /**
+     * Prices from the supplier items given, the preferred first: each unit keeps the cost of
+     * its first row. Mass Orders passes its template's own catalogue, so no other supplier's
+     * price fills in.
+     *
+     * @param  iterable<object>  $rows  supplier items with ItemCode, uom and cost
+     */
+    public static function fromRows(iterable $rows): self
+    {
+        return new self(collect($rows)
             ->groupBy('ItemCode')
             ->map(fn ($rows) => $rows->filter(fn ($row) => trim((string) $row->uom) !== '' && (float) $row->cost > 0)
                 ->unique(fn ($row) => strtoupper(trim($row->uom)))
-                ->mapWithKeys(fn ($row) => [strtoupper(trim($row->uom)) => (float) $row->cost]));
-
-        return new self($costs);
+                ->mapWithKeys(fn ($row) => [strtoupper(trim($row->uom)) => (float) $row->cost])));
     }
 
     /**

@@ -334,6 +334,9 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   Item pickers and stock lists offer **every unit** (Gm has no Gm/Gm row) once each via
   `ItemStockUnit::onePerUnit()` - never filter to `BaseUOM = AltUOM` rows. Price a unit with
   `App\Support\SupplierUnitCost` (supplier cost is per ItemCode + uom), never by ItemCode alone.
+  The Mass Orders upload priced a Pack line with the Gm row (0.19 for 187) until 2026-11-23; it now uses
+  `SupplierUnitCost::fromRows()` over the template's catalogue. Still by ItemCode alone: DTS, Store Orders,
+  CS Mass Commits edits and `OrderListImport`. Mass Orders Edit holds one line per ItemCode (`updateOrder()`).
 - **SAP import key is ItemCode + AltUOM + BaseUOM** (per entity). SAP restates a pack in a second
   base (Case = 48 Can and Case = 18720 Gm); both rows import. A second base is still refused unless
   the file gave that same AltUOM under the accepted base first. Stored blank-BaseUOM pairs match without it.

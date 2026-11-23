@@ -8,6 +8,8 @@ use App\Models\StoreBranch;
 use App\Models\StoreOrder;
 use App\Models\Supplier;
 use App\Models\SupplierItems;
+use App\Support\ItemStockUnit;
+use App\Support\SupplierUnitCost;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -56,24 +58,21 @@ class MassOrderService
             throw new Exception('No store brand columns found that match existing stores in the database.');
         }
 
+        // An unrestricted template (AO, EO, ALOC) prices from the commissary catalogue it offers.
+        $catalogueCodes = SupplierItems::catalogueCodesFor($supplierCode);
+
         $ordersToCreate = [];
         foreach ($rows as $row) {
+            $cost = null; // the cost column is gone from the template; priced once per row
             foreach ($brandCodeHeaderMap as $headerKey => $realBrandCode) {
                 $quantity = (float) $row[$headerKey];
                 if ($quantity > 0) {
-                    // Get cost from database since cost column is removed from template. An
-                    // unrestricted template (AO, EO, ALOC) prices from the commissary catalogue
-                    // it offers, the line's unit first.
-                    $catalogueCodes = SupplierItems::catalogueCodesFor($supplierCode);
-                    $supplierItem = SupplierItems::where('ItemCode', $row['item_code'])
-                        ->whereIn('SupplierCode', $catalogueCodes)
-                        ->when(count($catalogueCodes) > 1, fn ($q) => $q->orderByRaw('CASE WHEN [uom] = ? THEN 0 ELSE 1 END', [$row['unit']]))
-                        ->first();
+                    $cost ??= $this->unitCost((string) $row['item_code'], (string) $row['unit'], $catalogueCodes);
 
                     $ordersToCreate[$realBrandCode][] = [
                         'item_code' => $row['item_code'],
                         'quantity' => $quantity,
-                        'cost' => $supplierItem ? (float) $supplierItem->cost : 0,
+                        'cost' => $cost,
                         'uom' => $row['unit'],
                     ];
                 }
@@ -184,6 +183,25 @@ class MassOrderService
      *
      * @return array{order: StoreOrder, orderedItems: \Illuminate\Support\Collection, receiveDatesHistory: \Illuminate\Support\Collection, images: \Illuminate\Support\Collection}
      */
+    /**
+     * The cost of one $unit of the item from the template's catalogue. A supplier lists an item
+     * once per unit, each at its own cost (Frozen - Strawberry: Pack 187, Gm 0.19), so a Pack line
+     * costs 187: the row in the line's unit, else another unit's cost converted through the SAP
+     * factors, else 0 - never another unit's cost as it stands (a Pack line once cost 0.19).
+     */
+    private function unitCost(string $itemCode, string $unit, array $catalogueCodes): float
+    {
+        $prices = SupplierUnitCost::fromRows(SupplierItems::where('ItemCode', $itemCode)
+            ->whereIn('SupplierCode', $catalogueCodes)
+            ->orderByDesc('is_active')
+            ->orderBy('id')
+            ->get(['ItemCode', 'uom', 'cost']));
+
+        return $prices->find($itemCode, null, $unit)
+            ?? $prices->find($itemCode, ItemStockUnit::forItem($itemCode), $unit)
+            ?? 0.0;
+    }
+
     public function orderDetails(string $orderNumber): array
     {
         // Increase execution time and memory limits for large datasets

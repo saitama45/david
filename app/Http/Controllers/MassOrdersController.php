@@ -457,8 +457,12 @@ class MassOrdersController extends Controller
             ->values()
             ->map(function ($item) {
                 return [
-                    'value' => (string) $item->ItemCode,
+                    // One option per item and unit: Frozen - Strawberry is listed in Pack and in Gm,
+                    // each at its own cost, and an Item Code alone picked the wrong one.
+                    'value' => "{$item->SupplierCode}|{$item->ItemCode}|{$item->uom}",
                     'label' => "{$item->item_name} ({$item->ItemCode}) {$item->uom}",
+                    'itemCode' => (string) $item->ItemCode,
+                    'uom' => $item->uom,
                     'supplierCode' => $item->SupplierCode,
                 ];
             })

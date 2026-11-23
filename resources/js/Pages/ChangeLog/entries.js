@@ -18,6 +18,21 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 23, 2026
     {
         date: '2026-11-23',
+        module: 'Mass Orders',
+        type: 'improved',
+        title: 'Mass Orders uses the cost of the unit ordered, also for an item listed in more than one unit',
+        summary:
+            'When a supplier lists an item in two units, each at its own cost, an uploaded order line could take the cost of the other unit. Frozen - Strawberry ordered in Pack was costed 0.19, the cost of one Gm, instead of 187, the cost of one Pack. Each line now takes the cost of its own unit, and Add Item on the order edit page lists each unit as its own choice.',
+        rules: [
+            'The cost of a line is the Supplier Items cost of the item in the unit of that line.',
+            'When the supplier has no cost for that unit, the cost of another unit of the same item is converted through the SAP Masterlist: 0.06 per Gm is 60.00 per Pack of 1,000 Gm. When neither exists, the cost is left at 0.',
+            'An order holds each item in one unit. Add to Orders refuses an item that is already on the order in another unit, and says which unit to change instead.',
+            'Orders uploaded before this change keep the cost they were saved with.',
+        ],
+        affects: 'Office users who upload and edit Mass Orders, mostly for TC items listed in more than one unit.',
+    },
+    {
+        date: '2026-11-23',
         module: 'Inventory Movement Report',
         type: 'improved',
         title: 'Inventory Movement Report shows every item in its SAP base unit, also when SAP gives that unit only in a conversion',

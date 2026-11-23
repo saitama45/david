@@ -442,9 +442,17 @@ class SupplierItemsController extends Controller
 
     public function getDetailsByItemCodeAndSupplierCode($itemCode, $supplierCode)
     {
+        // A supplier lists an item once per unit, each at its own cost: the unit asked for
+        // (?uom=Pack) comes first, so a Pack is never given the Gm row's price.
+        $uom = strtoupper(trim((string) request()->query('uom', '')));
+
         // Eager load sapMasterfiles (plural) so the accessor can filter it
         $item = SupplierItems::where('ItemCode', $itemCode)
                             ->where('SupplierCode', $supplierCode)
+                            ->when($uom !== '', fn ($query) => $query
+                                ->orderByRaw('CASE WHEN UPPER(LTRIM(RTRIM([uom]))) = ? THEN 0 ELSE 1 END', [$uom])
+                                ->orderByDesc('is_active')
+                                ->orderBy('id'))
                             ->with(['sapMasterfiles' => function($q) {
                                 // IMPORTANT FIX: Include 'BaseQty' in the select statement
                                 $q->select('id', 'ItemCode', 'BaseUOM', 'AltUOM', 'BaseQty');
