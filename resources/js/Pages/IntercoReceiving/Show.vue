@@ -31,6 +31,7 @@ const toast = useToast();
 const confirm = useConfirm();
 
 import { useBackButton } from "@/composables/useBackButton";
+import { shrinkReceiptPhoto, formatBytes } from "@/lib/imageCompression";
 
 const { backButton } = useBackButton(route("interco-receiving.index"));
 
@@ -169,6 +170,7 @@ const closeImageModal = () => {
     isImageModalVisible.value = false;
     imageUploadForm.reset();
     imagePreviewUrl.value = null;
+    imageShrinkNote.value = null;
     imageUploadForm.clearErrors();
 };
 
@@ -206,13 +208,31 @@ const imageUploadForm = useForm({
     image: null,
 });
 
-// New ref and function to handle image preview before uploading.
+// A phone photo of the delivery receipt is shrunk in the browser before it is uploaded, so it
+// fits the 2 MB limit and a large photo no longer has to be resized by the store first.
 const imagePreviewUrl = ref(null);
-const onFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-        imageUploadForm.image = file;
-        imagePreviewUrl.value = URL.createObjectURL(file);
+const preparingImage = ref(false);
+const imageShrinkNote = ref(null);
+const onFileChange = async (event) => {
+    const picked = event.target.files?.[0];
+    imageUploadForm.clearErrors();
+    imageUploadForm.image = null;
+    imagePreviewUrl.value = null;
+    imageShrinkNote.value = null;
+    if (!picked) return;
+
+    preparingImage.value = true;
+    try {
+        const result = await shrinkReceiptPhoto(picked);
+        imageUploadForm.image = result.file;
+        imagePreviewUrl.value = URL.createObjectURL(result.file);
+        if (result.compressed) {
+            imageShrinkNote.value = `Photo made smaller for upload: ${formatBytes(result.originalSize)} to ${formatBytes(result.size)}.`;
+        }
+    } catch (error) {
+        imageUploadForm.setError("image", `${picked.name} could not be read as a photo. Choose a JPG or PNG image.`);
+    } finally {
+        preparingImage.value = false;
     }
 };
 
@@ -897,6 +917,9 @@ const promptFinalReceive = () => {
                             accept="image/png, image/jpeg, image/jpg"
                             class="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
+                        <p v-if="preparingImage" class="text-xs text-gray-600" data-testid="image-preparing">Making the photo smaller for upload...</p>
+                        <p v-else-if="imageShrinkNote" class="text-xs text-gray-500" data-testid="image-shrink-note">{{ imageShrinkNote }}</p>
+                        <p v-else class="text-xs text-gray-400">A large phone photo is made smaller automatically.</p>
                         <FormError>{{ imageUploadForm.errors.image }}</FormError>
                     </InputContainer>
                     <!-- Image preview container -->
@@ -909,7 +932,7 @@ const promptFinalReceive = () => {
                 <!-- Footer -->
                 <div class="flex justify-end items-center mt-6 space-x-2">
                     <Button variant="ghost" @click="closeImageModal">Cancel</Button>
-                    <Button @click="submitImageUpload" :disabled="imageUploadForm.processing">
+                    <Button @click="submitImageUpload" :disabled="!imageUploadForm.image || preparingImage || imageUploadForm.processing">
                         <span v-if="imageUploadForm.processing">Uploading...</span>
                         <span v-else>Upload</span>
                     </Button>

@@ -10,7 +10,7 @@ import utc from "dayjs/plugin/utc"; // Import UTC plugin
 import timezone from "dayjs/plugin/timezone"; // Import Timezone plugin
 import { useBackButton } from "@/composables/useBackButton";
 import { useAuth } from "@/composables/useAuth";
-import { compressImageFile } from "@/lib/imageCompression";
+import { shrinkReceiptPhoto, formatBytes } from "@/lib/imageCompression";
 import CpoVendorPicker from "@/components/CpoVendorPicker.vue";
 import {
     Dialog,
@@ -232,13 +232,32 @@ const imageUploadForm = useForm({
     image: null,
 });
 
-// New ref and function to handle image preview before uploading.
+// A phone photo of the delivery receipt is shrunk in the browser before it is uploaded, so it
+// fits the 2 MB limit and a large photo no longer has to be resized by the store first.
 const imagePreviewUrl = ref(null);
-const onFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-        imageUploadForm.image = file;
-        imagePreviewUrl.value = URL.createObjectURL(file);
+const preparingImage = ref(false);
+const imageShrinkNote = ref(null);
+const onFileChange = async (event) => {
+    const picked = event.target.files?.[0];
+    event.target.value = "";
+    imageUploadForm.clearErrors();
+    imageShrinkNote.value = null;
+    if (!picked) return;
+
+    preparingImage.value = true;
+    try {
+        const result = await shrinkReceiptPhoto(picked);
+        imageUploadForm.image = result.file;
+        imagePreviewUrl.value = URL.createObjectURL(result.file);
+        if (result.compressed) {
+            imageShrinkNote.value = `Photo made smaller for upload: ${formatBytes(result.originalSize)} to ${formatBytes(result.size)}.`;
+        }
+    } catch (error) {
+        imageUploadForm.image = null;
+        imagePreviewUrl.value = null;
+        imageUploadForm.setError("image", `${picked.name} could not be read as a photo. Choose a JPG or PNG image.`);
+    } finally {
+        preparingImage.value = false;
     }
 };
 
@@ -255,6 +274,7 @@ const submitImageUpload = () => {
             isImageUploadModalVisible.value = false;
             imageUploadForm.reset();
             imagePreviewUrl.value = null;
+            imageShrinkNote.value = null;
         },
         onError: (errors) => {
             // Display the first validation error message
@@ -352,9 +372,9 @@ const onInvoiceFileChange = async (event) => {
     const maxBytes = props.cpoInvoice.maxMb * 1024 * 1024;
     preparingInvoice.value = true;
     try {
-        // Phone photos are shrunk in the browser to fit the size limit.
+        // Phone photos are shrunk in the browser before upload; a PDF is sent as it is.
         const file = isImageFile(picked)
-            ? (await compressImageFile(picked, { maxSizeBytes: maxBytes })).file
+            ? (await shrinkReceiptPhoto(picked)).file
             : picked;
         if (file.size > maxBytes) {
             invoiceForm.setError("file", `${picked.name} is larger than ${props.cpoInvoice.maxMb} MB.`);
@@ -2285,23 +2305,27 @@ const promptFinalReceive = () => {
                             accept="image/png, image/jpeg, image/jpg"
                             class="hidden"
                         />
-                        <div v-if="!imagePreviewUrl" class="flex flex-col items-center">
+                        <div v-if="preparingImage" class="flex flex-col items-center text-sm text-gray-600" data-testid="image-preparing">
+                            Making the photo smaller for upload...
+                        </div>
+                        <div v-else-if="!imagePreviewUrl" class="flex flex-col items-center">
                             <svg class="size-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                             <span class="text-sm font-medium text-gray-600">Click to select image</span>
-                            <span class="text-xs text-gray-400 mt-1">or drag and drop here</span>
+                            <span class="text-xs text-gray-400 mt-1">A large phone photo is made smaller automatically.</span>
                         </div>
                         <div v-else class="relative w-full max-h-64 overflow-hidden rounded">
                              <img :src="imagePreviewUrl" class="w-full h-auto object-contain" />
-                             <button @click.stop="imagePreviewUrl = null; imageUploadForm.image = null;" class="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70">
+                             <button @click.stop="imagePreviewUrl = null; imageUploadForm.image = null; imageShrinkNote = null;" class="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70">
                                  <X class="size-4" />
                              </button>
                         </div>
                     </div>
+                    <p v-if="imageShrinkNote" class="text-xs text-gray-500" data-testid="image-shrink-note">{{ imageShrinkNote }}</p>
                     <FormError>{{ imageUploadForm.errors.image }}</FormError>
                 </div>
                 <div class="flex justify-end items-center gap-3 mt-8">
                     <Button variant="ghost" @click="isImageUploadModalVisible = false">Cancel</Button>
-                    <Button @click="submitImageUpload" :disabled="!imageUploadForm.image || imageUploadForm.processing">
+                    <Button @click="submitImageUpload" :disabled="!imageUploadForm.image || preparingImage || imageUploadForm.processing">
                         <span v-if="imageUploadForm.processing">Uploading...</span>
                         <span v-else>Upload Image</span>
                     </Button>

@@ -18,6 +18,26 @@ export const changeLog = [
     // ---------------------------------------------------------------- November 23, 2026
     {
         date: '2026-11-23',
+        module: 'Inbound Orders',
+        type: 'improved',
+        title: 'Upload Image and Attach Image make a large phone photo of the delivery receipt smaller automatically',
+        summary:
+            'A phone photo of a delivery receipt is usually 3 to 12 MB, and Image Attachments takes at most 2 MB, so the upload was refused as too large and the store had to resize the photo first. The photo is now made smaller on the device before it is uploaded: a 10 MB photo becomes less than 1 MB and stays readable. This applies to Upload Image in Inbound Orders, Attach Image in Interco Receiving and a photo chosen in Upload Invoice / Receipt.',
+        steps: [
+            'Open the delivery in Inbound Orders (or the transfer in Interco Receiving).',
+            'Click Upload Image (Attach Image in Interco Receiving) and choose the photo of the delivery receipt.',
+            'The page shows "Making the photo smaller for upload..." for a moment, then the preview and how much smaller the photo became.',
+            'Click Upload Image (Upload in Interco Receiving).',
+        ],
+        rules: [
+            'Only photos (JPG or PNG) are made smaller. A photo that is already small is uploaded as it is.',
+            'A PDF is not made smaller. Image Attachments still takes photos only, and Upload Invoice / Receipt takes a PDF of up to 5 MB as it is.',
+            'The upload button stays off until the photo is ready.',
+        ],
+        affects: 'Store users who upload delivery receipts in Inbound Orders and Interco Receiving.',
+    },
+    {
+        date: '2026-11-23',
         module: 'Email Notifications',
         type: 'new',
         title: '"Wastage approved" email: the store\'s Wastage Approval Email is told when a wastage gets its final approval',

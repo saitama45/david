@@ -94,6 +94,13 @@ tunes php-fpm worker limits, ensures the `storage:link` symlink, runs migrations
 seeder, and starts the imports worker and reconciler. [default.conf](../../default.conf) and
 [web.config](../../web.config) hold the server configs.
 
+**The production upload size limit is unproven.** `default.conf` sets no `client_max_body_size` (nginx's
+default is 1 MB) and Azure's PHP `upload_max_filesize` is not set by the repo; on 2026-11-23 no CPO invoice
+on prod was larger than 0.86 MB. So receipt photos are shrunk in the browser to under 900 KB before upload
+(`shrinkReceiptPhoto()` in `resources/js/lib/imageCompression.js`: Inbound Orders Upload Image and Upload
+Invoice / Receipt, Interco Receiving Attach Image). A PDF is sent as it is. Confirm the real limit before
+raising any upload cap or accepting larger files.
+
 The same build is also sent by FTP to **site10** (MonsterASP, Windows / IIS), the `deploy_ftp` job of
 [main.yaml](../../.github/workflows/main.yaml). There a PHP file a live request is reading cannot be
 overwritten, and the server answers `550 Could not access file: driver error: calling GetHandle: failure`

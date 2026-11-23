@@ -15,6 +15,14 @@ const DEFAULTS = {
   mimeType: 'image/jpeg',
 }
 
+/**
+ * A delivery receipt / invoice photo is shrunk to this before it is uploaded: well under the
+ * server's 2 MB rule for Image Attachments, and under 1 MB so the web server's default request
+ * limit cannot refuse it. At 2048 px on the longest edge a receipt stays readable.
+ */
+export const RECEIPT_PHOTO_MAX_BYTES = 900 * 1024
+export const RECEIPT_PHOTO_MAX_DIMENSION = 2048
+
 export const formatBytes = (bytes) => {
   if (!bytes && bytes !== 0) return ''
   if (bytes < 1024) return `${bytes} B`
@@ -150,3 +158,7 @@ export const compressImageFile = async (file, options = {}) => {
     size: compressedFile.size,
   }
 }
+
+/** Shrink a delivery receipt / invoice photo for upload (see RECEIPT_PHOTO_MAX_BYTES). */
+export const shrinkReceiptPhoto = (file) =>
+  compressImageFile(file, { maxSizeBytes: RECEIPT_PHOTO_MAX_BYTES, maxDimension: RECEIPT_PHOTO_MAX_DIMENSION })

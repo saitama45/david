@@ -538,6 +538,10 @@ SQL Server as the target. Rationale and trade-offs: [Decisions.md](docs/knowledg
   Detail: [Database.md](docs/knowledge/Database.md#eloquent-gotchas).
 - **Never chain `->with()` onto `selectRaw` + `groupBy`** — Eloquent silently returns null relations.
 - **Date-only columns need `'date:Y-m-d'` casts**, or UTC serialization shows the previous day.
+- **A file larger than about 1 MB may never reach production.** No upload limit is set in `default.conf` (nginx
+  defaults to 1 MB) and none over 0.86 MB is on prod, so receipt photos are shrunk in the browser to under 900 KB
+  with `shrinkReceiptPhoto()`; a new photo upload should use it. Detail:
+  [Integrations.md](docs/knowledge/Integrations.md#deployment-platform).
 - **Toast each action from one place.** The layout mounts the only PrimeVue `<Toast />`; a page adding its
   own shows every toast twice. Inertia 1.3 re-creates the page on any visit without `preserveState`,
   even a redirect back to itself, so a page that toasts `flash.success` in `onMounted` already covers
